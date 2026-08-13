@@ -1,0 +1,27 @@
+# Operating system and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Java and Maven
+target/
+.mvn/timing.properties
+
+# Frontend
+node_modules/
+dist/
+coverage/
+
+# Logs and generated runtime data
+*.log
+data/
+tmp/
+

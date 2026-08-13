@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Nexo IA product vision, identity, architecture, technology stack, and feature roadmap.">
+  <title>Nexo IA — Product and Identity</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="shell nav-inner">
+      <a class="brand" href="#top">
+        <img src="assets/logo/nexo-ia-symbol.png" alt="Nexo IA symbol">
+        Nexo <span>IA</span>
+      </a>
+      <div class="nav-links">
+        <a href="#identity">Identity</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#stack">Stack</a>
+        <a href="#features">Features</a>
+        <a href="#roadmap">Roadmap</a>
+        <span class="language-switch" aria-label="Language selection">
+          <button class="language-button active" type="button" data-language="en" aria-pressed="true">EN</button>
+          <button class="language-button" type="button" data-language="pt-BR" aria-pressed="false">PT</button>
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top">
+    <header class="shell hero">
+      <div>
+        <span class="eyebrow">Local-first AI workspace</span>
+        <h1>Connect knowledge.<br><span>Control action.</span></h1>
+        <p class="lead">Nexo IA is a private, extensible assistant designed to teach how modern AI systems work—from local LLMs and RAG to tools, permissions, MCP, Cowork, and autonomous scheduled tasks.</p>
+        <div class="actions">
+          <a class="button primary" href="#architecture">Explore architecture</a>
+          <a class="button" href="../FEATURES.md">Read feature catalog</a>
+        </div>
+      </div>
+      <div class="logo-stage">
+        <img src="assets/logo/nexo-ia-symbol.png" alt="Nexo IA abstract N made from connected nodes">
+      </div>
+    </header>
+
+    <section id="identity">
+      <div class="shell">
+        <div class="section-heading">
+          <span class="eyebrow">Identity system</span>
+          <h2>A visual language for connection and control.</h2>
+          <p>The abstract N joins multiple capabilities through visible paths. The coral center marks the decision point: the model may propose, but the user and deterministic policy remain in control.</p>
+        </div>
+        <div class="identity-story">
+          <div class="identity-mark">
+            <img src="assets/logo/nexo-ia-symbol.png" alt="Nexo IA logo showing an abstract N, connected nodes, and a coral decision point">
+          </div>
+          <div>
+            <div class="story-block">
+              <strong>Why “Nexo IA”?</strong>
+              <p>“Nexo” means a link, relationship, or point of connection. The name describes the product's role: connecting a person to models, knowledge, projects, tools, and external capabilities without taking control away from them. “IA” makes its artificial-intelligence purpose explicit in Portuguese and preserves the creator's identity.</p>
+            </div>
+            <div class="story-block">
+              <strong>The abstract N</strong>
+              <p>The outer structure forms the initial of Nexo. It is intentionally built from paths instead of a solid letter, expressing movement between context, reasoning, decisions, and action.</p>
+            </div>
+            <div class="story-block">
+              <strong>The connected nodes</strong>
+              <p>Each node represents a capability in the ecosystem: local LLMs, RAG, Skills, memory, MCP, workspaces, automations, or image generation. Together they form one system rather than isolated AI features.</p>
+            </div>
+            <div class="story-block">
+              <strong>The coral decision point</strong>
+              <p>The central coral node represents the user and the Permission Engine. Connections may cross the system, but consequential actions meet an explicit point of policy, scope, consent, and accountability.</p>
+            </div>
+            <div class="story-block">
+              <strong>The promise</strong>
+              <p>The symbol translates the product principle into one image: the model connects possibilities; Nexo IA turns them into governed, visible, and verifiable action.</p>
+            </div>
+          </div>
+        </div>
+        <div class="palette" aria-label="Nexo IA color palette">
+          <div class="swatch midnight"><strong>Midnight Core</strong><code>#06143A</code></div>
+          <div class="swatch cyan"><strong>Connection Cyan</strong><code>#05CCE8</code></div>
+          <div class="swatch coral"><strong>Decision Coral</strong><code>#FF654A</code></div>
+          <div class="swatch ice"><strong>Interface Ice</strong><code>#F4FBFD</code></div>
+        </div>
+        <div class="grid four" style="margin-top:18px">
+          <article class="card"><span class="number">01</span><h3>Midnight Core</h3><p>Structure, privacy, reliability, and the local environment that contains the system.</p></article>
+          <article class="card"><span class="number">02</span><h3>Connection Cyan</h3><p>Knowledge flow, model output, tools, links, and active technical capabilities.</p></article>
+          <article class="card"><span class="number">03</span><h3>Decision Coral</h3><p>Human approval, critical status, intentional action, and visible control points.</p></article>
+          <article class="card"><span class="number">04</span><h3>Interface Ice</h3><p>Clarity, readable information, calm contrast, and transparent explanations.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="shell">
+        <div class="section-heading">
+          <span class="eyebrow">System architecture</span>
+          <h2>The model proposes. Nexo IA governs.</h2>
+          <p>A modular Java core keeps product rules independent from providers and transports. Every real-world effect crosses one permission boundary and produces inspectable evidence.</p>
+        </div>
+        <figure class="architecture-art">
+          <img src="assets/architecture/nexo-ia-solution-overview.png" alt="Nexo IA solution overview connecting Chat, Cowork, and Scheduled work to the agent core, Permission Engine, Ollama, PostgreSQL with pgvector, MCP servers, and ComfyUI">
+          <figcaption>Solution overview — user experiences enter the Java agent core, while external capabilities remain behind the Permission Engine and Capability Gateway.</figcaption>
+        </figure>
+        <div class="architecture">
+          <div class="architecture-column">
+            <div class="arch-node">React + TypeScript<small>Chat, Cowork, plans, approvals</small></div>
+            <div class="arch-node">SSE + REST<small>Versioned events and contracts</small></div>
+          </div>
+          <div class="architecture-column">
+            <div class="arch-node core">Spring Boot Application<small>Modular monolith</small></div>
+            <div class="arch-node core">Agent Orchestrator<small>Context · plans · limits · verification</small></div>
+            <div class="arch-node control">Permission Engine<small>Risk · policy · scope · consent · audit</small></div>
+            <div class="arch-node core">Capability Gateway<small>Native tools · MCP · Skills · Image jobs</small></div>
+          </div>
+          <div class="architecture-column">
+            <div class="arch-node">Ollama / Providers<small>Chat and embeddings</small></div>
+            <div class="arch-node">PostgreSQL + pgvector<small>Durable data and RAG</small></div>
+            <div class="arch-node">MCP Servers<small>External context and actions</small></div>
+            <div class="arch-node">ComfyUI<small>Local image generation</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stack">
+      <div class="shell">
+        <div class="section-heading">
+          <span class="eyebrow">Technology stack</span>
+          <h2>Modern Java, without premature complexity.</h2>
+          <p>Nexo IA starts as one modular application. Packages prove their boundaries before becoming build modules, services, or distributed infrastructure.</p>
+        </div>
+        <div class="stack-row"><strong>Core</strong><span>Java 25 LTS · Spring Boot 4.1 · Spring AI 2.0 · Maven Wrapper</span></div>
+        <div class="stack-row"><strong>Interface</strong><span>React · TypeScript · Vite · TanStack Router and Query · SSE</span></div>
+        <div class="stack-row"><strong>Data</strong><span>PostgreSQL · Flyway · Spring Data JPA · pgvector · local artifact storage</span></div>
+        <div class="stack-row"><strong>AI</strong><span>Ollama · project-owned agent loop · Spring AI adapters · official MCP Java SDK</span></div>
+        <div class="stack-row"><strong>Visual</strong><span>ComfyUI local adapter · asynchronous image jobs · complete generation provenance</span></div>
+        <div class="stack-row"><strong>Quality</strong><span>JUnit 5 · AssertJ · Testcontainers · WireMock · jqwik · ArchUnit · Playwright</span></div>
+        <div class="stack-row"><strong>Operations</strong><span>Actuator · Micrometer · structured logs · trace IDs · persisted automation runs</span></div>
+        <div class="section-heading" style="margin-top:64px">
+          <span class="eyebrow">Java baseline</span>
+          <h2>Why Java 25 instead of Java 21?</h2>
+          <p>Both are LTS releases. Java 25 is the current LTS for this new project and carries four releases of finalized improvements, while Nexo IA keeps preview features disabled.</p>
+        </div>
+        <div class="grid three">
+          <article class="card"><span class="number">CONCURRENCY</span><h3>Better virtual threads</h3><p>Java 24 removed the previous synchronized pinning limitation. Scoped Values are final in Java 25 for bounded immutable context. Structured Concurrency remains preview and stays out.</p></article>
+          <article class="card"><span class="number">APIS</span><h3>More final building blocks</h3><p>Stream Gatherers, the Foreign Function and Memory API, and the Class-File API are final. They remain targeted tools, not automatic dependencies.</p></article>
+          <article class="card"><span class="number">RUNTIME</span><h3>Newer operations baseline</h3><p>GC, AOT, compact object headers, and JFR evolved. Each optimization still requires a Nexo IA benchmark before adoption.</p></article>
+          <article class="card"><span class="number">LANGUAGE</span><h3>Incremental clarity</h3><p>Unnamed variables, flexible constructor bodies, module imports, compact programs, and Markdown documentation arrived after Java 21.</p></article>
+          <article class="card"><span class="number">SECURITY</span><h3>No Security Manager sandbox</h3><p>Security Manager is permanently disabled. Tool safety comes from permissions, canonical scopes, process boundaries, OS controls, timeouts, and audit.</p></article>
+          <article class="card"><span class="number">POLICY</span><h3>No novelty by default</h3><p>A newer JDK does not accelerate inference automatically. Nexo IA adopts a Java 25 feature only when it solves a demonstrated problem.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="modes">
+      <div class="shell">
+        <div class="section-heading">
+          <span class="eyebrow">Interaction modes</span>
+          <h2>One assistant, six explicit ways of working.</h2>
+        </div>
+        <div class="grid three">
+          <article class="card mode" data-letter="A"><h3>Ask</h3><p>Questions, explanations, brainstorming, and read-only exploration.</p></article>
+          <article class="card mode" data-letter="P"><h3>Plan</h3><p>Requirements, constraints, steps, risks, and definition of done—without implementation effects.</p></article>
+          <article class="card mode" data-letter="B"><h3>Build</h3><p>Scoped implementation with diffs, approval, testing, and verifiable results.</p></article>
+          <article class="card mode" data-letter="R"><h3>Review</h3><p>Evidence-backed findings prioritized by impact, without changing the target by default.</p></article>
+          <article class="card mode" data-letter="C"><h3>Cowork</h3><p>A durable objective with collaborative plans, checkpoints, artifacts, and multiple agent runs.</p></article>
+          <article class="card mode" data-letter="S"><h3>Scheduled</h3><p>Unattended work with pre-authorized scope, isolated runs, limits, history, and notifications.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="shell">
+        <div class="section-heading">
+          <span class="eyebrow">Capability map</span>
+          <h2>From local chat to governed autonomy.</h2>
+          <p>Capabilities arrive in measurable phases. Every feature must be demonstrated, tested, explained, and observable—not merely appear to work.</p>
+        </div>
+        <div class="feature-list">
+          <div class="feature-group"><h3>Conversation</h3><ul><li>Local model chat</li><li>Streaming and cancellation</li><li>Persistent history</li><li>Model and context controls</li></ul></div>
+          <div class="feature-group"><h3>Knowledge and RAG</h3><ul><li>Document collections</li><li>Versioned ingestion</li><li>Semantic and hybrid retrieval</li><li>Citations and evaluation sets</li></ul></div>
+          <div class="feature-group"><h3>Tools</h3><ul><li>Authorized workspaces</li><li>Read, search, edit, and diff</li><li>Controlled commands</li><li>Verifiable structured results</li></ul></div>
+          <div class="feature-group"><h3>Permission Engine</h3><ul><li>Risk classification</li><li>Deterministic policies</li><li>Scoped approvals</li><li>Complete audit trail</li></ul></div>
+          <div class="feature-group"><h3>MCP</h3><ul><li>Server registry and lifecycle</li><li>Progressive discovery</li><li>Unified permissions</li><li>Resources and prompts</li></ul></div>
+          <div class="feature-group"><h3>Skills</h3><ul><li>Reusable workflows</li><li>Explicit or implicit activation</li><li>Progressive loading</li><li>References, assets, scripts, and tests</li></ul></div>
+          <div class="feature-group"><h3>Agent</h3><ul><li>Bounded execution loop</li><li>Visible planning</li><li>Loop detection</li><li>Evidence-based completion</li></ul></div>
+          <div class="feature-group"><h3>Cowork</h3><ul><li>Durable objectives</li><li>Human checkpoints</li><li>Activity timeline</li><li>Deliverables and completion reports</li></ul></div>
+          <div class="feature-group"><h3>Automations</h3><ul><li>One-time and recurring schedules</li><li>Dry runs and manual tests</li><li>Retry and concurrency policies</li><li>Isolated unattended runs</li></ul></div>
+          <div class="feature-group"><h3>Images</h3><ul><li>Local ComfyUI generation</li><li>Asynchronous jobs</li><li>Gallery and provenance</li><li>Chat, Cowork, Skill, and Automation outputs</li></ul></div>
+          <div class="feature-group"><h3>Transparency</h3><ul><li>Context inspector</li><li>Run timeline</li><li>Usage and latency metrics</li><li>Structured, redacted logs</li></ul></div>
+          <div class="feature-group"><h3>Memory</h3><ul><li>Explicit storage decisions</li><li>User inspection and editing</li><li>Separation from history and RAG</li><li>Deletion and export controls</li></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="shell">
+        <div class="section-heading">
+          <span class="eyebrow">Learning roadmap</span>
+          <h2>Complexity is earned one working phase at a time.</h2>
+        </div>
+        <div class="roadmap">
+          <div class="phase"><strong>01–02</strong><span>Local LLM chat, streaming, persistent conversations, and explicit context budgets.</span></div>
+          <div class="phase"><strong>03</strong><span>RAG ingestion, pgvector retrieval, citations, and repeatable quality evaluation.</span></div>
+          <div class="phase"><strong>04–05</strong><span>Native tools, Permission Engine, and MCP under one governed capability model.</span></div>
+          <div class="phase"><strong>06–07</strong><span>Bounded agent execution, Skills, instructions, planning, goals, and context inspection.</span></div>
+          <div class="phase"><strong>08–09</strong><span>Memory, reliability, and durable Cowork sessions with human checkpoints.</span></div>
+          <div class="phase"><strong>10</strong><span>Scheduled automations with pre-authorized policy, isolated runs, retries, and notifications.</span></div>
+          <div class="phase"><strong>11</strong><span>Local image generation through ComfyUI with asynchronous jobs and full provenance.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="statement">
+      <div class="shell">
+        <blockquote>Your knowledge.<br>Your tools.<br><span>Your control.</span></blockquote>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <span>Nexo IA · Product and identity concept</span>
+      <span>Local-first · Java-powered · Human-governed</span>
+    </div>
+  </footer>
+  <script src="js/i18n.js"></script>
+</body>
+</html>
