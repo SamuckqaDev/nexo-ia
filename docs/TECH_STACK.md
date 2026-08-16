@@ -93,6 +93,11 @@ knowledge behavior must remain testable without HTTP, JPA, Ollama, or an MCP ser
   Permission Engine in project-owned code.
 - Keep a project-owned provider boundary so tools, permissions, and agent state do not depend on a
   specific `ChatModel` implementation.
+- Build a project-owned Context Assembler that applies authenticated-principal, organization,
+  Project, resource-version, sensitivity, provider, token-budget, and retention boundaries before a
+  model call.
+- Partition retrieval results, prompt caches, model caches, and resumable state by the complete
+  authorized context envelope rather than conversation identifier alone.
 - Use JSON Schema-compatible contracts for tool input and structured results.
 - Use the official MCP Java SDK through Spring AI's MCP integration where appropriate.
 - Do not add LangChain4j beside Spring AI in the foundation. Re-evaluate it later through an isolated
@@ -136,9 +141,16 @@ tests fast. Repository integration tests must still run against PostgreSQL with 
 #### RAG
 
 - Add the `pgvector` extension when semantic retrieval begins.
+- Treat portable Knowledge Vault files as sources of truth and PostgreSQL plus `pgvector` as a
+  rebuildable operational index.
 - Keep document metadata, ingestion versions, chunks, embeddings, and citations explicitly modeled.
+- Parse Markdown links, `[[wikilinks]]`, tags, YAML frontmatter, hierarchy, and provenance into an
+  explicit relationship model.
 - Use Ollama embeddings for the default local path.
-- Build the pipeline visibly: load, normalize, split, embed, store, retrieve, rerank, and answer.
+- Build the pipeline visibly: load, normalize, relate, split, embed, store, retrieve, expand, rerank,
+  and answer.
+- Combine full-text, vector, metadata, and bounded relationship traversal; do not require a separate
+  graph database before Vault-scale measurements justify one.
 - Add a retrieval evaluation set before tuning chunk sizes or similarity thresholds.
 
 `pgvector` is the accepted initial vector store. It keeps relational metadata, ownership, ingestion
@@ -153,6 +165,22 @@ recovery, and operational cost using Nexo IA's own corpus.
 Do not introduce Redis as a default dependency. Add it only if measurements prove a need for
 cross-process streams, caching, or queue distribution.
 
+### Project database gateway
+
+- Keep Project connections and credentials completely separate from Nexo IA's internal datasource.
+- Define project-owned metadata, query, mutation, migration, recovery, validation, and evidence
+  contracts; implement tested JDBC adapters beginning with PostgreSQL.
+- Resolve credentials from the Secret Store only inside the adapter and bind every connection to an
+  organization, Project, environment, owner, and access policy.
+- Parse, classify, normalize, limit, and audit SQL before execution. Do not treat model-produced text
+  or a JDBC transaction as a sufficient safety boundary.
+- Prefer the Project's Flyway or other established migration workflow for schema evolution and keep
+  migration preparation separate from per-environment execution permission.
+- Implement database-specific capability and safety matrices for transactional DDL, locking,
+  cancellation, backup, restore, and recovery semantics.
+- Use Testcontainers to validate mutation preview, transaction behavior, rollback, migration,
+  permissions, failure recovery, redaction, and audit against each supported database version.
+
 ### Scheduled work
 
 - Use Spring's scheduling support only to wake the scheduler, not as the source of truth.
@@ -162,6 +190,21 @@ cross-process streams, caching, or queue distribution.
 - Start with one in-process worker using virtual threads for suitable I/O-bound runs.
 - Consider Quartz only when its calendar and clustering capabilities are demonstrably required.
 - Consider an external workflow engine only when recovery and orchestration exceed the local design.
+
+### Calendar
+
+- Build the calendar in React from backend-provided automation occurrences, Cowork milestones,
+  checkpoints, approval deadlines, and execution states.
+- Keep PostgreSQL as the schedule source of truth; the frontend calendar stores view preferences and
+  filters, not an independent copy of the schedule.
+- Expose bounded occurrence queries by time range, timezone-aware create and reschedule operations,
+  and separate endpoints for dry run, run now, pause, and history.
+- Recalculate recurring occurrences in the backend and reject ambiguous or invalid local times
+  explicitly across daylight-saving transitions.
+- Evaluate a React calendar component only after interaction and accessibility requirements are
+  defined; do not let a UI library dictate the scheduling domain model.
+- Add external calendar synchronization later through a scoped adapter or MCP connection with an
+  explicit field-redaction policy.
 
 ### Image generation
 
@@ -177,8 +220,12 @@ cross-process streams, caching, or queue distribution.
 ### Security and permissions
 
 - Bind to loopback by default.
-- Begin as a single-user local application without remote registration.
-- Keep Spring Security even locally so HTTP boundaries, CSRF, and future remote access are explicit.
+- Use Spring Security for authenticated, revocable sessions and organization-aware authorization.
+- Store adaptive password hashes only; keep provider and device credentials in a protected secret
+  store and never in prompts or logs.
+- Combine roles, ownership, explicit resource grants, capability policy, and data-transmission policy.
+- Support loopback local deployment and authenticated central deployment without changing domain
+  ownership or audit contracts.
 - Canonicalize and authorize workspace roots before filesystem access.
 - Run every native and MCP tool through the same capability-based Permission Engine.
 - Separate skill instructions from permissions.
@@ -186,6 +233,17 @@ cross-process streams, caching, or queue distribution.
 - Redact credentials and sensitive values from prompts, events, and logs.
 - Execute risky commands through a constrained process adapter with workspace, environment, timeout,
   output, and cancellation limits.
+
+### Server and Companion
+
+- Keep orchestration, identity, policy, model routing, RAG indexes, usage, and audit in Nexo Server.
+- Build a small cross-platform Nexo Companion that initiates an authenticated task channel and hosts
+  the Linux, Windows, and macOS computer adapters.
+- Pair devices through explicit user confirmation and unique, revocable device credentials.
+- Record processing location separately from execution location.
+- Require local confirmation for policy-selected sensitive effects and provide pause, cancellation,
+  revocation, and emergency stop.
+- Store current inventory, material inventory changes, and a relevant immutable execution snapshot.
 
 ### Testing
 
@@ -195,6 +253,8 @@ cross-process streams, caching, or queue distribution.
 - WireMock or MockWebServer for deterministic Ollama/provider protocol tests.
 - A fake MCP server for lifecycle and contract tests.
 - jqwik for property-based tests of paths, permission rules, parsers, recurrence, and loop limits.
+- Release-blocking negative tests for cross-user, cross-organization, cross-Project, Vault retrieval,
+  Memory, Skill dependency, provider-policy, and cache isolation.
 - ArchUnit for package dependency rules.
 - Vitest and Testing Library for the frontend.
 - Playwright for chat, approval, Cowork, and automation journeys.
@@ -206,6 +266,26 @@ cross-process streams, caching, or queue distribution.
 - Evaluate Tauri after the web experience and Java process lifecycle are stable.
 - Keep the desktop shell as an adapter; the backend and domain model cannot depend on it.
 
+### Cross-platform computer integration
+
+- Define project-owned Java interfaces for filesystem, process, application, notification, browser,
+  and desktop capabilities.
+- Implement Linux, Windows, and macOS adapters behind those interfaces; platform selection belongs
+  to deterministic startup code, never to the LLM.
+- Prefer Java's portable APIs where their semantics are genuinely equivalent. Use narrow native
+  integrations only for capabilities the JDK cannot express safely.
+- Treat operating-system authorization as a second gate after the Nexo IA Permission Engine.
+- Never make privilege elevation automatic. An adapter must report the missing permission and the
+  user decides whether to grant it through the operating system.
+- Report capability availability at runtime so the interface can explain unsupported or unavailable
+  actions before a run begins.
+- Validate shared behavior with adapter contract tests, then run platform-specific integration and
+  end-to-end suites on actual Linux, Windows, and macOS workers.
+
+Desktop automation is a later capability, not the foundation of computer control. Filesystem,
+application, process, and notification operations should establish the permission and adapter model
+before accessibility APIs, UI automation, or browser control are introduced.
+
 ## Package architecture
 
 Use capability-oriented packages with internal layers rather than one global controller/service/
@@ -215,20 +295,38 @@ repository hierarchy:
 com.nexoia
   shared
   conversation
+  identity
+  organization
+  access
+  provider
+  privacy
+  usage
+  device
+  audit
     domain
     application
     infrastructure
     web
   model
+  context
   agent
   permission
   tool
+  computer
+    domain
+    application
+    infrastructure
+      linux
+      windows
+      macos
   workspace
   knowledge
+  database
   mcp
   skill
   cowork
   automation
+  calendar
   observability
 ```
 
@@ -263,7 +361,8 @@ study references, not a substitute for Nexo IA's architecture or tests.
 - LangChain4j alongside Spring AI without a measured reason.
 - A vector extension before the RAG phase.
 - Electron or Tauri before the web interaction is validated.
-- Cloud authentication and multi-user tenancy.
+- Microservice-based identity or multi-tenant infrastructure before the modular implementation proves
+  its boundaries.
 - Spring Batch, Quartz, or an external workflow engine before scheduled-work requirements demand them.
 
 ## Environment snapshot

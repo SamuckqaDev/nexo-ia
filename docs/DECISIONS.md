@@ -68,3 +68,86 @@ options considered, the selected approach, and its consequences.
   with a local ComfyUI adapter and preserving complete provenance.
 - **Consequence:** image generation is part of the product roadmap but remains isolated from the core
   agent architecture and from remote-provider assumptions.
+
+## D-007 — Support governed computer control on Linux, Windows, and macOS
+
+- **Status:** accepted
+- **Context:** Nexo IA must be able to perform useful work on the user's computer regardless of the
+  supported desktop operating system. Commands, paths, permissions, process models, application APIs,
+  and desktop automation mechanisms differ significantly across platforms.
+- **Decision:** define platform-neutral capability contracts and implement explicit Linux, Windows,
+  and macOS adapters. Route every effect through the Permission Engine and expose capability support
+  before execution.
+- **Consequence:** core agent behavior remains portable while system integration is isolated and
+  testable. Cross-platform releases require a real test matrix, and unsupported operations fail
+  explicitly instead of being improvised by the model.
+
+## D-008 — Organize RAG sources as Nexo Knowledge Vaults
+
+- **Status:** accepted
+- **Context:** flat document collections do not express the links, tags, properties, provenance, and
+  project relationships needed for an interlinked personal and technical knowledge system.
+- **Decision:** make Knowledge Vaults the product unit for RAG sources. Vault files remain portable
+  and human-readable; PostgreSQL and `pgvector` store a rebuildable index. Support common Obsidian
+  conventions without making Obsidian a required dependency.
+- **Consequence:** retrieval can combine text, embeddings, metadata, and explicit relationships while
+  preserving original citations. Vault, Workspace, Project, Memory, and Conversation remain separate
+  concepts with independent permissions.
+
+## D-009 — Require plans before consequential multi-step execution
+
+- **Status:** accepted
+- **Context:** large objectives overload a single model call, obscure progress, mix unrelated context,
+  and make permissions difficult to understand or audit.
+- **Decision:** require a visible execution plan before multi-step, long-running, high-impact,
+  destructive, or security-sensitive effects. Decompose Goals into persisted milestones and bounded
+  tasks, execute ready tasks incrementally, and verify declared evidence before completion.
+- **Consequence:** plan approval and capability permission are separate decisions. Replanning is
+  visible and cannot expand scope, risk, budget, targets, or permissions without a new decision.
+
+## D-010 — Design for organizations and teams from the domain foundation
+
+- **Status:** accepted
+- **Decision:** model organizations, users, teams, ownership, sharing, policies, usage, and audit from
+  the beginning while keeping the first deployment a modular monolith.
+- **Consequence:** single-person installation remains simple, but personal data isolation and team
+  administration do not require a future domain rewrite.
+
+## D-011 — Separate central orchestration from endpoint execution
+
+- **Status:** accepted
+- **Decision:** allow Nexo Server and models to run locally or on central infrastructure such as a
+  DGX, while a paired Nexo Companion performs authorized effects on a user's device.
+- **Consequence:** processing and execution locations are recorded separately. Browser access alone
+  never grants endpoint control, and every device has independent identity, policy, approval, health,
+  revocation, inventory, and audit.
+
+## D-012 — Prefer free and open tools through governed native or MCP integrations
+
+- **Status:** accepted
+- **Decision:** prefer maintained local and open-source tools, using native capabilities for core
+  functions and MCP for reusable independent integrations. Build a project-owned MCP server when a
+  lawful, stable CLI, API, or SDK exists and the integration provides measurable value.
+- **Consequence:** MCP never bypasses licenses, authentication, quotas, or prices. Paid tools and
+  remote providers remain optional and explicit.
+
+## D-013 — Isolate context and reauthorize every Skill dependency
+
+- **Status:** accepted
+- **Decision:** assemble context for one authenticated principal and run using versioned, authorized,
+  minimal resources. Give Skills explicit ownership and scopes, but no inherited permissions; resolve
+  their dependencies again for the current principal.
+- **Consequence:** sharing a Skill or Project never shares its author's Vaults, memories, Workspaces,
+  secrets, providers, devices, or historical context. Context and cache isolation become
+  release-blocking security requirements.
+
+## D-014 — Permit governed Project database mutations
+
+- **Status:** accepted
+- **Decision:** support inspection, data mutation, schema evolution, migrations, backup, restore, and
+  administration through granular, environment-specific database capabilities and a project-owned
+  Database Safety Engine. Keep Project databases separate from Nexo IA persistence.
+- **Consequence:** read-only remains the default but is not the product limit. Material changes require
+  impact preview, an appropriate verified recovery method, explicit approval, database-aware safe
+  execution, post-change validation, and complete audit. Unsupported safety guarantees block the
+  operation instead of being improvised.

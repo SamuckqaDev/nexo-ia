@@ -20,6 +20,7 @@
         <a href="#stack">Stack</a>
         <a href="#features">Features</a>
         <a href="#roadmap">Roadmap</a>
+        <a href="#documentation">Docs</a>
         <span class="language-switch" aria-label="Language selection">
           <button class="language-button active" type="button" data-language="en" aria-pressed="true">EN</button>
           <button class="language-button" type="button" data-language="pt-BR" aria-pressed="false">PT</button>
@@ -36,7 +37,7 @@
         <p class="lead">Nexo IA is a private, extensible assistant designed to teach how modern AI systems work—from local LLMs and RAG to tools, permissions, MCP, Cowork, and autonomous scheduled tasks.</p>
         <div class="actions">
           <a class="button primary" href="#architecture">Explore architecture</a>
-          <a class="button" href="../FEATURES.md">Read feature catalog</a>
+          <a class="button" href="#documentation">Read full documentation</a>
         </div>
       </div>
       <div class="logo-stage">
@@ -117,7 +118,7 @@
           </div>
           <div class="architecture-column">
             <div class="arch-node">Ollama / Providers<small>Chat and embeddings</small></div>
-            <div class="arch-node">PostgreSQL + pgvector<small>Durable data and RAG</small></div>
+            <div class="arch-node">PostgreSQL + pgvector<small>Rebuildable Vault index and RAG</small></div>
             <div class="arch-node">MCP Servers<small>External context and actions</small></div>
             <div class="arch-node">ComfyUI<small>Local image generation</small></div>
           </div>
@@ -159,11 +160,12 @@
       <div class="shell">
         <div class="section-heading">
           <span class="eyebrow">Interaction modes</span>
-          <h2>One assistant, six explicit ways of working.</h2>
+          <h2>One assistant, seven explicit ways of working.</h2>
         </div>
         <div class="grid three">
           <article class="card mode" data-letter="A"><h3>Ask</h3><p>Questions, explanations, brainstorming, and read-only exploration.</p></article>
           <article class="card mode" data-letter="P"><h3>Plan</h3><p>Requirements, constraints, steps, risks, and definition of done—without implementation effects.</p></article>
+          <article class="card mode" data-letter="G"><h3>Agent</h3><p>Large goals decomposed into visible, persistent, bounded, and verifiable tasks.</p></article>
           <article class="card mode" data-letter="B"><h3>Build</h3><p>Scoped implementation with diffs, approval, testing, and verifiable results.</p></article>
           <article class="card mode" data-letter="R"><h3>Review</h3><p>Evidence-backed findings prioritized by impact, without changing the target by default.</p></article>
           <article class="card mode" data-letter="C"><h3>Cowork</h3><p>A durable objective with collaborative plans, checkpoints, artifacts, and multiple agent runs.</p></article>
@@ -181,14 +183,25 @@
         </div>
         <div class="feature-list">
           <div class="feature-group"><h3>Conversation</h3><ul><li>Local model chat</li><li>Streaming and cancellation</li><li>Persistent history</li><li>Model and context controls</li></ul></div>
-          <div class="feature-group"><h3>Knowledge and RAG</h3><ul><li>Document collections</li><li>Versioned ingestion</li><li>Semantic and hybrid retrieval</li><li>Citations and evaluation sets</li></ul></div>
+          <div class="feature-group"><h3>Knowledge Vaults and RAG</h3><ul><li>Portable, interlinked local sources</li><li>Wikilinks, tags, properties, and provenance</li><li>Textual, semantic, and relationship-aware retrieval</li><li>Original citations and rebuildable indexes</li></ul></div>
+          <div class="feature-group"><h3>Vault Explorer</h3><ul><li>Personal, shared, team, and organization Vaults</li><li>Files, graph, tags, and relationships</li><li>Indexing, citations, and activity</li><li>Permissions, sharing, and lifecycle</li></ul></div>
           <div class="feature-group"><h3>Tools</h3><ul><li>Authorized workspaces</li><li>Read, search, edit, and diff</li><li>Controlled commands</li><li>Verifiable structured results</li></ul></div>
+          <div class="feature-group"><h3>Computer control</h3><ul><li>Linux, Windows, and macOS adapters</li><li>Applications, processes, and notifications</li><li>Desktop and browser interaction</li><li>OS consent, verification, and audit</li></ul></div>
           <div class="feature-group"><h3>Permission Engine</h3><ul><li>Risk classification</li><li>Deterministic policies</li><li>Scoped approvals</li><li>Complete audit trail</li></ul></div>
+          <div class="feature-group"><h3>Organizations and access</h3><ul><li>Users, teams, roles, and sharing</li><li>Personal and organizational isolation</li><li>Provider and capability policies</li><li>Revocable sessions and complete audit</li></ul></div>
+          <div class="feature-group"><h3>Devices and Companion</h3><ul><li>Linux, Windows, and macOS endpoints</li><li>Inventory, health, and access policies</li><li>Central processing, local execution</li><li>Snapshots, evidence, and emergency stop</li></ul></div>
+          <div class="feature-group"><h3>Privacy and usage</h3><ul><li>Local and remote provider registry</li><li>Privacy Gateway and redaction</li><li>Token, cost, and resource attribution</li><li>Budgets, quotas, and autonomy controls</li></ul></div>
+          <div class="feature-group"><h3>Product and design</h3><ul><li>Requirements, journeys, and MVPs</li><li>UX flows and design systems</li><li>Runnable prototypes</li><li>Branding and visual validation</li></ul></div>
+          <div class="feature-group"><h3>Engineering and documentation</h3><ul><li>Analysis, implementation, and review</li><li>Builds, tests, diffs, and Git</li><li>ADRs, APIs, guides, and diagrams</li><li>Traceability and drift detection</li></ul></div>
+          <div class="feature-group"><h3>Project databases</h3><ul><li>Schema and data exploration</li><li>Governed queries and mutations</li><li>Migrations, backups, and recovery</li><li>Impact preview, validation, and audit</li></ul></div>
+          <div class="feature-group"><h3>Security and operations</h3><ul><li>Authorized security scope</li><li>Free-first analysis and testing</li><li>Protected findings and retests</li><li>Governed delivery and observability</li></ul></div>
           <div class="feature-group"><h3>MCP</h3><ul><li>Server registry and lifecycle</li><li>Progressive discovery</li><li>Unified permissions</li><li>Resources and prompts</li></ul></div>
           <div class="feature-group"><h3>Skills</h3><ul><li>Reusable workflows</li><li>Explicit or implicit activation</li><li>Progressive loading</li><li>References, assets, scripts, and tests</li></ul></div>
           <div class="feature-group"><h3>Agent</h3><ul><li>Bounded execution loop</li><li>Visible planning</li><li>Loop detection</li><li>Evidence-based completion</li></ul></div>
+          <div class="feature-group"><h3>Execution plans</h3><ul><li>Goals, milestones, tasks, and dependencies</li><li>Plan before consequential action</li><li>Incremental execution and context</li><li>Visible replanning and verification</li></ul></div>
           <div class="feature-group"><h3>Cowork</h3><ul><li>Durable objectives</li><li>Human checkpoints</li><li>Activity timeline</li><li>Deliverables and completion reports</li></ul></div>
           <div class="feature-group"><h3>Automations</h3><ul><li>One-time and recurring schedules</li><li>Dry runs and manual tests</li><li>Retry and concurrency policies</li><li>Isolated unattended runs</li></ul></div>
+          <div class="feature-group"><h3>Calendar</h3><ul><li>Month, week, day, and agenda views</li><li>Automations and Cowork milestones</li><li>Status, filters, and conflict warnings</li><li>Rescheduling, run actions, and history</li></ul></div>
           <div class="feature-group"><h3>Images</h3><ul><li>Local ComfyUI generation</li><li>Asynchronous jobs</li><li>Gallery and provenance</li><li>Chat, Cowork, Skill, and Automation outputs</li></ul></div>
           <div class="feature-group"><h3>Transparency</h3><ul><li>Context inspector</li><li>Run timeline</li><li>Usage and latency metrics</li><li>Structured, redacted logs</li></ul></div>
           <div class="feature-group"><h3>Memory</h3><ul><li>Explicit storage decisions</li><li>User inspection and editing</li><li>Separation from history and RAG</li><li>Deletion and export controls</li></ul></div>
@@ -204,12 +217,34 @@
         </div>
         <div class="roadmap">
           <div class="phase"><strong>01–02</strong><span>Local LLM chat, streaming, persistent conversations, and explicit context budgets.</span></div>
-          <div class="phase"><strong>03</strong><span>RAG ingestion, pgvector retrieval, citations, and repeatable quality evaluation.</span></div>
-          <div class="phase"><strong>04–05</strong><span>Native tools, Permission Engine, and MCP under one governed capability model.</span></div>
-          <div class="phase"><strong>06–07</strong><span>Bounded agent execution, Skills, instructions, planning, goals, and context inspection.</span></div>
-          <div class="phase"><strong>08–09</strong><span>Memory, reliability, and durable Cowork sessions with human checkpoints.</span></div>
-          <div class="phase"><strong>10</strong><span>Scheduled automations with pre-authorized policy, isolated runs, retries, and notifications.</span></div>
-          <div class="phase"><strong>11</strong><span>Local image generation through ComfyUI with asynchronous jobs and full provenance.</span></div>
+          <div class="phase"><strong>03</strong><span>Knowledge Vault ingestion, interlinked retrieval with pgvector, original citations, and repeatable quality evaluation.</span></div>
+          <div class="phase"><strong>04–06</strong><span>Native tools, cross-platform computer adapters, Permission Engine, and MCP under one governed capability model.</span></div>
+          <div class="phase"><strong>07–08</strong><span>Bounded agent execution, Skills, instructions, planning, goals, and context inspection.</span></div>
+          <div class="phase"><strong>09–10</strong><span>Memory, reliability, and durable Cowork sessions with human checkpoints.</span></div>
+          <div class="phase"><strong>11</strong><span>Scheduled automations and a unified calendar with pre-authorized policy, isolated runs, retries, history, and notifications.</span></div>
+          <div class="phase"><strong>12</strong><span>Local image generation through ComfyUI with asynchronous jobs and full provenance.</span></div>
+          <div class="phase"><strong>13–14</strong><span>Product discovery, UX/UI prototyping, software engineering, and living documentation.</span></div>
+          <div class="phase"><strong>15–16</strong><span>Authorized security validation, governed delivery, deployment, and operations.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="documentation-section">
+      <div id="documentation" class="shell documentation-shell">
+        <div class="section-heading">
+          <span class="eyebrow">Documentation portal</span>
+          <h2>Complete specifications, rendered from Markdown.</h2>
+          <p>The Markdown files remain the source of truth. This portal renders the same content locally, with navigation, search, tables, code, and direct links.</p>
+        </div>
+        <div class="docs-toolbar">
+          <label for="docs-search">Search documentation</label>
+          <input id="docs-search" type="search" placeholder="Search requirements, IDs, architecture..." autocomplete="off">
+          <span id="docs-count" aria-live="polite"></span>
+        </div>
+        <div class="docs-layout">
+          <aside class="docs-sidebar" aria-label="Documents"><nav id="docs-nav"></nav></aside>
+          <article id="docs-content" class="markdown-body" aria-live="polite"></article>
+          <aside class="docs-toc"><strong>On this page</strong><nav id="docs-toc"></nav></aside>
         </div>
       </div>
     </section>
@@ -227,6 +262,9 @@
       <span>Local-first · Java-powered · Human-governed</span>
     </div>
   </footer>
+  <script src="js/docs-data.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/docs-portal.js"></script>
   <script src="js/i18n.js"></script>
 </body>
 </html>

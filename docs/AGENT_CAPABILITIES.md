@@ -42,7 +42,9 @@ skill-name/
   when selected.
 - Declared inputs, outputs, required tools, stopping conditions, and success criteria.
 - Version, author, trust level, and compatibility metadata.
-- User, workspace, and built-in scopes with deterministic precedence.
+- Built-in, organization, team, project, workspace, personal, and session scopes with deterministic
+  discovery and precedence.
+- Explicit owner, visibility, trust, version, publication state, and declared resource requirements.
 - Enable, disable, inspect, import, export, and update controls.
 - A preview showing instructions, dependencies, permissions, and scripts before installation.
 
@@ -54,7 +56,7 @@ skill-name/
 - Review code and report evidence-backed findings.
 - Research a topic and produce a cited report.
 - Read and summarize a document.
-- Build and evaluate a knowledge collection.
+- Build and evaluate a Knowledge Vault.
 - Create and test an automation.
 - Inspect and troubleshoot an MCP connection.
 
@@ -79,17 +81,28 @@ override preferences, but cannot override system security policy.
 A plan is a visible, editable sequence of steps used when work is multi-stage, ambiguous, or has a
 meaningful impact. It is not hidden reasoning and it is not a permission grant.
 
+Nexo IA must create the plan before beginning implementation effects for multi-step, long-running,
+high-impact, destructive, or security-sensitive work. Approving the plan approves its strategy, not
+the permissions required by its tasks. Each concrete effect still passes through the Permission
+Engine.
+
 Each plan contains:
 
 - the objective and definition of done;
 - assumptions, constraints, and unresolved questions;
 - ordered steps with pending, active, blocked, skipped, or completed status;
+- milestones, tasks, subtasks, dependencies, risks, budgets, and permission checkpoints;
 - expected evidence or artifact for each step;
 - revisions with a reason for the change;
 - the final verification and outcome.
 
 The user may approve, edit, reorder, pause, or cancel a plan. Low-risk exploratory work may continue
 while a non-blocking question is open; sensitive actions still require the appropriate permission.
+
+The Agent orchestrator executes bounded ready tasks incrementally, persists their structured results,
+and provides only relevant context to the next task. It may replan when evidence changes, but any
+revision that expands scope, targets, risk, budget, or capabilities requires a new decision. See
+[Execution plans](EXECUTION_PLANS.md) for the complete policy.
 
 ## Goals
 
@@ -108,6 +121,7 @@ must not mark a goal complete merely because it stopped running.
 |---|---|---|
 | Ask | Questions and explanations | Read-only unless the user requests an action. |
 | Plan | Explore requirements and produce a reviewable plan | No implementation effects. |
+| Agent | Execute a large objective through a visible plan and verified tasks | Plan before effects; permissions remain scoped per action. |
 | Build | Implement a scoped change | Edit and validate within an authorized workspace. |
 | Review | Inspect work and prioritize findings | Read-only by default. |
 | Cowork | Collaborate on a durable objective | Plans, checkpoints, artifacts, and multiple runs. |
@@ -124,6 +138,39 @@ Modes change workflow defaults, not the underlying security boundary.
 
 Installing a plugin does not silently enable its tools or approve their permissions. Nexo IA must show
 its contents, origin, required connections, scripts, and requested scopes first.
+
+Sharing a Skill or plugin never shares its author's Knowledge Vaults, Workspaces, memories, secrets,
+providers, devices, or permissions. Every resource is resolved for the current authenticated
+principal. See [Context isolation and Skill governance](CONTEXT_AND_SKILL_GOVERNANCE.md).
+
+## Computer control
+
+Nexo IA may operate the user's computer on Linux, Windows, and macOS, but it must expose one
+platform-neutral capability model to the agent. The model requests an intention such as reading a
+file, launching an application, inspecting a process, showing a notification, or interacting with an
+approved desktop surface. Deterministic Java code selects and invokes the operating-system adapter.
+
+```text
+Agent request
+  -> typed computer capability
+  -> Permission Engine
+  -> operating-system permission check
+  -> Linux | Windows | macOS adapter
+  -> execution, evidence, and audit event
+```
+
+The initial capability families are filesystem, process, application, notification, browser, and
+desktop interaction. Support is declared per capability and platform: detecting an operating system
+does not imply that every capability is implemented there.
+
+- Every target, argument, working directory, timeout, and environment value is validated outside the
+  model.
+- Administrator or root elevation is never implicit and cannot be inferred from a broad request.
+- Native operating-system consent remains separate from Nexo IA approval.
+- Unsupported capabilities fail clearly; they never fall back to improvised model-generated commands.
+- Destructive and privacy-sensitive actions require narrower scopes, previews, or fresh confirmation.
+- Completion requires post-action evidence rather than trusting an exit code or UI click alone.
+- Cross-platform claims require automated contract tests plus real test runs on all three systems.
 
 ## Hooks
 
@@ -143,6 +190,7 @@ For transparency, every run should expose a safe summary of:
 - selected skills and why they activated;
 - available and selected tools;
 - attached knowledge, memory, and workspace context;
+- authenticated principal, organization, Project, context scope, and resource versions;
 - plan, permissions, limits, token usage, and stop reason.
 
 The inspector must redact secrets and internal model reasoning.
