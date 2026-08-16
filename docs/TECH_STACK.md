@@ -367,22 +367,23 @@ study references, not a substitute for Nexo IA's architecture or tests.
 
 ## Environment snapshot
 
-At the time of this decision, Java, Maven, Docker, and Ollama are not available on the current
-environment's `PATH`. Node.js 23, npm 11, and Python 3.13 are available. The project will use the
-Maven Wrapper, but installing a Java 25 runtime, Docker-compatible runtime, and Ollama remains setup
-work before implementation and integration testing.
+The inspected Fedora 41 Toolbx does not currently expose Java, Maven, Podman, Docker, or Ollama on
+its `PATH`. The editor environment exposes Node 23.7.0, which is end-of-life and cannot be the project
+runtime. The Silverblue host does contain rootless Podman and Ollama 0.32.5 with local models, though
+the Ollama service was not running during inspection. Nexo IA will use a dedicated current Toolbx
+with Java 25 and Node 24 LTS, the Maven Wrapper, the host Podman service/socket, a PostgreSQL 18
+container, and host-native Ollama for GPU access.
 
-## Decisions still required
+## Closed foundation decisions
 
-The MVP confirms Maven Wrapper, PostgreSQL, a web-first React interface, and CSS Modules with design
-tokens. Before scaffolding, the remaining foundation checks are:
+The implementation matrix, database choice, and Silverblue development workflow are accepted in
+[Accepted stack baseline](STACK_BASELINE.md). The remaining pre-scaffold checks are execution gates,
+not open stack selections:
 
-1. Verify and record the newest compatible stable patches in the accepted Java 25, Spring Boot 4.1.x,
-   Spring AI 2.0.x, and Maven 3.9.x lines.
-2. Select the supported local PostgreSQL/container workflow for this Fedora Silverblue development
-   environment.
-3. Record the reviewed adaptive password-hashing parameters and development secret-storage approach.
-4. Define the initial threat model and release-blocking severity policy.
+1. create and verify the dedicated Toolbx and host Podman socket path;
+2. benchmark the accepted Argon2id minimum profile on target hardware;
+3. define the initial threat model and release-blocking severity policy;
+4. pin exact executable dependencies and container digests during scaffolding.
 
 ## Initial version baseline
 
@@ -390,6 +391,7 @@ tokens. Before scaffolding, the remaining foundation checks are:
 - Spring Boot 4.1.0 release line.
 - Spring AI 2.0.0 release line.
 - Apache Maven Wrapper pinned to Maven 3.9.16; Maven 4 remains pre-GA.
+- PostgreSQL 18, Node.js 24 LTS, React 19.2, TypeScript 6.0, and Vite 8.1.
 
-Before scaffolding, select the newest stable patch available within the accepted Spring Boot 4.1.x
-and Spring AI 2.0.x lines and record any change in a pill and decision update.
+Patch upgrades within the accepted lines require automated compatibility tests. Line changes require
+an explicit decision update.

@@ -16,6 +16,10 @@ administration UI. It does not pull later-phase capabilities forward. See
 - Model organizations, users, teams, resource ownership, access grants, auditable sessions, password
   security, and installation bootstrap for the Nexo Owner.
 - Establish organization-aware data isolation and negative authorization tests before shared data.
+- Reproduce the accepted Java 25, Node 24, rootless Podman, PostgreSQL 18, and host Ollama environment
+  from [Accepted stack baseline](STACK_BASELINE.md).
+- Benchmark Argon2id, define the initial threat model, and pin executable dependency and container
+  versions before feature scaffolding begins.
 
 ## Phase 1 — First contact with the LLM
 
@@ -196,6 +200,9 @@ administration UI. It does not pull later-phase capabilities forward. See
   audit dashboards.
 - Introduce distributed infrastructure only after measured scale or availability requirements prove
   the modular deployment insufficient.
+- Publish and verify the Fedora Silverblue, conventional Linux, Windows, and macOS profiles defined
+  in [Cross-platform build and distribution profiles](DISTRIBUTION_BUILDS.md), using the same signed
+  OCI image digests and platform-specific lifecycle assets.
 
 ## Release gates across all phases
 

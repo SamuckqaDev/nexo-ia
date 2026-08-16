@@ -163,3 +163,43 @@ options considered, the selected approach, and its consequences.
   automations, images, and remote providers cannot enter `0.1` without formal change control. The
   release must prove two-user isolation and the security and quality gates in
   [MVP and release strategy](MVP_AND_RELEASE_STRATEGY.md).
+
+## D-016 — Lock the reproducible release 0.1 stack
+
+- **Status:** accepted
+- **Decision:** scaffold release `0.1` with Java 25, Spring Boot 4.1.x, Spring AI 2.0.x, Maven
+  Wrapper 3.9.x, PostgreSQL 18, Node 24 LTS, React 19.2, TypeScript 6.0, and Vite 8.1. Use Spring MVC
+  with SSE, Spring Security, Spring Session JDBC, JPA, Flyway, Testcontainers, npm, and a committed
+  lockfile. Pin exact resolved versions and container images in executable project files.
+- **Consequence:** the stack is current, compatible, and reproducible without relying on a developer's
+  global Maven or unsupported Node installation. See [Accepted stack baseline](STACK_BASELINE.md).
+
+## D-017 — Use one application database until measured evidence requires another
+
+- **Status:** accepted
+- **Decision:** use PostgreSQL as the only release `0.1` application datastore, add `pgvector` only
+  when the Knowledge/RAG release begins, and introduce neither Redis nor MongoDB without a measured
+  capability or operational requirement.
+- **Consequence:** Nexo IA avoids premature distributed state while retaining relational, JSON,
+  full-text, and vector evolution paths. See [PILL-005](../pills/PILL-005-one-database-until-evidence.md).
+
+## D-018 — Develop on Silverblue through Toolbx and host rootless Podman
+
+- **Status:** accepted
+- **Decision:** keep Java 25 and Node 24 tooling in a dedicated current Toolbx, use Maven/npm project
+  locks, run PostgreSQL and Testcontainers through the host rootless Podman socket, and keep Ollama on
+  the host for GPU access.
+- **Consequence:** the immutable host remains clean and GPU inference stays native. Socket access and
+  the host Ollama endpoint become explicit security boundaries and setup checks.
+
+## D-019 — Publish four platform distribution profiles from one build
+
+- **Status:** accepted
+- **Decision:** publish Fedora Silverblue, conventional Linux, Windows, and macOS distribution
+  profiles from the same versioned backend, frontend, PostgreSQL migrations, OCI images, and Compose
+  contract. Keep Ollama host-native by default. Isolate platform differences in installation,
+  networking, lifecycle, and the later native Companion.
+- **Consequence:** Nexo IA avoids four application forks while providing platform-specific setup and
+  verification. A profile is supported only after real-host install, upgrade, backup, restore,
+  networking, security, and architecture tests pass. See
+  [Cross-platform build and distribution profiles](DISTRIBUTION_BUILDS.md).

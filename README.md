@@ -29,6 +29,8 @@ scaffolding; application code has not started yet.
 - [Enterprise architecture](docs/ENTERPRISE_ARCHITECTURE.md)
 - [Device management and execution audit](docs/DEVICE_MANAGEMENT.md)
 - [Technology stack](docs/TECH_STACK.md)
+- [Accepted stack baseline](docs/STACK_BASELINE.md)
+- [Cross-platform build and distribution profiles](docs/DISTRIBUTION_BUILDS.md)
 - [Principles](docs/PRINCIPLES.md)
 - [Scope](docs/SCOPE.md)
 - [Learning roadmap](docs/ROADMAP.md)

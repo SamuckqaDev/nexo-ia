@@ -72,3 +72,8 @@ Web interface -> Nexo Server or DGX -> secure task channel -> Nexo Companion -> 
 
 Every operation records its processing location separately from its execution location. Centralized
 deployment does not silently grant the server control of a user's device.
+
+Local releases provide Fedora Silverblue, conventional Linux, Windows, and macOS profiles from the
+same containerized Nexo Server build. Ollama remains host-native by default, while the later Nexo
+Companion is a signed native component for endpoint effects. See
+[Cross-platform build and distribution profiles](DISTRIBUTION_BUILDS.md).

@@ -39,3 +39,4 @@ contract or become the sole source for a security-sensitive decision.
 | [PILL-002](PILL-002-compatible-spring-ai-stack.md) | Selecting compatible Spring Boot and Spring AI lines | Accepted |
 | [PILL-003](PILL-003-baeldung-as-practical-reference.md) | How to use Baeldung without copying stale versions | Accepted |
 | [PILL-004](PILL-004-java-21-to-25.md) | What Java 25 adds beyond Java 21 | Accepted |
+| [PILL-005](PILL-005-one-database-until-evidence.md) | Why the baseline uses one application database | Accepted |
