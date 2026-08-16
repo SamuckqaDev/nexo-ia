@@ -2,7 +2,7 @@
 
 ## Status
 
-**Java direction accepted; exact framework versions proposed.**
+**Foundation accepted; stable patch verification required at scaffolding.**
 
 Nexo IA will remain a Java project. The learning contrast with Avento will come from progressive
 delivery, clearer boundaries, and explicit implementations—not from changing the primary language.
@@ -374,10 +374,15 @@ work before implementation and integration testing.
 
 ## Decisions still required
 
-1. Confirm Maven rather than Gradle.
-2. Confirm PostgreSQL for the real application from the first persistent milestone.
-3. Decide whether the first interface is web-only or includes an early desktop shell.
-4. Decide whether CSS Modules or a component library should define the initial design system.
+The MVP confirms Maven Wrapper, PostgreSQL, a web-first React interface, and CSS Modules with design
+tokens. Before scaffolding, the remaining foundation checks are:
+
+1. Verify and record the newest compatible stable patches in the accepted Java 25, Spring Boot 4.1.x,
+   Spring AI 2.0.x, and Maven 3.9.x lines.
+2. Select the supported local PostgreSQL/container workflow for this Fedora Silverblue development
+   environment.
+3. Record the reviewed adaptive password-hashing parameters and development secret-storage approach.
+4. Define the initial threat model and release-blocking severity policy.
 
 ## Initial version baseline
 

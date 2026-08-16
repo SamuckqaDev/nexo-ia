@@ -400,11 +400,9 @@ support compatible remote providers, while ComfyUI remains behind a Nexo IA-owne
 
 ## First milestone acceptance criteria
 
-The first usable milestone includes `CHAT-01` through `CHAT-04`. It is complete when:
+Release `0.1` combines the P0 conversation path with the minimum identity, organization, provider,
+usage, audit, security, interface, and operational capabilities needed to make it a real multi-user
+product slice. Its frozen scope, exclusions, domain records, release gates, and seven acceptance
+journeys are defined in [MVP and release strategy](MVP_AND_RELEASE_STRATEGY.md).
 
-- a user can create and reopen separate conversations;
-- the selected installed Ollama model receives the correct message history;
-- response chunks appear progressively and generation can be cancelled;
-- messages remain available after restarting the application;
-- errors identify whether the application, connection, or model failed;
-- automated tests cover conversation isolation and model selection.
+No P1 or P2 label alone adds a feature to release `0.1`; the release document is authoritative.

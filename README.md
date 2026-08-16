@@ -9,8 +9,9 @@ why it exists.
 
 ## Current status
 
-The project is in its foundation phase. We are defining its identity, purpose, scope, and roadmap
-before selecting and implementing the architecture.
+The product foundation, enterprise direction, technology baseline, and release `0.1` scope are
+documented. The project is ready for the final environment and security checks that precede monorepo
+scaffolding; application code has not started yet.
 
 ## Documentation
 
@@ -22,6 +23,7 @@ before selecting and implementing the architecture.
 - [Knowledge Vaults](docs/KNOWLEDGE_VAULTS.md)
 - [Context isolation and Skill governance](docs/CONTEXT_AND_SKILL_GOVERNANCE.md)
 - [Governed project database access](docs/DATABASE_ACCESS.md)
+- [MVP and release strategy](docs/MVP_AND_RELEASE_STRATEGY.md)
 - [Agent capabilities](docs/AGENT_CAPABILITIES.md)
 - [Execution plans](docs/EXECUTION_PLANS.md)
 - [Enterprise architecture](docs/ENTERPRISE_ARCHITECTURE.md)

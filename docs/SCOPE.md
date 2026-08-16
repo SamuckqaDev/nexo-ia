@@ -1,4 +1,4 @@
-# Initial scope
+# Product scope
 
 ## In scope
 
@@ -38,5 +38,7 @@ goal and reduces the number of simultaneous problems.
 
 ## First usable product
 
-A local application that can communicate with a model through Ollama, save conversations, stream
-responses, and clearly report which model was used.
+Release `0.1` is a local or private-network application in which an Owner bootstraps the installation,
+creates a second user, configures organization-owned Ollama, and proves isolated persistent chat,
+streaming, cancellation, token attribution, administration, and audit. The authoritative scope and
+acceptance gates are in [MVP and release strategy](MVP_AND_RELEASE_STRATEGY.md).

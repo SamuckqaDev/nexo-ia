@@ -20,6 +20,10 @@ Nexo IA is designed as a multi-user organization product, while remaining useful
 local installation. Its core behavior and Companion run on Linux, Windows, and macOS; a central
 server or DGX may coordinate work performed on paired user devices.
 
+The first release proves the foundation with two isolated users, organization-owned Ollama,
+persistent streaming chat, usage attribution, and audit. Later capabilities build on that verified
+slice rather than entering the MVP simultaneously.
+
 ## Problems to solve
 
 ### Local AI is fragmented

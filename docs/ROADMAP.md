@@ -1,5 +1,13 @@
 # Learning and development roadmap
 
+## Release 0.1 checkpoint
+
+Release `0.1` deliberately combines the minimum outcomes of Phases 0, 1, and 2: Owner bootstrap,
+default organization, a second managed user, local Ollama provider and model discovery, isolated
+persistent conversations, SSE streaming and cancellation, token and latency attribution, audit, and
+administration UI. It does not pull later-phase capabilities forward. See
+[MVP and release strategy](MVP_AND_RELEASE_STRATEGY.md).
+
 ## Phase 0 — Foundations and identity
 
 - Define the purpose, principles, scope, and identity.
@@ -26,6 +34,8 @@
 - Test isolation between conversations.
 - Bind each request and cache entry to its authenticated principal, organization, conversation, and
   provider policy.
+- Satisfy every release `0.1` security, quality, operational, and acceptance gate before beginning the
+  Knowledge release.
 
 ## Phase 3 — RAG
 

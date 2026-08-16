@@ -151,3 +151,15 @@ options considered, the selected approach, and its consequences.
   impact preview, an appropriate verified recovery method, explicit approval, database-aware safe
   execution, post-change validation, and complete audit. Unsupported safety guarantees block the
   operation instead of being improvised.
+
+## D-015 — Freeze release 0.1 as the multi-user local chat foundation
+
+- **Status:** accepted
+- **Decision:** deliver Owner bootstrap, a default organization, managed members, revocable local
+  sessions, organization-owned Ollama configuration, isolated persistent conversations, SSE streaming
+  and cancellation, usage attribution, audit, and the minimum administration interface as release
+  `0.1`. Use Maven Wrapper, PostgreSQL, web-first React, and CSS Modules with design tokens.
+- **Consequence:** RAG, Memory, tools, databases, MCP, Agent Mode, Skills, Companion, Cowork,
+  automations, images, and remote providers cannot enter `0.1` without formal change control. The
+  release must prove two-user isolation and the security and quality gates in
+  [MVP and release strategy](MVP_AND_RELEASE_STRATEGY.md).
