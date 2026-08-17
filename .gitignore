@@ -13,15 +13,22 @@ Thumbs.db
 
 # Java and Maven
 target/
+backend/.mvn/wrapper/maven-wrapper.jar
 .mvn/timing.properties
 
 # Frontend
 node_modules/
 dist/
 coverage/
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # Logs and generated runtime data
 *.log
 data/
 tmp/
 
+# Container volumes and runtime secrets
+.nexo/
+secrets/

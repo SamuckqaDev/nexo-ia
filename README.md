@@ -9,9 +9,10 @@ why it exists.
 
 ## Current status
 
-The product foundation, enterprise direction, technology baseline, and release `0.1` scope are
-documented. The project is ready for the final environment and security checks that precede monorepo
-scaffolding; application code has not started yet.
+The product foundation and release `0.1` scope are documented. Implementation has started on the
+`feat/project-scaffold` branch with a Spring Boot backend, React frontend, PostgreSQL Compose service,
+and the first backend-to-frontend system contract. See
+[Implementation status](docs/IMPLEMENTATION_STATUS.md) for verified and intentionally pending work.
 
 ## Documentation
 
@@ -31,6 +32,7 @@ scaffolding; application code has not started yet.
 - [Technology stack](docs/TECH_STACK.md)
 - [Accepted stack baseline](docs/STACK_BASELINE.md)
 - [Cross-platform build and distribution profiles](docs/DISTRIBUTION_BUILDS.md)
+- [Implementation status](docs/IMPLEMENTATION_STATUS.md)
 - [Principles](docs/PRINCIPLES.md)
 - [Scope](docs/SCOPE.md)
 - [Learning roadmap](docs/ROADMAP.md)

@@ -1,0 +1,11 @@
+import { Brain, CalendarCheck, ChatCircleDots, ShieldCheck, Sparkle, Vault } from "@phosphor-icons/react";
+import type { ReactElement } from "react";
+import type { HomePageProps } from "../../types/systemTypes";
+import { SystemStatus } from "../../components/SystemStatus";
+import { Card, CardDescription, CardIcon, CardTitle, Eyebrow, FeatureGrid, Greeting, Hero, Intro, Page, StatusCard, Summary } from "./styles";
+
+const firstName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;
+
+export function HomePage({ user }: HomePageProps): ReactElement {
+  return <Page><Hero><Intro><Eyebrow>Welcome back</Eyebrow><Greeting>Good to see you, {firstName(user.name)}.</Greeting><Summary>Nexo is ready to connect your conversations, knowledge and governed work in one private workspace.</Summary></Intro><StatusCard><ShieldCheck size={24} weight="duotone" /><div><strong>Local foundation online</strong><SystemStatus /></div></StatusCard></Hero><FeatureGrid><Card><CardIcon><ChatCircleDots size={26} weight="duotone" /></CardIcon><CardTitle>Start a conversation</CardTitle><CardDescription>Talk to local models with private, persistent context.</CardDescription></Card><Card><CardIcon><Brain size={26} weight="duotone" /></CardIcon><CardTitle>Open Cowork</CardTitle><CardDescription>Turn a larger objective into an observable execution plan.</CardDescription></Card><Card><CardIcon><CalendarCheck size={26} weight="duotone" /></CardIcon><CardTitle>Tasks and calendar</CardTitle><CardDescription>See scheduled work, checkpoints and upcoming decisions.</CardDescription></Card><Card><CardIcon><Vault size={26} weight="duotone" /></CardIcon><CardTitle>Knowledge Vaults</CardTitle><CardDescription>Organize interconnected knowledge with scoped access.</CardDescription></Card><Card><CardIcon><Sparkle size={26} weight="duotone" /></CardIcon><CardTitle>Skills</CardTitle><CardDescription>Teach Nexo reusable workflows without sharing private context.</CardDescription></Card><Card><CardIcon><ShieldCheck size={26} weight="duotone" /></CardIcon><CardTitle>Governed by design</CardTitle><CardDescription>Sessions, permissions and audit remain visible and revocable.</CardDescription></Card></FeatureGrid></Page>;
+}

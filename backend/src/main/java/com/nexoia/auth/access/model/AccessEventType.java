@@ -1,0 +1,16 @@
+package com.nexoia.auth.access.model;
+
+public enum AccessEventType {
+    LOGIN_SUCCESS,
+    LOGIN_FAILURE,
+    TOKEN_REFRESH,
+    ACCESS_GRANTED,
+    REFRESH_REUSE_DETECTED,
+    LOGOUT,
+    ACCESS_REJECTED,
+    PASSWORD_CHANGED,
+    SESSION_REVOKED,
+    USER_CREATED,
+    USER_STATUS_CHANGED,
+    ADMIN_SESSION_REVOKED
+}

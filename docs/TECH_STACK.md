@@ -111,13 +111,15 @@ This avoids two competing AI abstractions and lets us learn which responsibiliti
 - Vite for local development and production builds.
 - TanStack Router for typed navigation.
 - TanStack Query for server state and request lifecycle.
-- Zod for runtime validation at selected untrusted boundaries.
-- CSS Modules with design tokens for initial styling.
+- Zod for runtime validation at selected untrusted boundaries and React Hook Form for forms.
+- `styled-components` with a typed theme and design tokens for styling.
+- Zustand for genuinely shared client-only state; never duplicate TanStack Query server state in it.
 - Vitest and Testing Library for component and behavior tests.
 - Playwright for critical user journeys.
 
-Use native `fetch` and Server-Sent Events for chat output and run timelines. Add WebSockets only when
-a concrete bidirectional real-time requirement cannot be met by REST plus SSE.
+Use a shared Axios client for ordinary REST requests and a dedicated typed browser streaming client
+for Server-Sent Events. Add WebSockets only when a concrete bidirectional real-time requirement
+cannot be met by REST plus SSE.
 
 ### HTTP and event contracts
 

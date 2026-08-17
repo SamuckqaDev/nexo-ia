@@ -158,7 +158,7 @@ options considered, the selected approach, and its consequences.
 - **Decision:** deliver Owner bootstrap, a default organization, managed members, revocable local
   sessions, organization-owned Ollama configuration, isolated persistent conversations, SSE streaming
   and cancellation, usage attribution, audit, and the minimum administration interface as release
-  `0.1`. Use Maven Wrapper, PostgreSQL, web-first React, and CSS Modules with design tokens.
+  `0.1`. Use Maven Wrapper, PostgreSQL, web-first React, and `styled-components` with design tokens.
 - **Consequence:** RAG, Memory, tools, databases, MCP, Agent Mode, Skills, Companion, Cowork,
   automations, images, and remote providers cannot enter `0.1` without formal change control. The
   release must prove two-user isolation and the security and quality gates in
@@ -169,7 +169,7 @@ options considered, the selected approach, and its consequences.
 - **Status:** accepted
 - **Decision:** scaffold release `0.1` with Java 25, Spring Boot 4.1.x, Spring AI 2.0.x, Maven
   Wrapper 3.9.x, PostgreSQL 18, Node 24 LTS, React 19.2, TypeScript 6.0, and Vite 8.1. Use Spring MVC
-  with SSE, Spring Security, Spring Session JDBC, JPA, Flyway, Testcontainers, npm, and a committed
+  with SSE, Spring Security, server-tracked JWT/refresh sessions, JPA, Flyway, Testcontainers, npm, and a committed
   lockfile. Pin exact resolved versions and container images in executable project files.
 - **Consequence:** the stack is current, compatible, and reproducible without relying on a developer's
   global Maven or unsupported Node installation. See [Accepted stack baseline](STACK_BASELINE.md).
@@ -203,3 +203,14 @@ options considered, the selected approach, and its consequences.
   verification. A profile is supported only after real-host install, upgrade, backup, restore,
   networking, security, and architecture tests pass. See
   [Cross-platform build and distribution profiles](DISTRIBUTION_BUILDS.md).
+
+## D-020 — Use revocable browser token sessions with refresh rotation
+
+- **Status:** accepted
+- **Decision:** send a five-minute access JWT only in an `HttpOnly` cookie and a 30-day opaque
+  refresh token in a narrower `HttpOnly` cookie. Store only refresh hashes, rotate on every refresh,
+  track the current access `jti`, and revalidate the server-side session for every protected request.
+- **Consequence:** logout, disablement, administrative revocation, and refresh replay can invalidate
+  access before JWT expiry. The database records controlled IP, user-agent, expiry, rotation,
+  revocation, and access-event metadata, but never raw tokens. CSRF protection remains required
+  because browsers attach authentication cookies automatically.

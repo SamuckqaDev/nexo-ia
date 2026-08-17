@@ -32,7 +32,8 @@ manually.
 
 - Spring Web MVC and Server-Sent Events for chat streaming and cancellation.
 - Spring Security for authentication, authorization, CSRF protection, and secure session handling.
-- Spring Session JDBC for server-side, revocable sessions shared by browser requests.
+- Spring Security JOSE for signed access JWTs plus project-owned PostgreSQL session, refresh rotation,
+  revocation, and access-monitoring persistence.
 - Spring Data JPA for application persistence and Flyway for every schema change.
 - PostgreSQL as the only real application database; H2 may be used only for narrow unit tests that do
   not claim PostgreSQL compatibility.
@@ -51,7 +52,9 @@ a second reactive programming model. This can be revisited only with profiling e
 - TanStack Router for typed routes and TanStack Query for server state.
 - Native `fetch` and an SSE client for HTTP communication.
 - Zod at untrusted runtime boundaries, not as a duplicate domain model.
-- CSS Modules and Nexo design tokens.
+- `styled-components` with a typed Nexo theme and design tokens.
+- Axios for ordinary HTTP, React Hook Form with Zod for forms, and Zustand only for shared
+  client-owned state; TanStack Query remains the server-state owner.
 - Vitest, Testing Library, and Playwright.
 - OpenAPI-generated TypeScript contracts from the backend.
 
@@ -146,7 +149,7 @@ Before application scaffolding is considered ready:
 - [Node.js releases](https://nodejs.org/en/about/previous-releases)
 - [Vite releases](https://vite.dev/releases)
 - [PostgreSQL versioning policy](https://www.postgresql.org/support/versioning/)
-- [Spring Session JDBC](https://docs.spring.io/spring-session/reference/configuration/jdbc.html)
+- [Spring Security JWT resource-server support](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html)
 - [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
 - [Fedora Silverblue Toolbx](https://docs.fedoraproject.org/en-US/fedora-silverblue/toolbox/)
 - [Testcontainers with Podman](https://java.testcontainers.org/supported_docker_environment/)

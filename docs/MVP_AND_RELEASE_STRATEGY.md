@@ -135,7 +135,7 @@ security boundary.
 ## Required contracts
 
 - versioned REST and SSE schemas with generated TypeScript types;
-- one stable error envelope containing code, safe message, trace identifier, and field errors;
+- one stable `BaseResponse` envelope containing HTTP-aligned code, safe message, and array data;
 - explicit model-request states: `queued`, `streaming`, `cancelling`, `completed`, `cancelled`, and
   `failed`;
 - idempotency or concurrency protection for message submission and cancellation;

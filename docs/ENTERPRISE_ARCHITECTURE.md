@@ -19,8 +19,10 @@ creates or invites other users and delegates narrowly scoped administration.
 
 ## Identity and access
 
-Authentication uses Spring Security and revocable server-side sessions. Passwords are stored only as
-salted, adaptive hashes; raw passwords, recovery secrets, and provider credentials never enter logs.
+Authentication uses Spring Security with short-lived access JWTs in `HttpOnly` cookies and
+server-tracked revocable token sessions. Refresh tokens are opaque, hashed at rest, rotated on every
+use, and revoke their session when reuse is detected. Passwords are stored only as salted, adaptive
+hashes; raw passwords, tokens, recovery secrets, and provider credentials never enter logs.
 MFA and external OIDC providers may be added without changing resource ownership.
 
 Authorization combines roles, resource ownership, explicit access-control entries, capability

@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: nexo-backend
+  datasource:
+    url: ${NEXO_DATABASE_URL:jdbc:postgresql://localhost:5432/nexo}
+    username: ${NEXO_DATABASE_USER:nexo}
+    password: ${NEXO_DATABASE_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  ai:
+    ollama:
+      base-url: ${NEXO_OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never
+  mail:
+    host: ${NEXO_SMTP_HOST:127.0.0.1}
+    port: ${NEXO_SMTP_PORT:1025}
+  servlet:
+    multipart:
+      max-file-size: 3MB
+      max-request-size: 3MB
+
+server:
+  address: ${NEXO_SERVER_ADDRESS:127.0.0.1}
+  port: ${NEXO_SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+nexo:
+  version: "@project.version@"
+  security:
+    token:
+      issuer: nexo-ia
+      secret: ${NEXO_JWT_SECRET}
+      access-ttl: 5m
+      refresh-ttl: 30d
+      secure-cookie: ${NEXO_SECURE_COOKIE:false}
+    password-recovery:
+      token-ttl: 20m
+      frontend-reset-url: ${NEXO_PASSWORD_RESET_URL:http://127.0.0.1:5173/reset-password}
+      sender: ${NEXO_MAIL_FROM:noreply@nexo.local}
+    login-throttle:
+      observation-window: 30m
+      first-threshold: 5
+      first-lock: 30s
+      second-threshold: 7
+      second-lock: 2m
+      maximum-threshold: 10
+      maximum-lock: 15m

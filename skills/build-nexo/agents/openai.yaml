@@ -1,0 +1,4 @@
+interface:
+  display_name: "Nexo Code Standards"
+  short_description: "Build Nexo with the creator’s code standards"
+  default_prompt: "Use $build-nexo to implement this Nexo change according to the project standards."

@@ -1,0 +1,5 @@
+import styled from "styled-components";
+export const Wrapper = styled.label`position:relative;display:grid;width:3rem;height:3rem;flex:0 0 auto;place-items:center;border-radius:${({theme})=>theme.radius.control};overflow:hidden;background:${({theme})=>theme.colors.backgroundElevated};color:${({theme})=>theme.colors.primarySoft};font-size:.8rem;font-weight:700;cursor:pointer;&::after{position:absolute;z-index:3;inset:0;border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};content:"";pointer-events:none;}`;
+export const Image = styled.img`position:absolute;inset:0;width:100%;height:100%;object-fit:cover;`;
+export const Input = styled.input`position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);`;
+export const Overlay = styled.span`position:absolute;z-index:2;right:0;bottom:0;display:grid;width:1.35rem;height:1.35rem;place-items:center;border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.accent};color:${({theme})=>theme.colors.background};`;
