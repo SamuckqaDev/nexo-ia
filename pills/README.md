@@ -43,3 +43,4 @@ contract or become the sole source for a security-sensitive decision.
 | [PILL-006](PILL-006-pessimistic-lock-for-ordered-appends.md) | Pessimistic locking for ordered message appends | Accepted |
 | [PILL-007](PILL-007-not-found-instead-of-unauthorized.md) | Resource isolation answers 404, never 401 | Accepted |
 | [PILL-008](PILL-008-ollama-ndjson-streaming-contract.md) | The Ollama chat streaming and token accounting contract | Accepted |
+| [PILL-009](PILL-009-short-transactions-around-model-streaming.md) | Short transactions around model streaming | Accepted |
