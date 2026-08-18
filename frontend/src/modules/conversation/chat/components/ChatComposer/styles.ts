@@ -16,12 +16,13 @@ export const Composer = styled.form`
 
 export const Field = styled.textarea`
   flex: 1;
-  min-height: 5.5rem;
-  max-height: 15rem;
+  min-height: 3rem;
+  max-height: 12rem;
   resize: none;
   border: 0;
-  padding: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
   background: transparent;
+  line-height: 1.5;
   color: ${({ theme }) => theme.colors.text};
   font: inherit;
 

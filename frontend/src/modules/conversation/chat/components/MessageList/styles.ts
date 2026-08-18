@@ -3,9 +3,30 @@ import styled from "styled-components";
 export const Messages = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.lg};
+  gap: ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => `${theme.spacing.lg} ${theme.spacing.xl}`};
   overflow-y: auto;
+
+  @media (max-width: 48rem) {
+    padding: ${({ theme }) => theme.spacing.md};
+  }
+`;
+
+/**
+ * Announces streaming lifecycle changes once, without re-reading the growing answer. The message
+ * bubble itself is no longer a live region, so a screen reader hears "responding" or "complete"
+ * instead of the entire partial text on every token.
+ */
+export const StatusLive = styled.p`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 `;
 
 export const Empty = styled.div`

@@ -32,7 +32,7 @@ export function MessageItem({
   };
 
   return (
-    <Bubble $user={isUser} aria-live={isStreaming ? "polite" : undefined}>
+    <Bubble $user={isUser}>
       <Actor $user={isUser}>{isUser ? <UserCircle size={19} weight="fill" /> : <Sparkle size={18} weight="fill" />}</Actor>
       <Content $user={isUser}>
         <ActionBar $user={isUser}>

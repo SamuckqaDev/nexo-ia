@@ -1,5 +1,6 @@
 import { Cpu, LockKey } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
+import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
 import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
@@ -36,6 +37,7 @@ import {
 } from "./styles";
 
 export function ChatPage(): ReactElement {
+  const navigate: NavigateFunction = useNavigate();
   const conversations = useConversations();
   const create = useCreateConversation();
   const archive = useArchiveConversation();
@@ -60,6 +62,7 @@ export function ChatPage(): ReactElement {
   const configuredProviders: ProviderConfiguration[] = providers.registry.data
     ?.filter((provider: ProviderConfiguration) => Boolean(provider.selectedModel)) ?? [];
   const hasModel: boolean = Boolean(selected?.selectedModel);
+  const hasConfiguredProvider: boolean = configuredProviders.length > 0;
 
   const createConversation = (title: string): void => {
     create.mutate(title, {
@@ -138,10 +141,12 @@ export function ChatPage(): ReactElement {
               isLoading={messages.isLoading}
               hasConversation={Boolean(selectedId)}
               hasModel={hasModel}
+              hasConfiguredProvider={hasConfiguredProvider}
               phase={stream.phase}
               streamingContent={stream.streamingContent}
               errorMessage={stream.errorMessage}
               mode={mode}
+              onConfigureProvider={(): void => { navigate("/settings/providers"); }}
             />
 
             <ChatComposer

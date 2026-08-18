@@ -1,19 +1,35 @@
-import { Brain, ChatCircleDots, Cpu, ShieldCheck, Sparkle } from "@phosphor-icons/react";
+import { Brain, ChatCircleDots, Cpu, ShieldCheck, Sparkle, SlidersHorizontal } from "@phosphor-icons/react";
 import { useEffect, useRef, type ReactElement } from "react";
+import { Button } from "../../../../../shared/components/Button";
 import type { ConversationMessage, ConversationMode, StreamPhase } from "../../types/chatTypes";
 import { ChatLoading } from "../ChatLoading";
 import { MessageItem } from "./components/MessageItem";
-import { Empty, EmptyIcon, EmptyKicker, EmptyTitle, Feature, FeatureGrid, Messages, StreamError } from "./styles";
+import { Empty, EmptyIcon, EmptyKicker, EmptyTitle, Feature, FeatureGrid, Messages, StatusLive, StreamError } from "./styles";
 
 type MessageListProps = {
   messages: ConversationMessage[];
   isLoading: boolean;
   hasConversation: boolean;
   hasModel: boolean;
+  hasConfiguredProvider: boolean;
   phase: StreamPhase;
   streamingContent: string;
   errorMessage: string | null;
   mode: ConversationMode;
+  onConfigureProvider: () => void;
+};
+
+/**
+ * Concise announcement for the streaming and terminal phases. The thinking loader owns its own live
+ * region, so the phases it covers stay empty here to avoid announcing the same transition twice.
+ */
+const streamStatus = (phase: StreamPhase): string => {
+  if (phase === "streaming") return "Nexo is responding.";
+  if (phase === "cancelled") return "Response stopped.";
+  if (phase === "completed") return "Response complete.";
+  if (phase === "failed") return "The response failed.";
+  if (phase === "disconnected") return "The connection dropped.";
+  return "";
 };
 
 export function MessageList({
@@ -21,10 +37,12 @@ export function MessageList({
   isLoading,
   hasConversation,
   hasModel,
+  hasConfiguredProvider,
   phase,
   streamingContent,
   errorMessage,
-  mode
+  mode,
+  onConfigureProvider
 }: MessageListProps): ReactElement {
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -58,14 +76,27 @@ export function MessageList({
 
   return (
     <Messages>
+      {!isThinking && streamStatus(phase) && (
+        <StatusLive role="status" aria-live="polite">{streamStatus(phase)}</StatusLive>
+      )}
+
       {messages.length === 0 && (
         <Empty>
           <EmptyIcon $agent={mode === "agent"}>{mode === "agent" ? <Brain size={28} weight="duotone" /> : <Sparkle size={28} weight="duotone" />}</EmptyIcon>
           <EmptyKicker>{mode === "agent" ? "Agent workspace" : "Nexo intelligence"}</EmptyKicker>
-          <EmptyTitle>{hasModel ? mode === "agent" ? "Turn an objective into verified work" : "What are we exploring today?" : "Choose a model to begin"}</EmptyTitle>
+          <EmptyTitle>{hasModel
+            ? mode === "agent" ? "Turn an objective into verified work" : "What are we exploring today?"
+            : hasConfiguredProvider ? "Choose a model to begin" : "Set up a model to begin"}</EmptyTitle>
           <span>{hasModel
             ? mode === "agent" ? "Your conversation stays here while Nexo prepares plans, permissions and evidence." : "Ask, create, analyse or bring an idea. Tools stay available when the task needs them."
-            : "Pick one of your configured local models in the conversation header."}</span>
+            : hasConfiguredProvider
+              ? "Pick one of your configured local models in the conversation header."
+              : "You have no provider configured yet. Add a local Ollama model to start talking to Nexo."}</span>
+          {!hasModel && !hasConfiguredProvider && (
+            <Button type="button" icon={SlidersHorizontal} onClick={onConfigureProvider}>
+              Configure a provider
+            </Button>
+          )}
           {hasModel && <FeatureGrid>
             <Feature><ChatCircleDots size={17} weight="duotone" /><strong>Natural conversation</strong><small>Context stays inside this private thread.</small></Feature>
             <Feature><Cpu size={17} weight="duotone" /><strong>Local model</strong><small>Your selected provider handles the response.</small></Feature>
