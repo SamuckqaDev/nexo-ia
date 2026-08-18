@@ -60,7 +60,9 @@ public class ProviderRegistryService {
     private String normalizeEndpoint(String endpoint) {
         try {
             URI uri = new URI(endpoint.trim()).normalize();
-            if (!uri.isAbsolute() || !("http".equalsIgnoreCase(uri.getScheme())
+            if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null
+                    || uri.getRawQuery() != null || uri.getRawFragment() != null
+                    || !("http".equalsIgnoreCase(uri.getScheme())
                     || "https".equalsIgnoreCase(uri.getScheme()))) {
                 throw new InvalidProviderEndpointException();
             }

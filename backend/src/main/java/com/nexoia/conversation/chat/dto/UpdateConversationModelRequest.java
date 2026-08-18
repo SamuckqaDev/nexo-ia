@@ -1,4 +1,4 @@
-package com.nexoia.conversation.dto;
+package com.nexoia.conversation.chat.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
