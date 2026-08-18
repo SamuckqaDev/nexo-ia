@@ -214,3 +214,24 @@ options considered, the selected approach, and its consequences.
   access before JWT expiry. The database records controlled IP, user-agent, expiry, rotation,
   revocation, and access-event metadata, but never raw tokens. CSRF protection remains required
   because browsers attach authentication cookies automatically.
+
+## D-021 — Read the Ollama streaming protocol directly instead of a model abstraction
+
+- **Status:** accepted
+- **Context:** Spring AI provides an Ollama chat model adapter, but it is configured from a single
+  application-level `base-url`, while the Nexo IA Provider Registry is user-scoped: every user
+  registers their own endpoint, and a conversation must reach that endpoint. The adapter also
+  exposes streaming as a reactive `Flux`, while release `0.1` deliberately uses Spring MVC rather
+  than WebFlux.
+- **Options:** use the Spring AI Ollama adapter and rebuild a model client per request; adopt
+  WebFlux for the conversation path; or read the documented Ollama HTTP protocol directly behind a
+  project-owned provider boundary.
+- **Decision:** define `ChatCompletionClient` as the provider boundary and implement
+  `OllamaChatCompletionClient` on `RestClient`, reading the newline-delimited JSON of
+  `POST /api/chat` line by line.
+- **Consequence:** the per-user endpoint, cancellation, and provider-reported token accounting stay
+  explicit and testable without a second programming model, and the learning goal of understanding
+  how an application talks to a local LLM is preserved. Nexo IA now owns this parser and must review
+  it when the Ollama API changes. Spring AI remains available for embeddings, vector stores, and MCP,
+  where its contracts help rather than hide the lesson.
+- **Learning:** see [PILL-008](../pills/PILL-008-ollama-ndjson-streaming-contract.md).

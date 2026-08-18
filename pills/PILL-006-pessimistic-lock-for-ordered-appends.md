@@ -52,7 +52,7 @@ otherwise listing a conversation would serialize against writes for no benefit.
 - `ConversationMessageRepository.findHighestSequenceNumber` documents that callers must already hold
   the lock.
 - The transaction that holds the lock must stay short. Model streaming runs outside it; see
-  [PILL-008](PILL-008-short-transactions-around-model-streaming.md).
+  [PILL-009](PILL-009-short-transactions-around-model-streaming.md).
 
 ## Limits and review triggers
 

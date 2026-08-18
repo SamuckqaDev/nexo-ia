@@ -42,3 +42,4 @@ contract or become the sole source for a security-sensitive decision.
 | [PILL-005](PILL-005-one-database-until-evidence.md) | Why the baseline uses one application database | Accepted |
 | [PILL-006](PILL-006-pessimistic-lock-for-ordered-appends.md) | Pessimistic locking for ordered message appends | Accepted |
 | [PILL-007](PILL-007-not-found-instead-of-unauthorized.md) | Resource isolation answers 404, never 401 | Accepted |
+| [PILL-008](PILL-008-ollama-ndjson-streaming-contract.md) | The Ollama chat streaming and token accounting contract | Accepted |
