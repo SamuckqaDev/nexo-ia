@@ -2,7 +2,7 @@ package com.nexoia.provider.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
@@ -25,7 +25,7 @@ import org.springframework.web.client.RestClient;
 class OllamaChatCompletionSmokeTest {
 
     private final OllamaChatCompletionClient client =
-            new OllamaChatCompletionClient(RestClient.builder(), new ObjectMapper());
+            new OllamaChatCompletionClient(RestClient.builder(), JsonMapper.builder().build());
 
     @Test
     void streamsARealCompletionAndReportsRealTokenCounts() {

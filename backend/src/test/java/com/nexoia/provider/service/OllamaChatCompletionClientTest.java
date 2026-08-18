@@ -3,7 +3,7 @@ package com.nexoia.provider.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
@@ -40,7 +40,7 @@ class OllamaChatCompletionClientTest {
     @BeforeEach
     void setUp() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        client = new OllamaChatCompletionClient(RestClient.builder(), new ObjectMapper());
+        client = new OllamaChatCompletionClient(RestClient.builder(), JsonMapper.builder().build());
     }
 
     @AfterEach
