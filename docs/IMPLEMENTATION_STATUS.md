@@ -134,7 +134,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
   exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
   states, and reports model, token usage, latency, and processing location on completed answers. An
   estimated token count is always labelled. Conversation creation uses an accessible dialog.
-- Eighty-one passing backend tests and twenty-seven passing frontend tests, including cross-user
+- Personal usage accounting is now readable. `GET /api/v1/usage` reports the authenticated member's
+  own request counts by terminal state, input and output tokens, average latency, provider-reported
+  versus estimated counts, a per-day token series, and breakdowns by model and processing location,
+  over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
+  every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
+  states.
+- Ninety-one passing backend tests and thirty-one passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
@@ -144,8 +150,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   instance and asserts that every migration applied and that the active-request index exists. It
   exists because unit tests construct their collaborators directly and therefore cannot prove that
   the container is able to supply them. It carries the `docker` tag: the container image builds
-  itself inside a builder with no Docker daemon, so that build runs the remaining seventy-nine tests
-  and this one runs on a developer machine or a Docker-enabled CI job.
+  itself inside a builder with no Docker daemon, so that build runs the remaining tests
+  and the daemon-dependent ones run on a developer machine or a Docker-enabled CI job.
 - An opt-in smoke test proves streaming, provider-reported token accounting, and cancellation against
   a real Ollama installation: `./mvnw test -Dexcluded.test.groups= -Dgroups=ollama`.
 
@@ -160,8 +166,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   Development uses `compose.dev.yaml`; production must not apply that database-port override.
 - Organization membership beyond installation-level Owner/Member roles remains a subsequent
   identity increment.
-- Usage accounting is recorded per message but not yet aggregated. The Usage surface still shows
-  honest empty states, and organization-level summaries remain a subsequent increment.
+- Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
+  because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - `audit_event` does not exist yet. Security-relevant actions are logged without message content, but
   the correlated audit trail required by release `0.1` is still pending.
 - Assistant answers render as plain text. CHAT-01 also asks for Markdown rendering, which needs a
