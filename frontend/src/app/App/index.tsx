@@ -4,6 +4,8 @@ import { useAuthSession } from "../../modules/auth/shared/hooks/useAuthSession";
 import type { AuthSessionResult } from "../../modules/auth/types/authTypes";
 import { AppShell } from "../components/AppShell";
 import { Snackbar } from "../../shared/feedback/components/Snackbar";
+import { ConfirmationModal } from "../../shared/feedback/components/ConfirmationModal";
+import { SessionExpiredModal } from "../../shared/feedback/components/SessionExpiredModal";
 import { AppRoot, State } from "./styles";
 
 export function App(): ReactElement {
@@ -40,6 +42,8 @@ export function App(): ReactElement {
     <>
       {content}
       <Snackbar />
+      <ConfirmationModal />
+      <SessionExpiredModal />
     </>
   );
 }

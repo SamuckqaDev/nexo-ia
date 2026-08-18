@@ -9,5 +9,8 @@ export const useThemeStore = create<ThemeState>()(persist((set) => ({
   mode: preferredMode(),
   toggle: (): void => {
     set((state: ThemeState) => ({ mode: state.mode === "dark" ? "light" : "dark" }));
+  },
+  setMode: (mode): void => {
+    set({ mode });
   }
 }), { name: "nexo-visual-theme" }));

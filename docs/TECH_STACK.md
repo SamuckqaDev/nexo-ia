@@ -109,7 +109,8 @@ This avoids two competing AI abstractions and lets us learn which responsibiliti
 
 - React with TypeScript.
 - Vite for local development and production builds.
-- TanStack Router for typed navigation.
+- React Router DOM for declarative browser navigation and direct URLs.
+- Radix UI primitives for accessible dialogs and other interaction foundations when needed.
 - TanStack Query for server state and request lifecycle.
 - Zod for runtime validation at selected untrusted boundaries and React Hook Form for forms.
 - `styled-components` with a typed theme and design tokens for styling.

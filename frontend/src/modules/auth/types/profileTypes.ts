@@ -1,3 +1,5 @@
+import type { AuthenticatedUser } from "./authTypes";
+
 export type ProfileAvatarProps = { name: string };
 export type ProfileAvatarResult = {
   avatarUrl: string;
@@ -8,3 +10,5 @@ export type ProfileAvatarResult = {
   markLoaded: () => void;
   markMissing: () => void;
 };
+
+export type ProfileFormProps = { user: AuthenticatedUser };

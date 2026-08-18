@@ -1,0 +1,10 @@
+import styled from "styled-components";
+export const Card = styled.div`display:grid;gap:${({theme})=>theme.spacing.lg};`;
+export const Header = styled.header`display:flex;align-items:center;justify-content:space-between;gap:${({theme})=>theme.spacing.md};`;
+export const Title = styled.h3`margin:0;font-size:.95rem;`;
+export const Meta = styled.p`margin:.3rem 0 0;color:${({theme})=>theme.colors.textMuted};font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+export const List = styled.div`display:grid;gap:${({theme})=>theme.spacing.sm};`;
+export const Item = styled.div`display:flex;align-items:center;justify-content:space-between;gap:${({theme})=>theme.spacing.md};padding:${({theme})=>theme.spacing.md};border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.surface};@media(max-width:42rem){align-items:flex-start;flex-direction:column;}`;
+export const Actions = styled.div`display:flex;gap:${({theme})=>theme.spacing.sm};flex-wrap:wrap;`;
+export const Empty = styled.p`margin:0;color:${({theme})=>theme.colors.textMuted};font-size:.8rem;`;
+export const Error = styled.p`display:flex;align-items:center;justify-content:space-between;gap:${({theme})=>theme.spacing.md};margin:0;color:${({theme})=>theme.colors.danger};font-size:.8rem;@media(max-width:42rem){align-items:flex-start;flex-direction:column;}`;

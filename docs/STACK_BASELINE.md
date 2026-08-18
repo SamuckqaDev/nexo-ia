@@ -38,7 +38,9 @@ manually.
 - PostgreSQL as the only real application database; H2 may be used only for narrow unit tests that do
   not claim PostgreSQL compatibility.
 - Spring Validation, Jackson, Actuator, and Micrometer.
-- Spring AI Ollama adapter behind a project-owned provider boundary.
+- Spring AI adapters behind a project-owned provider boundary. The first local adapter is Ollama;
+  the boundary also supports remote OpenAI, Google Gemini, Anthropic, and custom OpenAI-compatible
+  endpoints without coupling conversation or permission rules to one vendor.
 - JUnit 5, AssertJ, Mockito, Spring Boot Test, Testcontainers, ArchUnit, and a deterministic fake
   Ollama HTTP service.
 
@@ -49,7 +51,7 @@ a second reactive programming model. This can be revisited only with profiling e
 
 - React with strict TypeScript.
 - Vite and the official React plugin.
-- TanStack Router for typed routes and TanStack Query for server state.
+- React Router DOM for browser navigation and TanStack Query for server state.
 - Native `fetch` and an SSE client for HTTP communication.
 - Zod at untrusted runtime boundaries, not as a duplicate domain model.
 - `styled-components` with a typed Nexo theme and design tokens.

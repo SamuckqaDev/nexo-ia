@@ -2,6 +2,7 @@ import axios from "axios";
 import type { AxiosInstance, AxiosResponse } from "axios";
 import type { BaseResponse, RetriableRequest } from "../types/apiTypes";
 import { ApiError } from "./ApiError";
+import { useSessionExpiredStore } from "../auth/sessionExpiredStore";
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: "/api/v1",
@@ -12,6 +13,15 @@ export const apiClient: AxiosInstance = axios.create({
   headers: {
     Accept: "application/json"
   }
+});
+
+const frontLog = (message: string, details?: unknown): void => {
+  if (import.meta.env.DEV) console.info(`[NEXO-FRONT] ${message}`, details ?? "");
+};
+
+apiClient.interceptors.request.use((request) => {
+  frontLog(`HTTP → ${(request.method ?? "GET").toUpperCase()} ${request.url ?? ""}`);
+  return request;
 });
 
 const refreshClient: AxiosInstance = axios.create({
@@ -26,7 +36,7 @@ let refreshInFlight: Promise<void> | null = null;
 
 const isRefreshableRequest = (request?: RetriableRequest): request is RetriableRequest => {
   if (!request || request._nexoRefreshAttempted) return false;
-  return !["/auth/login", "/auth/refresh", "/auth/bootstrap", "/auth/csrf"]
+  return !["/auth/login", "/auth/refresh", "/auth/bootstrap", "/auth/csrf", "/auth/me"]
     .some((path) => request.url?.startsWith(path));
 };
 
@@ -40,7 +50,10 @@ const refreshTokens = (): Promise<void> => {
 };
 
 apiClient.interceptors.response.use(
-  (response: AxiosResponse): AxiosResponse => response,
+  (response: AxiosResponse): AxiosResponse => {
+    frontLog(`HTTP ← ${response.status} ${response.config.url ?? ""}`);
+    return response;
+  },
   (error: unknown) => {
     if (!axios.isAxiosError<BaseResponse<never>>(error)) {
       return Promise.reject(new ApiError(500, "An unexpected client error occurred", undefined, error));
@@ -56,11 +69,20 @@ apiClient.interceptors.response.use(
       error
     );
 
+    frontLog(`HTTP ✕ ${status ?? "NETWORK"} ${request?.url ?? ""}`, normalizedError.message);
+
     if (status === 401 && isRefreshableRequest(request)) {
       request._nexoRefreshAttempted = true;
       return refreshTokens()
         .then(() => apiClient.request(request))
-        .catch(() => Promise.reject(normalizedError));
+        .catch(() => {
+          useSessionExpiredStore.getState().open();
+          return Promise.reject(normalizedError);
+        });
+    }
+
+    if (status === 401 && request?._nexoRefreshAttempted) {
+      useSessionExpiredStore.getState().open();
     }
 
     return Promise.reject(normalizedError);

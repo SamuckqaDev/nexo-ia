@@ -6,21 +6,19 @@ import {
   Gear,
   House,
   List,
-  Moon,
   SidebarSimple,
   Sparkle,
-  Sun,
   Users,
   Vault,
   X
 } from "@phosphor-icons/react";
 import { useState, type ReactElement } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
 import { UserManagement } from "../../../modules/auth/user/components/UserManagement";
 import { SettingsPage } from "../../../modules/settings/pages/SettingsPage";
+import type { SettingsSection } from "../../../modules/settings/types/settingsTypes";
 import { HomePage } from "../../../modules/system/status/pages/HomePage";
-import { useThemeStore } from "../../stores/useThemeStore";
 import type { AppSection, AppShellProps, NavigationItem } from "../../types/navigationTypes";
-import type { ThemeState } from "../../types/themeTypes";
 import { PlaceholderPage } from "../PlaceholderPage";
 import { UserMenu } from "../UserMenu";
 import {
@@ -30,7 +28,6 @@ import {
   HeaderActions,
   HeaderIdentity,
   HeaderTitle,
-  IconButton,
   Logo,
   Main,
   MobileMenuButton,
@@ -60,36 +57,46 @@ const accountSections: NavigationItem[] = [
   { id: "administration", label: "Administration", icon: Users, ownerOnly: true }
 ];
 
+const sectionPaths: Record<AppSection, string> = {
+  home: "/",
+  chat: "/chat",
+  cowork: "/cowork",
+  tasks: "/tasks",
+  vaults: "/vaults",
+  skills: "/skills",
+  settings: "/settings/profile",
+  administration: "/administration"
+};
+
+const sectionFromPath = (pathname: string): AppSection => {
+  if (pathname.startsWith("/settings")) return "settings";
+  if (pathname.startsWith("/administration")) return "administration";
+  return (Object.entries(sectionPaths).find(([, path]: [string, string]) => path !== "/" && pathname.startsWith(path))?.[0] as AppSection | undefined) ?? "home";
+};
+
+const settingsFromPath = (pathname: string): SettingsSection => {
+  const candidate: string | undefined = pathname.split("/")[2];
+  return candidate === "security" || candidate === "preferences" || candidate === "providers" || candidate === "usage" ? candidate : "profile";
+};
+
 export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): ReactElement {
-  const [section, setSection] = useState<AppSection>("home");
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const mode: ThemeState["mode"] = useThemeStore((state: ThemeState) => state.mode);
-  const toggleTheme: ThemeState["toggle"] = useThemeStore((state: ThemeState) => state.toggle);
+  const location = useLocation();
+  const routerNavigate: NavigateFunction = useNavigate();
+  const section: AppSection = sectionFromPath(location.pathname);
+  const settingsSection: SettingsSection = settingsFromPath(location.pathname);
   const currentItem: NavigationItem = [...featureNavigation, ...accountSections]
     .find((item: NavigationItem) => item.id === section) ?? featureNavigation[0];
   const navigate = (targetSection: AppSection): void => {
-    setSection(targetSection);
+    routerNavigate(sectionPaths[targetSection]);
     setMobileMenuOpen(false);
   };
-
-  let content: ReactElement;
-
-  if (section === "home") {
-    content = <HomePage user={user} />;
-  } else if (section === "settings") {
-    content = <SettingsPage user={user} />;
-  } else if (section === "administration") {
-    content = <UserManagement />;
-  } else {
-    content = (
-      <PlaceholderPage
-        title={currentItem.label}
-        description="This Nexo workspace is mapped and will be activated in its product increment."
-        icon={currentItem.icon}
-      />
-    );
-  }
+  const openSettings = (targetSection: SettingsSection): void => {
+    routerNavigate(`/settings/${targetSection}`);
+    setMobileMenuOpen(false);
+  };
+  const placeholder = (item: NavigationItem): ReactElement => <PlaceholderPage title={item.label} description="This Nexo workspace is mapped and will be activated in its product increment." icon={item.icon} />;
 
   return (
     <Shell $collapsed={collapsed}>
@@ -146,13 +153,6 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
             </HeaderTitle>
           </HeaderIdentity>
           <HeaderActions>
-            <IconButton
-              type="button"
-              aria-label={`Use ${mode === "dark" ? "light" : "dark"} theme`}
-              onClick={toggleTheme}
-            >
-              {mode === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-            </IconButton>
             <NotificationButton type="button" aria-label="Notifications">
               <Bell size={20} />
             </NotificationButton>
@@ -178,7 +178,18 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
             ))}
           </MobileNavigation>
         </Header>
-        <Main>{content}</Main>
+        <Main>
+          <Routes>
+            <Route path="/" element={<HomePage user={user} onNavigate={navigate} onOpenSettings={openSettings} />} />
+            {featureNavigation.filter((item: NavigationItem) => item.id !== "home").map((item: NavigationItem) => (
+              <Route key={item.id} path={sectionPaths[item.id]} element={placeholder(item)} />
+            ))}
+            <Route path="/settings/:settingsSection" element={<SettingsPage user={user} section={settingsSection} onSectionChange={openSettings} />} />
+            <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+            <Route path="/administration" element={<UserManagement />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Main>
       </Workspace>
     </Shell>
   );

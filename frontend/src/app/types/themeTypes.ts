@@ -6,4 +6,4 @@ export type NexoTheme = {
   spacing: Record<"xs" | "sm" | "md" | "lg" | "xl", string>;
   radius: Record<"control" | "md" | "round", string>;
 };
-export type ThemeState = { mode: ThemeMode; toggle: () => void };
+export type ThemeState = { mode: ThemeMode; toggle: () => void; setMode: (mode: ThemeMode) => void };

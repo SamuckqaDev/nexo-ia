@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,9 @@ public class UserAccount {
     @Column(name = "display_name", nullable = false, length = 120)
     private String name;
 
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private UserRole role;
@@ -54,5 +58,12 @@ public class UserAccount {
 
     public void changeStatus(UserStatus status) {
         this.status = status;
+    }
+
+    public void updateProfile(String username, String email, String name, LocalDate birthDate) {
+        this.username = username;
+        this.email = email;
+        this.name = name;
+        this.birthDate = birthDate;
     }
 }

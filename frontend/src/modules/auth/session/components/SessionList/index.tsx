@@ -2,6 +2,8 @@ import { Desktop, DeviceMobile, SignOut } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
+import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
+import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import type { ActiveSession } from "../../../types/sessionTypes";
 import { useSessionManagement } from "../../hooks/useSessionManagement";
 import {
@@ -41,6 +43,7 @@ function deviceName(userAgent: string): string {
 
 export function SessionList(): ReactElement {
   const { query, revokeMutation, revoke, revokeOthers, isRevokingOthers } = useSessionManagement();
+  const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
   const sessions: ActiveSession[] = query.data ?? [];
   const hasOtherSessions: boolean = sessions.some((session: ActiveSession) => !session.current);
 
@@ -56,7 +59,7 @@ export function SessionList(): ReactElement {
 
       {hasOtherSessions && (
         <Button type="button" variant="outline" icon={SignOut}
-          disabled={isRevokingOthers} onClick={revokeOthers}>
+          disabled={isRevokingOthers} onClick={(): void => { ask({ title: "Revoke all other sessions?", message: "Every other connected device will lose access immediately. This session will remain active.", confirmLabel: "Revoke sessions", tone: "danger" }).then((confirmed: boolean) => { if (confirmed) revokeOthers(); }); }}>
           {isRevokingOthers ? "Revoking…" : "Revoke all other sessions"}
         </Button>
       )}
@@ -88,7 +91,7 @@ export function SessionList(): ReactElement {
                       variant="outline"
                       icon={SignOut}
                       disabled={revokeMutation.isPending}
-                      onClick={(): void => revoke(session.id)}
+                      onClick={(): void => { ask({ title: "Revoke this session?", message: "This device will immediately lose access to Nexo.", confirmLabel: "Revoke session", tone: "danger" }).then((confirmed: boolean) => { if (confirmed) revoke(session.id); }); }}
                     >
                       Revoke
                     </Button>

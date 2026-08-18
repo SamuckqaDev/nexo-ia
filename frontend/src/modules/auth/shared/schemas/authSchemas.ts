@@ -5,6 +5,7 @@ export const userSchema = z.object({
   username: z.string(),
   email: z.email(),
   name: z.string(),
+  birthDate: z.iso.date().nullable(),
   createdAt: z.iso.datetime(),
   role: z.enum(["OWNER", "MEMBER"])
 });

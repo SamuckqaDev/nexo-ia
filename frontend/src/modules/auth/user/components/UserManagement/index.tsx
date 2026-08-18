@@ -2,6 +2,8 @@ import { At, EnvelopeSimple, IdentificationCard, LockKey, UserMinus, UserPlus } 
 import { useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Input } from "../../../../../shared/components/Input";
+import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
+import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { PASSWORD_REQUIREMENTS } from "../../../../../shared/security/schemas/passwordSchema";
 import type { ManagedUser } from "../../../types/userManagementTypes";
 import { useUserManagement } from "../../hooks/useUserManagement";
@@ -10,6 +12,7 @@ import { Badge, Description, Form, Header, Identity, Item, List, Meta, Name, Pan
 
 export function UserManagement(): ReactElement {
   const [sessionsUserId, setSessionsUserId] = useState<string | null>(null);
+  const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
   const { users, form, isLoading, isCreating, updatingUserId, submit, changeStatus, generatePassword } = useUserManagement();
   const { register, formState: { errors } } = form;
   return <Panel aria-labelledby="users-title">
@@ -25,6 +28,6 @@ export function UserManagement(): ReactElement {
       <Button type="submit" icon={UserPlus} disabled={isCreating}>{isCreating ? "Creating…" : "Create Member"}</Button>
     </Form>
     {isLoading && <Description>Loading users…</Description>}
-    <List>{users.map((user: ManagedUser) => <Item key={user.id}><Identity><Name>{user.name}<Badge $active={user.status === "ACTIVE"}>{user.status}</Badge></Name><Meta>@{user.username} · {user.email} · {user.role}</Meta></Identity>{user.role === "MEMBER" && <><Button type="button" variant="outline" onClick={():void=>setSessionsUserId(sessionsUserId === user.id ? null : user.id)}>{sessionsUserId === user.id ? "Hide sessions" : "Sessions"}</Button><Button type="button" variant="outline" icon={user.status === "ACTIVE" ? UserMinus : UserPlus} disabled={updatingUserId === user.id} onClick={():void=>changeStatus(user.id,user.status === "ACTIVE" ? "DISABLED" : "ACTIVE")}>{user.status === "ACTIVE" ? "Disable" : "Activate"}</Button>{sessionsUserId === user.id && <MemberSessions userId={user.id} />}</>}</Item>)}</List>
+    <List>{users.map((user: ManagedUser) => <Item key={user.id}><Identity><Name>{user.name}<Badge $active={user.status === "ACTIVE"}>{user.status}</Badge></Name><Meta>@{user.username} · {user.email} · {user.role}</Meta></Identity>{user.role === "MEMBER" && <><Button type="button" variant="outline" onClick={():void=>setSessionsUserId(sessionsUserId === user.id ? null : user.id)}>{sessionsUserId === user.id ? "Hide sessions" : "Sessions"}</Button><Button type="button" variant="outline" icon={user.status === "ACTIVE" ? UserMinus : UserPlus} disabled={updatingUserId === user.id} onClick={():void=>{ if(user.status!=="ACTIVE"){changeStatus(user.id,"ACTIVE");return;} ask({title:"Disable this member?",message:`${user.name} will immediately lose access and every active session will be revoked.`,confirmLabel:"Disable member",tone:"danger"}).then((confirmed:boolean)=>{if(confirmed)changeStatus(user.id,"DISABLED");}); }}>{user.status === "ACTIVE" ? "Disable" : "Activate"}</Button>{sessionsUserId === user.id && <MemberSessions userId={user.id} />}</>}</Item>)}</List>
   </Panel>;
 }

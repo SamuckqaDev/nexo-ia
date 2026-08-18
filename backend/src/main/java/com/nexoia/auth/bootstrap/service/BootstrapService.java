@@ -72,6 +72,6 @@ public class BootstrapService {
 
     private UserResponse toResponse(UserAccount user) {
         return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getName(),
-                user.getCreatedAt(), user.getRole());
+                user.getBirthDate(), user.getCreatedAt(), user.getRole());
     }
 }

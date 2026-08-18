@@ -38,6 +38,11 @@ service accounts, multiple organizations per user, and self-registration remain 
 - register one or more local Ollama endpoints owned by the organization;
 - test endpoint health and list installed chat models;
 - enable or disable models and preserve the selected model per conversation;
+- require first-use provider setup when the authenticated user has no available provider;
+- support user-scoped local, home-server, OpenAI, Gemini, Anthropic, and OpenAI-compatible endpoint
+  configurations through the Provider Registry;
+- test a connection before saving, refresh models from the provider, and isolate provider records by
+  user; never silently fall back to another provider;
 - never perform a silent remote fallback;
 - record endpoint failure without exposing internal network or credential details to unauthorized
   users.

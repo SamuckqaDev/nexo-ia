@@ -1,0 +1,2 @@
+ALTER TABLE user_account
+    ALTER COLUMN age TYPE INTEGER;

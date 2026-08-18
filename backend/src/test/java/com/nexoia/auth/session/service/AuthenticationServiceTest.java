@@ -16,6 +16,9 @@ import com.nexoia.auth.token.dto.IssuedTokenPair;
 import com.nexoia.auth.token.service.TokenCookieService;
 import com.nexoia.auth.token.service.TokenSessionService;
 import com.nexoia.auth.user.model.UserRole;
+import com.nexoia.auth.user.model.UserAccount;
+import com.nexoia.auth.user.model.UserStatus;
+import com.nexoia.auth.user.repository.UserAccountRepository;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,13 +46,16 @@ class AuthenticationServiceTest {
     private ClientAccessService clientAccessService;
     @Mock
     private LoginAttemptService loginAttemptService;
+    @Mock
+    private UserAccountRepository userAccountRepository;
 
     private AuthenticationService authenticationService;
 
     @BeforeEach
     void setUp() {
         authenticationService = new AuthenticationService(authenticationManager,
-                tokenSessionService, tokenCookieService, clientAccessService, loginAttemptService);
+                tokenSessionService, tokenCookieService, clientAccessService, loginAttemptService,
+                userAccountRepository);
     }
 
     @Test
@@ -68,6 +74,10 @@ class AuthenticationServiceTest {
                 "refresh", "hash", createdAt.plusSeconds(3600));
         when(clientAccessService.extract(request)).thenReturn(metadata);
         when(tokenSessionService.start(principal, metadata)).thenReturn(tokens);
+        when(userAccountRepository.findById(userId)).thenReturn(java.util.Optional.of(
+                UserAccount.builder().id(userId).username("owner").email("owner@nexo.local")
+                        .name("Owner").role(UserRole.OWNER).status(UserStatus.ACTIVE)
+                        .createdAt(createdAt).updatedAt(createdAt).build()));
 
         var user = authenticationService.login(
                 new LoginRequest("owner", "a-strong-password"), request, response);

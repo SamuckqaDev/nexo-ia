@@ -43,6 +43,20 @@ and the first backend-to-frontend system contract. See
 Small, source-backed lessons discovered during development live in [pills](pills/README.md). A pill
 captures one finding, its evidence, and its concrete impact on Nexo IA.
 
+## Development startup
+
+Start or recreate the complete development environment with:
+
+```bash
+./scripts/dev-up.sh
+```
+
+The script detects Docker Compose or Podman Compose, creates a private `.env` with random local
+secrets when absent, removes only previous Nexo IA containers, and preserves named volumes. It then
+builds the backend image and starts PostgreSQL, Mailpit, and the React frontend through
+`npm run dev` on Node.js 24. The default addresses are frontend `http://127.0.0.1:5173`, backend
+`http://127.0.0.1:8080`, and Mailpit `http://127.0.0.1:8025`.
+
 ## Documentation site
 
 The visual site includes a local Markdown documentation portal. Markdown files in `docs/` remain the

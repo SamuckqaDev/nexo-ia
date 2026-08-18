@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<BaseResponse<Void>> applicationErrorResponse(
             ApplicationException exception) {
-        log.warn("Application request failed: {}", exception.getMessage());
+        log.warn("[NEXO-BACK][ERROR] Application request failed status={} message={}", exception.getStatus(), exception.getMessage());
 
         return ResponseEntity
                 .status(exception.getStatus())
@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse<Void>> handleUnexpectedException(Exception exception) {
         InternalApplicationException internalException = new InternalApplicationException(exception);
-        log.error("Unexpected application failure", exception);
+        log.error("[NEXO-BACK][ERROR] Unexpected application failure", exception);
 
         return ResponseEntity
                 .status(internalException.getStatus())

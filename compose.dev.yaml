@@ -1,4 +1,8 @@
 services:
+  backend:
+    ports:
+      - "127.0.0.1:${NEXO_SERVER_PORT:-8080}:8080"
+
   postgres:
     ports:
       - "127.0.0.1:5432:5432"
@@ -7,3 +11,23 @@ services:
     ports:
       - "127.0.0.1:1025:1025"
       - "127.0.0.1:8025:8025"
+
+  frontend-dev:
+    image: docker.io/library/node:24-alpine
+    working_dir: /workspace
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      NEXO_DEV_API_TARGET: http://backend:8080
+    volumes:
+      - ./frontend:/workspace:Z
+      - nexo-frontend-node-modules:/workspace/node_modules
+    ports:
+      - "127.0.0.1:${NEXO_FRONTEND_DEV_PORT:-5173}:5173"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - nexo-edge
+
+volumes:
+  nexo-frontend-node-modules:

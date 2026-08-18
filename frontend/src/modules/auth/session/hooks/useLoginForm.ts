@@ -20,11 +20,15 @@ export function useLoginForm(): LoginFormResult {
   const mutation: LoginFormResult["mutation"] = useMutation({
     mutationFn: login,
     onSuccess: () => {
+      if (import.meta.env.DEV) console.info("[NEXO-FRONT][AUTH] Login succeeded");
       form.reset();
       showSnackbar("Welcome back to Nexo IA.", { variant: "success" });
       return queryClient.invalidateQueries({ queryKey: ["auth"] });
     },
-    onError: (error) => showSnackbar(error.message, { variant: "error" })
+    onError: (error) => {
+      if (import.meta.env.DEV) console.warn("[NEXO-FRONT][AUTH] Login failed", error.message);
+      showSnackbar(error.message, { variant: "error" });
+    }
   });
 
   const submit: LoginFormResult["submit"] = form.handleSubmit(

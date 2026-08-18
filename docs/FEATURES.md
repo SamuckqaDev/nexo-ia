@@ -315,6 +315,10 @@ support compatible remote providers, while ComfyUI remains behind a Nexo IA-owne
 |---|---|---|---|
 | PROV-01 | P1 | Provider registry | Configure local, organization-hosted, and remote model providers with scoped availability. |
 | PROV-02 | P1 | Secret references | Store provider credentials outside prompts, logs, and ordinary configuration records. |
+| PROV-03 | P1 | First-use provider setup | Require a user with no provider to choose a provider and pass a connection test before use. |
+| PROV-04 | P1 | User provider configuration | Save each user's provider endpoint and protected configuration with ownership isolation. |
+| PROV-05 | P1 | Model discovery | Synchronize models from the provider, allow refresh, and expose only discovered models for selection. |
+| PROV-06 | P1 | Provider lifecycle | Allow users to edit, retest, select a default model, disable, and remove their own providers. |
 | PRIV-01 | P1 | Privacy Gateway | Classify and minimize context, detect secrets and personal data, redact, and enforce provider transmission policy. |
 | PRIV-02 | P1 | Remote transparency | Explain which selected data and provider leave the trusted boundary; never use silent remote fallback. |
 | USAGE-01 | P1 | Token accounting | Attribute input, output, cached when available, model, provider, latency, and estimated cost to users, teams, projects, and runs. |
