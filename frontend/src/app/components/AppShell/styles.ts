@@ -36,10 +36,10 @@ export const Brand = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
-  padding-bottom: ${({ theme }) => theme.spacing.lg};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  padding-bottom: ${({ theme }) => theme.spacing.md};
   border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
 
   &::after {
@@ -93,12 +93,12 @@ export const SidebarToggle = styled.button<{ $collapsed?: boolean }>`
 
 export const Navigation = styled.nav`
   display: grid;
-  gap: 0.35rem;
+  gap: 0.25rem;
 `;
 
 export const NavigationLabel = styled.span<{ $hidden: boolean }>`
   display: ${({ $hidden }) => ($hidden ? "none" : "block")};
-  margin: 0 0 ${({ theme }) => theme.spacing.sm};
+  margin: 0 0 ${({ theme }) => theme.spacing.xs};
   padding: 0 0.25rem;
   color: ${({ theme }) => theme.colors.textSubtle};
   font-size: 0.68rem;
@@ -115,11 +115,11 @@ export const NavButton = styled.button<{ $active: boolean; $collapsed: boolean }
   width: 100%;
   border: 1px solid ${({ theme, $active }) => ($active ? theme.colors.lineStrong : theme.colors.line)};
   border-radius: ${({ theme }) => theme.radius.control};
-  padding: 0.75rem;
+  padding: 0.55rem 0.7rem;
   background: ${({ theme, $active }) => ($active ? theme.colors.surfaceAccent : "transparent")};
   color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textMuted)};
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -129,8 +129,8 @@ export const NavButton = styled.button<{ $active: boolean; $collapsed: boolean }
 
   &::before {
     position: absolute;
-    top: 0.55rem;
-    bottom: 0.55rem;
+    top: 0.4rem;
+    bottom: 0.4rem;
     left: 0;
     width: 0.2rem;
     border-radius: ${({ theme }) => theme.radius.round};
@@ -157,17 +157,17 @@ export const Header = styled.header`
   position: relative;
   z-index: 10;
   display: flex;
-  min-height: 5rem;
+  min-height: 3.5rem;
   align-items: center;
   justify-content: space-between;
   gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.xl};
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.xl};
   border-bottom: 1px solid ${({ theme }) => theme.colors.line};
   background: ${({ theme }) => theme.colors.surface};
   backdrop-filter: blur(18px);
 
   @media (max-width: 40rem) {
-    padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+    padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
   }
 `;
 
@@ -244,8 +244,8 @@ export const HeaderActions = styled.div`
 
 export const IconButton = styled.button`
   display: grid;
-  width: 2.7rem;
-  height: 2.7rem;
+  width: 2.3rem;
+  height: 2.3rem;
   place-items: center;
   border: 1px solid ${({ theme }) => theme.colors.line};
   border-radius: ${({ theme }) => theme.radius.control};
