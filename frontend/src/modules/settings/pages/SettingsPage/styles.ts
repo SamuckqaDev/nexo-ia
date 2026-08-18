@@ -113,24 +113,8 @@ export const Status = styled.span`
   font-weight: 700;
 `;
 
-export const PendingState = styled.p`
-  margin: 0;
-  padding: ${({ theme }) => theme.spacing.md};
-  border: 1px dashed ${({ theme }) => theme.colors.lineStrong};
-  border-radius: ${({ theme }) => theme.radius.control};
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: 0.84rem;
-`;
 
 export const PreferenceGrid = styled.div`display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:${({theme})=>theme.spacing.md};@media(max-width:42rem){grid-template-columns:1fr;}`;
 export const PreferenceField = styled.label`display:grid;gap:${({theme})=>theme.spacing.sm};padding:${({theme})=>theme.spacing.md};border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.surface};span{color:${({theme})=>theme.colors.textMuted};font-size:.74rem;}strong{font-size:.88rem;}`;
 export const Select = styled.select`width:100%;border:1px solid ${({theme})=>theme.colors.lineStrong};border-radius:${({theme})=>theme.radius.control};padding:.72rem .8rem;background:${({theme})=>theme.colors.surfaceStrong};color:${({theme})=>theme.colors.text};font:inherit;font-size:.8rem;cursor:pointer;`;
 
-export const Periods = styled.div`display:flex;flex-wrap:wrap;gap:${({theme})=>theme.spacing.xs};`;
-export const PeriodButton = styled.button`border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};padding:.5rem .75rem;background:${({theme})=>theme.colors.surface};color:${({theme})=>theme.colors.textMuted};font:inherit;font-size:.72rem;cursor:pointer;&:first-child{border-color:${({theme})=>theme.colors.lineStrong};color:${({theme})=>theme.colors.primarySoft};}`;
-export const MetricGrid = styled.div`display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:${({theme})=>theme.spacing.sm};@media(max-width:44rem){grid-template-columns:repeat(2,minmax(0,1fr));}`;
-export const Metric = styled.div`padding:${({theme})=>theme.spacing.md};border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.surface};span{display:block;color:${({theme})=>theme.colors.textMuted};font-size:.72rem;}strong{display:block;margin-top:.35rem;font-size:1.15rem;}`;
-export const Chart = styled.div`display:grid;min-height:12rem;place-items:center;border-left:1px solid ${({theme})=>theme.colors.line};border-bottom:1px solid ${({theme})=>theme.colors.line};background:repeating-linear-gradient(to bottom,transparent 0,transparent 2.95rem,${({theme})=>theme.colors.line} 3rem);`;
-export const ChartEmpty = styled.span`padding:.5rem .75rem;border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.surfaceStrong};color:${({theme})=>theme.colors.textMuted};font-size:.75rem;`;
-export const UsageBreakdown = styled.div`display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:${({theme})=>theme.spacing.sm};@media(max-width:38rem){grid-template-columns:1fr;}`;
-export const UsageItem = styled.div`display:flex;justify-content:space-between;gap:${({theme})=>theme.spacing.md};padding:${({theme})=>theme.spacing.md};border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.surface};span{color:${({theme})=>theme.colors.textMuted};font-size:.74rem;}strong{font-size:.76rem;text-align:right;}`;

@@ -7,26 +7,20 @@ import { ProfileAvatar } from "../../../auth/profile/components/ProfileAvatar";
 import { ProfileForm } from "../../../auth/profile/components/ProfileForm";
 import { ProviderStatusCard } from "../../../provider/components/ProviderStatusCard";
 import { ProviderRegistry } from "../../../provider/components/ProviderRegistry";
+import { UsageOverview } from "../../../usage/components/UsageOverview";
 import { SessionList } from "../../../auth/session/components/SessionList";
 import type { SettingsPageProps, SettingsSection } from "../../types/settingsTypes";
 import { usePreferenceStore } from "../../stores/usePreferenceStore";
 import type { AppLanguage, PreferenceState } from "../../types/preferenceTypes";
 import {
-  Chart,
-  ChartEmpty,
   DataGrid,
   DataItem,
   Description,
-  Metric,
-  MetricGrid,
   NavButton,
   Navigation,
   Page,
-  PendingState,
   PreferenceField,
   PreferenceGrid,
-  PeriodButton,
-  Periods,
   ProfileContent,
   ProfileDetails,
   Section,
@@ -35,8 +29,6 @@ import {
   Select,
   Status,
   Title,
-  UsageBreakdown,
-  UsageItem
 } from "./styles";
 
 const settingsNavigation: Array<{ id: SettingsSection; label: string }> = [
@@ -144,30 +136,9 @@ export function SettingsPage({ user, section, onSectionChange }: SettingsPagePro
         <Section>
           <SectionHeader>
             <SectionIcon><ChartDonut size={22} weight="duotone" /></SectionIcon>
-            <div><Title>Usage and tokens</Title><Description>Inspect model consumption, latency, processing location, and estimated cost.</Description></div>
-            <Status>Planned</Status>
+            <div><Title>Usage and tokens</Title><Description>Inspect your model consumption, latency, and processing location.</Description></div>
           </SectionHeader>
-          <Periods aria-label="Usage period">
-            <PeriodButton type="button">7 days</PeriodButton>
-            <PeriodButton type="button">30 days</PeriodButton>
-            <PeriodButton type="button">This month</PeriodButton>
-          </Periods>
-          <MetricGrid>
-            <Metric><span>Input tokens</span><strong>—</strong></Metric>
-            <Metric><span>Output tokens</span><strong>—</strong></Metric>
-            <Metric><span>Total tokens</span><strong>—</strong></Metric>
-            <Metric><span>Requests</span><strong>—</strong></Metric>
-            <Metric><span>Average latency</span><strong>—</strong></Metric>
-            <Metric><span>Estimated cost</span><strong>—</strong></Metric>
-          </MetricGrid>
-          <Chart><ChartEmpty>No usage has been recorded yet</ChartEmpty></Chart>
-          <UsageBreakdown>
-            <UsageItem><span>By provider</span><strong>No data</strong></UsageItem>
-            <UsageItem><span>By model</span><strong>No data</strong></UsageItem>
-            <UsageItem><span>By capability</span><strong>Chat · Cowork · RAG · Images</strong></UsageItem>
-            <UsageItem><span>Processing location</span><strong>Local or remote</strong></UsageItem>
-          </UsageBreakdown>
-          <PendingState>Usage details will populate after provider execution and accounting are implemented.</PendingState>
+          <UsageOverview />
         </Section>
       )}
     </Page>
