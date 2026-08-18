@@ -60,6 +60,12 @@ rewriting conversations.
 - assemble only the authorized conversation history within an explicit token budget;
 - prevent concurrent requests from corrupting message order or conversation state.
 
+The chat surface has `Chat` and `Agent` choices. Chat is the default and may invoke explicitly
+authorized capabilities without becoming an autonomous run. Agent is a future conversation execution
+mode and must expose its plan, tools, limits, approvals, evidence, and stop reason before it can be
+enabled. Image generation is a capability invoked from either mode, not a third mode; it stays
+unavailable in release `0.1` until the local ComfyUI job runtime exists.
+
 Sharing, attachments, RAG, Memory, tools, Skills, Agent Mode, Cowork, and automations are outside the
 first release.
 

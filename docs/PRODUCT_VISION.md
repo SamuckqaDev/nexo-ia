@@ -140,8 +140,26 @@ Every operation shown by the Vault Explorer follows the user's current grants.
 
 ### Chat
 
-Best for questions, explanations, brainstorming, and short requests. Chat may use knowledge and
-read-only tools, but it does not imply an autonomous multi-step execution.
+Chat is the default conversation mode, best for questions, explanations, brainstorming, and short
+requests. A Chat message can invoke an explicitly relevant, authorized capability—for example,
+retrieval, a read-only inspection, or an image-generation request—but it does not imply autonomous
+multi-step execution. The interface always identifies the selected provider and model.
+
+### Conversation Agent
+
+Agent is a second mode within the same private conversation, selected when a user has an objective
+that benefits from deliberate multi-step work. It makes the plan, selected context, intended tools,
+limits, approval requests, execution timeline, evidence, and stop reason visible in the conversation.
+Agent is not defined merely by having tools: each tool remains subject to the Permission Engine and a
+plan never grants an action automatically. Until the Agent runtime is implemented, the interface must
+show the mode as unavailable rather than simulate autonomous behavior.
+
+### Creative generation
+
+Image generation is a conversation capability rather than a third conversation mode. A user can
+initiate a governed image job from Chat or Agent, select its supported model and parameters, and see
+the resulting artifact with its prompt, provider, parameters, and provenance in the conversation.
+The initial implementation is a local ComfyUI job and remains unavailable until that runtime exists.
 
 ### Cowork
 

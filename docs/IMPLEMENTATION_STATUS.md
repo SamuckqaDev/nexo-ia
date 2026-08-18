@@ -109,23 +109,23 @@ minimal vertical connection plus the first release `0.1` identity slice.
 
 ## Intentionally incomplete
 
-- Maven Wrapper scripts and JAR have not been generated because Java/Maven are unavailable in the
-  preserved workstation environment.
-- Backend/frontend production container images are not added until their builds can be executed and
-  tested rather than written speculatively.
+- The Maven Wrapper 3.9.16 and multi-stage backend/frontend container images are present. Their
+  complete container build and runtime verification remains a release check.
 - The official Skill validator cannot run in the preserved environment because its `PyYAML`
   dependency is absent. Equivalent frontmatter, naming, key, and length checks pass through Node;
   rerun the official validator when the dependency is available.
-- The base Compose service currently starts PostgreSQL only. Backend and frontend remain development
-  processes until their container images pass local verification. Development uses
-  `compose.dev.yaml`; production must not apply that database-port override.
+- The base Compose service starts PostgreSQL, backend, and the production frontend image.
+  Development uses `compose.dev.yaml`; production must not apply that database-port override.
 - Organization membership beyond installation-level Owner/Member roles remains a subsequent
   identity increment.
 - Ollama discovery, conversation, SSE, usage, and audit remain subsequent release `0.1` increments.
+- The conversation foundation persists private conversations, messages, and the selected provider/model
+  for each conversation. The Nexo chat interface exposes the same selection; model inference,
+  streaming, cancellation, Agent runtime, and image jobs remain pending their documented contracts.
 
 ## Next verification
 
 Next delivery checks:
 
-1. generate and verify Maven Wrapper 3.9.16;
-2. add tested multi-stage backend and frontend container images to Compose.
+1. build and run the existing multi-stage backend and frontend images;
+2. verify the complete Compose runtime against PostgreSQL and Ollama.

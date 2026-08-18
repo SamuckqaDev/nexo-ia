@@ -21,6 +21,8 @@ that requirements, decisions, tests, and commits can refer to it consistently.
 | CHAT-05 | P1 | Context budget | Assemble history within an explicit token budget. |
 | CHAT-06 | P1 | Generation controls | Configure supported parameters with safe defaults. |
 | CHAT-07 | P2 | Provider abstraction | Add opt-in providers without changing tools or conversation rules. |
+| CHAT-08 | P1 | Conversation modes | Make Chat the default and expose Agent only when its planned, permissioned execution runtime is available. |
+| CHAT-09 | P1 | Capability launcher | Let Chat invoke explicitly authorized capabilities without implying an autonomous agent run. |
 
 ## Knowledge Vaults and RAG
 

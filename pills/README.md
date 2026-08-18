@@ -40,3 +40,5 @@ contract or become the sole source for a security-sensitive decision.
 | [PILL-003](PILL-003-baeldung-as-practical-reference.md) | How to use Baeldung without copying stale versions | Accepted |
 | [PILL-004](PILL-004-java-21-to-25.md) | What Java 25 adds beyond Java 21 | Accepted |
 | [PILL-005](PILL-005-one-database-until-evidence.md) | Why the baseline uses one application database | Accepted |
+| [PILL-006](PILL-006-pessimistic-lock-for-ordered-appends.md) | Pessimistic locking for ordered message appends | Accepted |
+| [PILL-007](PILL-007-not-found-instead-of-unauthorized.md) | Resource isolation answers 404, never 401 | Accepted |
