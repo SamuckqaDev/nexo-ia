@@ -1,19 +1,53 @@
-export type MessageRole = "USER" | "ASSISTANT";
+import type { z } from "zod";
+import type {
+  conversationMessageSchema,
+  conversationSchema,
+  messageStatusSchema,
+  processingLocationSchema,
+  tokenSourceSchema
+} from "../schemas/chatSchemas";
+import type {
+  cancelledEventSchema,
+  completedEventSchema,
+  startedEventSchema,
+  streamErrorEventSchema,
+  streamEventSchema,
+  tokenEventSchema,
+  usageEventSchema
+} from "../schemas/streamEventSchemas";
 
-export interface Conversation {
-  id: string;
-  title: string;
-  providerConfigurationId: string | null;
-  selectedModel: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type Conversation = z.infer<typeof conversationSchema>;
+export type ConversationMessage = z.infer<typeof conversationMessageSchema>;
+export type MessageStatus = z.infer<typeof messageStatusSchema>;
+export type TokenSource = z.infer<typeof tokenSourceSchema>;
+export type ProcessingLocation = z.infer<typeof processingLocationSchema>;
+
+export type StartedEvent = z.infer<typeof startedEventSchema>;
+export type TokenEvent = z.infer<typeof tokenEventSchema>;
+export type UsageEvent = z.infer<typeof usageEventSchema>;
+export type CompletedEvent = z.infer<typeof completedEventSchema>;
+export type CancelledEvent = z.infer<typeof cancelledEventSchema>;
+export type StreamErrorEvent = z.infer<typeof streamErrorEventSchema>;
+export type StreamEvent = z.infer<typeof streamEventSchema>;
+
+/** Lifecycle of the local streaming surface, distinct from the persisted message status. */
+export type StreamPhase =
+  | "idle"
+  | "starting"
+  | "streaming"
+  | "cancelling"
+  | "cancelled"
+  | "completed"
+  | "failed"
+  | "disconnected";
+
+export type ChatStreamHandlers = {
+  onStarted: (event: StartedEvent) => void;
+  onToken: (event: TokenEvent) => void;
+  onUsage: (event: UsageEvent) => void;
+  onCompleted: (event: CompletedEvent) => void;
+  onCancelled: (event: CancelledEvent) => void;
+  onError: (event: StreamErrorEvent) => void;
+};
 
 export type ConversationMode = "chat" | "agent";
-
-export interface ConversationMessage {
-  id: string;
-  role: MessageRole;
-  content: string;
-  createdAt: string;
-}

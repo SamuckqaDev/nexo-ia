@@ -1,0 +1,61 @@
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { ThemeProvider } from "styled-components";
+import { darkTheme } from "../../../../../../../app/styles/theme";
+import type { ConversationMessage } from "../../../../types/chatTypes";
+import { MessageItem } from "./index";
+
+const message = (overrides: Partial<ConversationMessage> = {}): ConversationMessage => ({
+  id: "11111111-1111-1111-1111-111111111111",
+  role: "ASSISTANT",
+  status: "COMPLETED",
+  content: "Hello",
+  model: "qwen3:8b",
+  inputTokens: 20,
+  outputTokens: 3,
+  tokenSource: "PROVIDER",
+  latencyMs: 1500,
+  processingLocation: "LOCAL",
+  failureCode: null,
+  createdAt: "2026-08-18T12:00:00Z",
+  completedAt: "2026-08-18T12:00:02Z",
+  ...overrides
+});
+
+const renderItem = (value: ConversationMessage) =>
+  render(<ThemeProvider theme={darkTheme}><MessageItem message={value} /></ThemeProvider>);
+
+describe("MessageItem", () => {
+  it("shows the model, token usage and latency of a completed answer", () => {
+    renderItem(message());
+
+    expect(screen.getByText("qwen3:8b")).toBeInTheDocument();
+    expect(screen.getByText("20 in · 3 out")).toBeInTheDocument();
+    expect(screen.getByText("1.5s")).toBeInTheDocument();
+  });
+
+  it("labels an estimated token count instead of presenting it as measured", () => {
+    renderItem(message({ tokenSource: "ESTIMATE" }));
+
+    expect(screen.getByText("20 in · 3 out (estimated)")).toBeInTheDocument();
+  });
+
+  it("states that a cancelled answer was stopped rather than showing it as normal", () => {
+    renderItem(message({ status: "CANCELLED", content: "Hel" }));
+
+    expect(screen.getByText(/you stopped this answer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hel/)).toBeInTheDocument();
+  });
+
+  it("states that a failed answer did not complete", () => {
+    renderItem(message({ status: "FAILED", content: "", failureCode: "PROVIDER_STREAM_FAILED" }));
+
+    expect(screen.getByText(/failed and was not completed/i)).toBeInTheDocument();
+  });
+
+  it("does not show execution metadata on a user message", () => {
+    renderItem(message({ role: "USER", content: "hi" }));
+
+    expect(screen.queryByText("qwen3:8b")).not.toBeInTheDocument();
+  });
+});

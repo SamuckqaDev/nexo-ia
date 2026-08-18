@@ -1,19 +1,85 @@
 import styled from "styled-components";
 
-export const Layout = styled.section`display:grid; grid-template-columns:17rem minmax(0,1fr); min-height:calc(100vh - 7rem); border:1px solid ${({ theme }) => theme.colors.line}; border-radius:24px; overflow:hidden; background:${({ theme }) => theme.colors.surface}; @media (max-width: 760px){grid-template-columns:1fr;}`;
-export const Sidebar = styled.aside`padding:1rem; border-right:1px solid ${({ theme }) => theme.colors.line}; background:${({ theme }) => theme.colors.surfaceAccent}; @media (max-width:760px){border-right:0;border-bottom:1px solid ${({ theme }) => theme.colors.line};}`;
-export const NewChat = styled.button`width:100%; border:0; border-radius:12px; padding:.8rem; background:${({ theme }) => theme.colors.primary}; color:${({ theme }) => theme.colors.background}; font:inherit; font-weight:700; cursor:pointer;`;
-export const ConversationList = styled.div`display:grid; gap:.35rem; margin-top:1rem;`;
-export const ConversationButton = styled.button<{ $active: boolean }>`border:0; border-radius:10px; padding:.7rem; text-align:left; color:${({ theme }) => theme.colors.text}; background:${({ $active, theme }) => $active ? theme.colors.surfaceStrong : "transparent"}; font:inherit; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`;
-export const Chat = styled.div`display:grid; grid-template-rows:auto 1fr auto; min-height:0;`;
-export const ChatHeader = styled.header`display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;border-bottom:1px solid ${({ theme }) => theme.colors.line};font-weight:700;@media(max-width:48rem){align-items:flex-start;flex-direction:column;}`;
-export const HeaderControls = styled.div`display:flex;flex-wrap:wrap;gap:.5rem;`;
-export const ModeButton = styled.button<{ $active: boolean }>`border:1px solid ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.line};border-radius:${({ theme }) => theme.radius.control};padding:.42rem .65rem;background:${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};color:${({ theme, $active }) => $active ? theme.colors.primarySoft : theme.colors.textMuted};font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;`;
-export const ModelSelect = styled.select`max-width:15rem;border:1px solid ${({ theme }) => theme.colors.line};border-radius:${({ theme }) => theme.radius.control};padding:.42rem .65rem;background:${({ theme }) => theme.colors.surfaceStrong};color:${({ theme }) => theme.colors.text};font:inherit;font-size:.72rem;`;
-export const CapabilityNote = styled.p`margin:0;padding:.55rem 1.25rem;background:${({ theme }) => theme.colors.dangerSurface};color:${({ theme }) => theme.colors.accentSoft};font-size:.74rem;`;
-export const Messages = styled.div`display:flex; flex-direction:column; gap:1rem; padding:1.25rem; overflow:auto;`;
-export const Bubble = styled.article<{ $user: boolean }>`max-width:min(48rem,85%); align-self:${({ $user }) => $user ? "flex-end" : "flex-start"}; border-radius:16px; padding:.85rem 1rem; white-space:pre-wrap; background:${({ $user, theme }) => $user ? theme.colors.primary : theme.colors.surfaceAccent}; color:${({ $user, theme }) => $user ? theme.colors.background : theme.colors.text};`;
-export const Composer = styled.form`display:flex; gap:.75rem; padding:1rem; border-top:1px solid ${({ theme }) => theme.colors.line};`;
-export const Input = styled.textarea`flex:1; resize:vertical; min-height:2.8rem; border:1px solid ${({ theme }) => theme.colors.line}; border-radius:12px; padding:.7rem; color:${({ theme }) => theme.colors.text}; background:${({ theme }) => theme.colors.surface}; font:inherit;`;
-export const Send = styled.button`border:0; border-radius:12px; padding:0 1rem; background:${({ theme }) => theme.colors.accent}; color:${({ theme }) => theme.colors.background}; font:inherit; font-weight:700; cursor:pointer; &:disabled{opacity:.5;cursor:not-allowed;}`;
-export const Empty = styled.p`color:${({ theme }) => theme.colors.textMuted}; text-align:center; margin:auto;`;
+export const Layout = styled.section`
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr);
+  min-height: calc(100vh - 7rem);
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.colors.surface};
+  overflow: hidden;
+
+  @media (max-width: 48rem) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const Chat = styled.div`
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+`;
+
+export const Header = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.lg}`};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+
+  @media (max-width: 48rem) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+`;
+
+export const Title = styled.h2`
+  overflow: hidden;
+  margin: 0;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+export const Controls = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+export const ModeButton = styled.button<{ $active: boolean }>`
+  border: 1px solid ${({ theme, $active }) => ($active ? theme.colors.primary : theme.colors.line)};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: 0.42rem 0.7rem;
+  background: ${({ theme, $active }) => ($active ? theme.colors.surfaceAccent : "transparent")};
+  color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textMuted)};
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 1px;
+  }
+`;
+
+export const CapabilityNote = styled.p`
+  margin: 0;
+  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.lg}`};
+  background: ${({ theme }) => theme.colors.dangerSurface};
+  color: ${({ theme }) => theme.colors.accentSoft};
+  font-size: 0.74rem;
+`;
+
+export const LoadFailure = styled.div`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.md};
+  justify-items: center;
+  margin: auto;
+  padding: ${({ theme }) => theme.spacing.xl};
+  color: ${({ theme }) => theme.colors.textMuted};
+  text-align: center;
+`;
