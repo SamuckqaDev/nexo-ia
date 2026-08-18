@@ -18,6 +18,7 @@ import { UserManagement } from "../../../modules/auth/user/components/UserManage
 import { SettingsPage } from "../../../modules/settings/pages/SettingsPage";
 import type { SettingsSection } from "../../../modules/settings/types/settingsTypes";
 import { HomePage } from "../../../modules/system/status/pages/HomePage";
+import { ChatPage } from "../../../modules/conversation/chat/pages/ChatPage";
 import type { AppSection, AppShellProps, NavigationItem } from "../../types/navigationTypes";
 import { PlaceholderPage } from "../PlaceholderPage";
 import { UserMenu } from "../UserMenu";
@@ -181,7 +182,8 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
         <Main>
           <Routes>
             <Route path="/" element={<HomePage user={user} onNavigate={navigate} onOpenSettings={openSettings} />} />
-            {featureNavigation.filter((item: NavigationItem) => item.id !== "home").map((item: NavigationItem) => (
+            <Route path="/chat" element={<ChatPage />} />
+            {featureNavigation.filter((item: NavigationItem) => item.id !== "home" && item.id !== "chat").map((item: NavigationItem) => (
               <Route key={item.id} path={sectionPaths[item.id]} element={placeholder(item)} />
             ))}
             <Route path="/settings/:settingsSection" element={<SettingsPage user={user} section={settingsSection} onSectionChange={openSettings} />} />
