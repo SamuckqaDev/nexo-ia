@@ -133,14 +133,22 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - The chat interface streams answers through a dedicated fetch client with Zod-validated frames,
   exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
   states, and reports model, token usage, latency, and processing location on completed answers. An
-  estimated token count is always labelled. Conversation creation uses an accessible dialog.
+  estimated token count is always labelled. Conversation creation uses an accessible dialog. The
+  workspace now follows the Nexo visual semantics: cyan identifies the assistant and processing,
+  coral identifies the person, model and privacy context stay visible in the conversation header,
+  and Chat, Agent, tools, and image capabilities live in the composer without replacing the thread.
+  Chat uses the wider application workspace, a compact one-line header, per-message copy actions,
+  and Nexo-branded loading and pre-token thinking states. A minimized resource rail keeps the
+  governed implementation plan, Agent tasks, generated artifacts, and media oriented at the right
+  edge and expands the selected section on demand. Capabilities without a connected runtime remain
+  explicit previews or empty states instead of suggesting work was executed.
 - Personal usage accounting is now readable. `GET /api/v1/usage` reports the authenticated member's
   own request counts by terminal state, input and output tokens, average latency, provider-reported
   versus estimated counts, a per-day token series, and breakdowns by model and processing location,
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- Ninety-one passing backend tests and thirty-one passing frontend tests, including cross-user
+- Ninety-one passing backend tests and forty-one passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was

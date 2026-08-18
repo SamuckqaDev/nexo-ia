@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../../../app/styles/theme";
 import type { ConversationMessage } from "../../../../types/chatTypes";
@@ -57,5 +57,16 @@ describe("MessageItem", () => {
     renderItem(message({ role: "USER", content: "hi" }));
 
     expect(screen.queryByText("qwen3:8b")).not.toBeInTheDocument();
+  });
+
+  it("copies the visible message content", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    renderItem(message({ content: "Copy this answer" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy content" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("Copy this answer"));
+    expect(screen.getByRole("button", { name: "Content copied" })).toBeInTheDocument();
   });
 });

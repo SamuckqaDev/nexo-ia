@@ -1,50 +1,12 @@
 import styled from "styled-components";
 
-export const Bubble = styled.article<{ $user: boolean }>`
-  max-width: min(48rem, 85%);
-  align-self: ${({ $user }) => ($user ? "flex-end" : "flex-start")};
-  border: 1px solid ${({ theme, $user }) => ($user ? "transparent" : theme.colors.line)};
-  border-radius: ${({ theme }) => theme.radius.md};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  background: ${({ theme, $user }) => ($user ? theme.colors.primary : theme.colors.surfaceAccent)};
-  color: ${({ theme, $user }) => ($user ? theme.colors.background : theme.colors.text)};
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-`;
-
-export const Badge = styled.p<{ $tone: "warning" | "danger" }>`
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: ${({ theme }) => `${theme.spacing.xs} 0 0`};
-  color: ${({ theme, $tone }) => ($tone === "danger" ? theme.colors.danger : theme.colors.accentSoft)};
-  font-size: 0.72rem;
-  font-weight: 700;
-`;
-
-export const Meta = styled.p`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin: ${({ theme }) => `${theme.spacing.xs} 0 0`};
-  color: ${({ theme }) => theme.colors.textSubtle};
-  font-size: 0.68rem;
-  font-variant-numeric: tabular-nums;
-`;
-
-export const Caret = styled.span`
-  display: inline-block;
-  width: 0.5rem;
-  color: ${({ theme }) => theme.colors.primary};
-  animation: blink 1s steps(2, start) infinite;
-
-  @keyframes blink {
-    to {
-      visibility: hidden;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
-`;
+export const Bubble = styled.article<{ $user:boolean }>`display:flex;width:min(52rem,100%);align-self:center;flex-direction:${({$user})=>$user?"row-reverse":"row"};align-items:flex-start;gap:${({theme})=>theme.spacing.sm};`;
+export const Actor = styled.span<{ $user:boolean }>`display:grid;width:2.2rem;height:2.2rem;flex:0 0 auto;place-items:center;border:1px solid ${({theme,$user})=>$user?theme.colors.accent:theme.colors.lineStrong};border-radius:${({theme})=>theme.radius.control};background:${({theme,$user})=>$user?theme.colors.dangerSurface:theme.colors.surfaceAccent};color:${({theme,$user})=>$user?theme.colors.accentSoft:theme.colors.primary};`;
+export const Content = styled.div<{ $user:boolean }>`max-width:min(44rem,calc(100% - 3rem));padding:${({theme,$user})=>$user?`${theme.spacing.sm} ${theme.spacing.md}`:".15rem 0"};border:${({theme,$user})=>$user?`1px solid ${theme.colors.accent}`:"0"};border-radius:${({theme})=>theme.radius.md};background:${({theme,$user})=>$user?theme.colors.dangerSurface:"transparent"};color:${({theme})=>theme.colors.text};`;
+export const ActionBar = styled.div<{ $user:boolean }>`display:flex;align-items:center;justify-content:space-between;gap:${({theme})=>theme.spacing.md};margin-bottom:.35rem;${({$user})=>$user?"flex-direction:row-reverse;":""}`;
+export const Role = styled.span<{ $user:boolean }>`display:block;color:${({theme,$user})=>$user?theme.colors.accentSoft:theme.colors.primarySoft};font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;`;
+export const CopyButton = styled.button`display:inline-flex;align-items:center;gap:.3rem;border:0;border-radius:${({theme})=>theme.radius.control};padding:.28rem .4rem;background:transparent;color:${({theme})=>theme.colors.textSubtle};font:inherit;font-size:.62rem;cursor:pointer;&:hover:not(:disabled),&:focus-visible{background:${({theme})=>theme.colors.surfaceAccent};color:${({theme})=>theme.colors.primary};}&:disabled{cursor:not-allowed;opacity:.35;}@media(max-width:36rem){span{display:none;}}`;
+export const Body = styled.div`white-space:pre-wrap;overflow-wrap:anywhere;font-size:.86rem;line-height:1.72;`;
+export const Badge = styled.p<{ $tone:"warning"|"danger" }>`display:flex;align-items:center;gap:.35rem;margin:${({theme})=>`${theme.spacing.xs} 0 0`};color:${({theme,$tone})=>$tone==="danger"?theme.colors.danger:theme.colors.accentSoft};font-size:.72rem;font-weight:700;`;
+export const Meta = styled.p`display:flex;flex-wrap:wrap;gap:.6rem;margin:${({theme})=>`${theme.spacing.sm} 0 0`};padding-top:${({theme})=>theme.spacing.xs};border-top:1px solid ${({theme})=>theme.colors.line};color:${({theme})=>theme.colors.textSubtle};font-size:.64rem;font-variant-numeric:tabular-nums;`;
+export const Caret = styled.span`display:inline-block;width:.5rem;color:${({theme})=>theme.colors.primary};animation:blink 1s steps(2,start) infinite;@keyframes blink{to{visibility:hidden;}}@media(prefers-reduced-motion:reduce){animation:none;}`;

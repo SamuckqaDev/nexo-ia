@@ -179,7 +179,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
             ))}
           </MobileNavigation>
         </Header>
-        <Main>
+        <Main $wide={section === "chat"}>
           <Routes>
             <Route path="/" element={<HomePage user={user} onNavigate={navigate} onOpenSettings={openSettings} />} />
             <Route path="/chat" element={<ChatPage />} />

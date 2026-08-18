@@ -266,10 +266,10 @@ export const NotificationButton = styled(IconButton)`
   }
 `;
 
-export const Main = styled.main`
-  width: min(78rem, 100%);
+export const Main = styled.main<{ $wide?: boolean }>`
+  width: ${({ $wide }) => $wide ? "100%" : "min(78rem, 100%)"};
   margin: 0 auto;
-  padding: ${({ theme }) => theme.spacing.xl};
+  padding: ${({ $wide, theme }) => $wide ? theme.spacing.lg : theme.spacing.xl};
 
   @media (max-width: 40rem) {
     padding: ${({ theme }) => theme.spacing.lg};

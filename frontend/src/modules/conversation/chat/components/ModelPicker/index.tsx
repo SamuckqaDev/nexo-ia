@@ -26,6 +26,7 @@ export function ModelPicker({
 
   return (
     <Picker
+      id="conversation-model"
       aria-label="Model for this conversation"
       value={selectedProviderId ?? ""}
       disabled={disabled || providers.length === 0}

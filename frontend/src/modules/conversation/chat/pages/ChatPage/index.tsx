@@ -1,3 +1,4 @@
+import { Cpu, LockKey } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
@@ -6,6 +7,7 @@ import type { ConfirmationState } from "../../../../../shared/feedback/types/con
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
 import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
 import { ChatComposer } from "../../components/ChatComposer";
+import { ConversationContextPanel } from "../../components/ConversationContextPanel";
 import { ConversationSidebar } from "../../components/ConversationSidebar";
 import { MessageList } from "../../components/MessageList";
 import { ModelPicker } from "../../components/ModelPicker";
@@ -20,14 +22,17 @@ import {
 import { useChatStream } from "../../hooks/useChatStream";
 import type { Conversation, ConversationMode } from "../../types/chatTypes";
 import {
-  CapabilityNote,
   Chat,
-  Controls,
+  ConversationBody,
+  ConversationColumn,
   Header,
+  HeaderCopy,
+  HeaderMeta,
+  HeaderTitle,
   Layout,
   LoadFailure,
-  ModeButton,
-  Title
+  ModelArea,
+  PrivacyBadge
 } from "./styles";
 
 export function ChatPage(): ReactElement {
@@ -38,6 +43,7 @@ export function ChatPage(): ReactElement {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<ConversationMode>("chat");
+  const [isContextOpen, setIsContextOpen] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
   const messages = useConversationMessages(selectedId);
@@ -107,14 +113,14 @@ export function ChatPage(): ReactElement {
 
       <Chat>
         <Header>
-          <Title>{selected?.title ?? "Chat"}</Title>
-          <Controls>
-            <ModeButton type="button" $active={mode === "chat"} onClick={(): void => setMode("chat")}>
-              Chat
-            </ModeButton>
-            <ModeButton type="button" $active={mode === "agent"} onClick={(): void => setMode("agent")}>
-              Agent
-            </ModeButton>
+          <HeaderCopy>
+            <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>
+            <HeaderMeta>
+              <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
+              {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
+            </HeaderMeta>
+          </HeaderCopy>
+          <ModelArea>
             <ModelPicker
               providers={configuredProviders}
               selectedProviderId={selected?.providerConfigurationId ?? null}
@@ -122,34 +128,35 @@ export function ChatPage(): ReactElement {
               onSelect={(providerConfigurationId: string, selectedModel: string): void =>
                 selectModel.mutate({ providerConfigurationId, selectedModel })}
             />
-          </Controls>
+          </ModelArea>
         </Header>
 
-        {mode === "agent" && (
-          <CapabilityNote>
-            Agent mode is designed for planned, permissioned work. Its runtime is not enabled yet, so
-            this conversation stays in Chat mode.
-          </CapabilityNote>
-        )}
+        <ConversationBody $contextOpen={isContextOpen}>
+          <ConversationColumn>
+            <MessageList
+              messages={messages.data ?? []}
+              isLoading={messages.isLoading}
+              hasConversation={Boolean(selectedId)}
+              hasModel={hasModel}
+              phase={stream.phase}
+              streamingContent={stream.streamingContent}
+              errorMessage={stream.errorMessage}
+              mode={mode}
+            />
 
-        <MessageList
-          messages={messages.data ?? []}
-          isLoading={messages.isLoading}
-          hasConversation={Boolean(selectedId)}
-          hasModel={hasModel}
-          phase={stream.phase}
-          streamingContent={stream.streamingContent}
-          errorMessage={stream.errorMessage}
-        />
-
-        <ChatComposer
-          disabled={!selectedId}
-          hasModel={hasModel}
-          phase={stream.phase}
-          isBusy={stream.isBusy}
-          onSend={stream.send}
-          onCancel={stream.cancel}
-        />
+            <ChatComposer
+              disabled={!selectedId}
+              hasModel={hasModel}
+              phase={stream.phase}
+              isBusy={stream.isBusy}
+              mode={mode}
+              onModeChange={setMode}
+              onSend={stream.send}
+              onCancel={stream.cancel}
+            />
+          </ConversationColumn>
+          <ConversationContextPanel mode={mode} open={isContextOpen} onOpenChange={setIsContextOpen} />
+        </ConversationBody>
       </Chat>
 
       <NewConversationDialog
