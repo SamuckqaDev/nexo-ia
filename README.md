@@ -9,10 +9,35 @@ why it exists.
 
 ## Current status
 
-The product foundation and release `0.1` scope are documented. Implementation has started on the
-`feat/project-scaffold` branch with a Spring Boot backend, React frontend, PostgreSQL Compose service,
-and the first backend-to-frontend system contract. See
+The product foundation and release `0.1` scope are documented. Implementation is on the
+`feat/project-scaffold` branch: local identity and sessions, the user-scoped Provider Registry, and
+private conversations that stream answers from a local Ollama model over SSE with cancellation and
+per-message token and latency accounting. See
 [Implementation status](docs/IMPLEMENTATION_STATUS.md) for verified and intentionally pending work.
+
+## Prerequisites
+
+- Java 25 LTS — the backend does not compile on an earlier JDK. On macOS:
+  `brew install openjdk@25` and export `JAVA_HOME` accordingly.
+- Node.js 24 LTS.
+- Docker or Podman with Compose.
+- Ollama on the host with at least one installed chat model, for real inference.
+
+## Tests
+
+```bash
+cd backend && ./mvnw test
+cd frontend && npm test
+```
+
+Tests tagged `ollama` need a real installed model and stay out of the default suite. Run them
+deliberately against a live installation:
+
+```bash
+cd backend && ./mvnw test -Dexcluded.test.groups= -Dgroups=ollama
+```
+
+Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoint or model differs.
 
 ## Documentation
 

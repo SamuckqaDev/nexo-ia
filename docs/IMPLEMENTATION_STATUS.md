@@ -103,9 +103,45 @@ minimal vertical connection plus the first release `0.1` identity slice.
   profile updates immediately refresh the authenticated frontend session data. Profile fields open
   in a protected read mode and require an explicit edit action. The header account trigger and menu
   use the person's name and email.
-- Thirty passing backend tests and sixteen passing frontend tests. The authentication
-  flow was also verified against a disposable PostgreSQL 18.4 instance: migrations, bootstrap,
-  login, authenticated profile, and logout.
+- Conversations are private, ordered, renameable, and archivable. Message ordering is serialized by
+  a pessimistic lock on the conversation row, so concurrent submissions queue instead of colliding
+  with the unique sequence constraint.
+- Each message records the release `0.1` execution contract: status, provider, model, input and
+  output tokens, token source, latency, processing location, failure code, correlation identifier,
+  and completion time. A partial unique index lets a conversation hold at most one non-terminal
+  request, so a concurrent submission is rejected by the database rather than by an optimistic check.
+- `ChatCompletionClient` is the provider boundary for streamed inference, with Ollama as the first
+  adapter. It reads the newline-delimited JSON of `POST /api/chat` and takes `prompt_eval_count` and
+  `eval_count` as provider-reported token counts. An unsupported provider type fails explicitly;
+  Nexo IA never falls back to another provider.
+- `ProviderEndpointGuard` resolves a registered endpoint before the server dereferences it and blocks
+  a managed vendor type pointed at a loopback, link-local, or private address, while self-hosted
+  Ollama and OpenAI-compatible servers may stay on a private network. It also reports whether
+  processing is local or remote.
+- Model requests walk the documented states — queued, streaming, cancelling, completed, cancelled,
+  and failed. A cancelled generation keeps its partial answer under `CANCELLED` and is never promoted
+  to `COMPLETED`; shutdown fails every in-flight request so an interrupted generation cannot reopen
+  as if it had finished.
+- Persistence runs in two short transactions with the stream between them, so no database connection
+  or conversation lock is held while tokens arrive. Streaming runs on virtual threads.
+- Conversation history is assembled within an explicit, configurable token budget that drops the
+  oldest turns first, always sends the newest message, and excludes failed generations.
+- `POST /conversations/{id}/messages/stream` streams typed `started`, `token`, `usage`, `completed`,
+  `cancelled`, and `error` events over SSE, with a companion cancel endpoint. The request is reserved
+  before the emitter opens, so a missing conversation, an unselected model, a busy conversation, or
+  an invalid body still answers with the normal `BaseResponse` envelope and status.
+- The chat interface streams answers through a dedicated fetch client with Zod-validated frames,
+  exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
+  states, and reports model, token usage, latency, and processing location on completed answers. An
+  estimated token count is always labelled. Conversation creation uses an accessible dialog.
+- Eighty-one passing backend tests and twenty-seven passing frontend tests, including cross-user
+  isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
+  context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
+  18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
+  reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
+  a second concurrent request and to accept one again after the previous request became terminal.
+- An opt-in smoke test proves streaming, provider-reported token accounting, and cancellation against
+  a real Ollama installation: `./mvnw test -Dexcluded.test.groups= -Dgroups=ollama`.
 
 ## Intentionally incomplete
 
@@ -118,10 +154,15 @@ minimal vertical connection plus the first release `0.1` identity slice.
   Development uses `compose.dev.yaml`; production must not apply that database-port override.
 - Organization membership beyond installation-level Owner/Member roles remains a subsequent
   identity increment.
-- Ollama discovery, conversation, SSE, usage, and audit remain subsequent release `0.1` increments.
-- The conversation foundation persists private conversations, messages, and the selected provider/model
-  for each conversation. The Nexo chat interface exposes the same selection; model inference,
-  streaming, cancellation, Agent runtime, and image jobs remain pending their documented contracts.
+- Usage accounting is recorded per message but not yet aggregated. The Usage surface still shows
+  honest empty states, and organization-level summaries remain a subsequent increment.
+- `audit_event` does not exist yet. Security-relevant actions are logged without message content, but
+  the correlated audit trail required by release `0.1` is still pending.
+- Assistant answers render as plain text. CHAT-01 also asks for Markdown rendering, which needs a
+  reviewed dependency and a recorded decision, so it is deliberately unfinished.
+- Agent mode remains a visible choice without a runtime: it must expose its plan, tools, limits,
+  approvals, evidence, and stop reason before it can be enabled. Image jobs remain pending the local
+  ComfyUI runtime.
 
 ## Next verification
 
