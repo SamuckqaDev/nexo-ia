@@ -45,6 +45,8 @@ nexo:
       # decide how much history fits; it is never reported as a provider token measurement.
       token-budget: 8000
       estimated-characters-per-token: 4
+    stream:
+      timeout: 10m
   security:
     token:
       issuer: nexo-ia

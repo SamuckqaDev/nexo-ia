@@ -48,7 +48,25 @@ public class ModelRequestService {
      * the transport can still answer with a normal error status.
      */
     public void stream(UUID userId, UUID conversationId, String content, ModelStreamListener listener) {
+        run(begin(userId, conversationId, content), listener);
+    }
+
+    /**
+     * Validates the request and reserves its messages.
+     *
+     * <p>Called before a streaming transport opens its response, so a missing conversation, an
+     * unselected model, a busy conversation, or an unsupported provider is still reported as an
+     * ordinary error status rather than as an event on an already-committed stream.
+     */
+    public ModelRequestReservation begin(UUID userId, UUID conversationId, String content) {
         ModelRequestReservation reservation = store.reserve(userId, conversationId, content);
+        clientFor(reservation.command());
+
+        return reservation;
+    }
+
+    /** Streams the reserved request to a terminal state. */
+    public void run(ModelRequestReservation reservation, ModelStreamListener listener) {
         ChatCompletionClient client = clientFor(reservation.command());
         UUID messageId = reservation.assistantMessageId();
         long startedAt = clock.millis();
