@@ -9,6 +9,7 @@ import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
 import com.nexoia.conversation.chat.model.ConversationRole;
+import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
@@ -65,6 +66,7 @@ public class ConversationService {
                 .conversationId(conversationId)
                 .sequenceNumber(sequenceNumber)
                 .role(ConversationRole.USER)
+                .status(MessageStatus.COMPLETED)
                 .content(content.trim())
                 .build());
 
@@ -119,7 +121,16 @@ public class ConversationService {
         return new ConversationMessageResponse(
                 value.getId(),
                 value.getRole(),
+                value.getStatus(),
                 value.getContent(),
-                value.getCreatedAt());
+                value.getModel(),
+                value.getInputTokens(),
+                value.getOutputTokens(),
+                value.getTokenSource(),
+                value.getLatencyMs(),
+                value.getProcessingLocation(),
+                value.getFailureCode(),
+                value.getCreatedAt(),
+                value.getCompletedAt());
     }
 }
