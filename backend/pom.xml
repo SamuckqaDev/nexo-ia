@@ -21,6 +21,8 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <testcontainers.version>2.0.3</testcontainers.version>
+        <!-- Opt-in test groups. Clear it to run them: ./mvnw test -Dexcluded.test.groups= -Dgroups=ollama -->
+        <excluded.test.groups>ollama</excluded.test.groups>
     </properties>
 
     <dependencyManagement>
@@ -138,6 +140,16 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Tests tagged "ollama" need a real installed model, so they stay out of the
+                         default suite. Run them with:
+                         ./mvnw test -Dexcluded.test.groups= -Dgroups=ollama -->
+                    <excludedGroups>${excluded.test.groups}</excludedGroups>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
