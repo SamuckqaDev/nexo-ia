@@ -39,6 +39,12 @@ management:
 
 nexo:
   version: "@project.version@"
+  conversation:
+    context:
+      # Bounds the history sent to a model. The character ratio is an approximation used only to
+      # decide how much history fits; it is never reported as a provider token measurement.
+      token-budget: 8000
+      estimated-characters-per-token: 4
   security:
     token:
       issuer: nexo-ia
