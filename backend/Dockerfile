@@ -3,7 +3,9 @@ WORKDIR /workspace
 COPY pom.xml ./
 RUN mvn -B -ntp dependency:go-offline
 COPY src ./src
-RUN mvn -B -ntp verify
+# The build runs inside a container with no Docker daemon and no Ollama, so tests that need
+# either are excluded here. Run them on a developer machine or in a Docker-enabled CI job.
+RUN mvn -B -ntp verify -Dexcluded.test.groups=ollama,docker
 
 FROM eclipse-temurin:25-jre
 RUN useradd --system --uid 10001 --create-home nexo

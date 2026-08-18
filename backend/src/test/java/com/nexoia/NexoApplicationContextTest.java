@@ -3,6 +3,7 @@ package com.nexoia;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import javax.sql.DataSource;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,7 +20,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <p>Unit tests construct their collaborators directly, so they prove logic but never prove that the
  * container can supply a bean. This test exists because an injected dependency that does not exist
  * compiles, passes every unit test, and only fails when the context starts.
+ *
+ * <p>Tagged {@code docker} because Testcontainers needs a reachable Docker daemon. The container
+ * image builds itself inside a builder that has no daemon, so its Maven run excludes this tag.
  */
+@Tag("docker")
 @Testcontainers
 @SpringBootTest(classes = NexoApplication.class, properties = {
         "nexo.security.token.secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
