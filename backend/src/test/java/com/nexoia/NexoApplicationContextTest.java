@@ -1,0 +1,62 @@
+package com.nexoia;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import javax.sql.DataSource;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+/**
+ * Starts the whole application against a disposable PostgreSQL instance.
+ *
+ * <p>Unit tests construct their collaborators directly, so they prove logic but never prove that the
+ * container can supply a bean. This test exists because an injected dependency that does not exist
+ * compiles, passes every unit test, and only fails when the context starts.
+ */
+@Testcontainers
+@SpringBootTest(classes = NexoApplication.class, properties = {
+        "nexo.security.token.secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "spring.mail.host=127.0.0.1",
+        "spring.mail.port=1025"
+})
+class NexoApplicationContextTest {
+
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4");
+
+    @Autowired
+    private ApplicationContext context;
+    @Autowired
+    private DataSource dataSource;
+
+    @Test
+    void startsEveryBeanOfTheApplication() {
+        assertThat(context.getBean("ollamaChatCompletionClient")).isNotNull();
+        assertThat(context.getBean("modelRequestService")).isNotNull();
+        assertThat(context.getBean("modelRequestStore")).isNotNull();
+        assertThat(context.getBean("conversationContextAssembler")).isNotNull();
+    }
+
+    @Test
+    void appliesEveryMigrationToAnEmptyDatabase() {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+
+        Integer applied = jdbc.queryForObject(
+                "SELECT count(*) FROM flyway_schema_history WHERE success = true", Integer.class);
+        Integer activeRequestIndex = jdbc.queryForObject("""
+                SELECT count(*) FROM pg_indexes
+                WHERE indexname = 'ux_conversation_message_active_request'
+                """, Integer.class);
+
+        assertThat(applied).isEqualTo(15);
+        assertThat(activeRequestIndex).isEqualTo(1);
+    }
+}

@@ -134,12 +134,16 @@ minimal vertical connection plus the first release `0.1` identity slice.
   exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
   states, and reports model, token usage, latency, and processing location on completed answers. An
   estimated token count is always labelled. Conversation creation uses an accessible dialog.
-- Eighty-one passing backend tests and twenty-seven passing frontend tests, including cross-user
+- Eighty-three passing backend tests and twenty-seven passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
+- A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.4
+  instance and asserts that every migration applied and that the active-request index exists. It
+  exists because unit tests construct their collaborators directly and therefore cannot prove that
+  the container is able to supply them.
 - An opt-in smoke test proves streaming, provider-reported token accounting, and cancellation against
   a real Ollama installation: `./mvnw test -Dexcluded.test.groups= -Dgroups=ollama`.
 
