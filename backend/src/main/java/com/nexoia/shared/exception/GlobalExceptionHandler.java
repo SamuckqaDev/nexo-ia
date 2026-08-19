@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -56,6 +57,16 @@ public class GlobalExceptionHandler {
         // target type are not echoed back.
         return ResponseEntity.badRequest().body(BaseResponse.error(
                 400, "Parameter '" + exception.getName() + "' has an invalid value"));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<BaseResponse<Void>> handleAccessDeniedException(AccessDeniedException exception) {
+        // A method-security denial reaches the advice rather than the filter-chain handler. It is an
+        // authorization failure, not an internal error, so it must answer 403 — never 500.
+        log.warn("[NEXO-BACK][ERROR] Access denied");
+
+        return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                .body(BaseResponse.error(403, "You are not allowed to perform this action"));
     }
 
     @ExceptionHandler(Exception.class)
