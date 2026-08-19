@@ -55,6 +55,7 @@ public class UserManagementService {
     private final TokenSessionService tokenSessionService;
     private final ClientAccessService clientAccessService;
     private final Clock clock;
+    private final com.nexoia.audit.service.AuditService audit;
 
     @Transactional(readOnly = true)
     public List<ManagedUserResponse> list() {
@@ -88,6 +89,9 @@ public class UserManagementService {
             throw new UserIdentityAlreadyExistsException();
         }
         record(principal, AccessEventType.USER_CREATED, httpRequest, now);
+        audit.record(com.nexoia.audit.dto.RecordAuditCommand.success(
+                com.nexoia.audit.model.AuditAction.MEMBER_CREATED, principal.userId(), principal.role(),
+                com.nexoia.audit.model.AuditTargetType.USER, userId));
         return toResponse(member);
     }
 
@@ -110,6 +114,12 @@ public class UserManagementService {
         }
         userAccountRepository.saveAndFlush(user);
         record(principal, AccessEventType.USER_STATUS_CHANGED, httpRequest, now);
+        audit.record(com.nexoia.audit.dto.RecordAuditCommand.success(
+                request.status() == UserStatus.DISABLED
+                        ? com.nexoia.audit.model.AuditAction.MEMBER_DISABLED
+                        : com.nexoia.audit.model.AuditAction.MEMBER_RESTORED,
+                principal.userId(), principal.role(),
+                com.nexoia.audit.model.AuditTargetType.USER, userId));
         return toResponse(user);
     }
 
@@ -135,6 +145,9 @@ public class UserManagementService {
         Instant now = clock.instant();
         session.revoke(SessionStatus.REVOKED, ADMIN_SESSION_REVOCATION_REASON, now);
         record(principal, AccessEventType.ADMIN_SESSION_REVOKED, httpRequest, now);
+        audit.record(com.nexoia.audit.dto.RecordAuditCommand.success(
+                com.nexoia.audit.model.AuditAction.MEMBER_SESSION_REVOKED, principal.userId(),
+                principal.role(), com.nexoia.audit.model.AuditTargetType.SESSION, sessionId));
     }
 
     private UserAccount requireMember(UUID userId) {

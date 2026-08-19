@@ -48,6 +48,8 @@ class ModelRequestServiceTest {
     private ModelRequestStore store;
     @Mock
     private ChatCompletionClient client;
+    @Mock
+    private com.nexoia.audit.service.AuditService audit;
 
     private final ModelRequestRegistry registry = new ModelRequestRegistry();
     private final Clock clock = Clock.fixed(Instant.parse("2026-08-18T12:00:00Z"), ZoneOffset.UTC);
@@ -62,7 +64,7 @@ class ModelRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ModelRequestService(store, registry, List.of(client), clock);
+        service = new ModelRequestService(store, registry, audit, List.of(client), clock);
     }
 
     @Test
@@ -177,6 +179,7 @@ class ModelRequestServiceTest {
 
     private void reservationIsAvailable() {
         when(store.reserve(userId, conversationId, "hi")).thenReturn(new ModelRequestReservation(
+                userId,
                 userMessageId,
                 assistantMessageId,
                 UUID.randomUUID(),

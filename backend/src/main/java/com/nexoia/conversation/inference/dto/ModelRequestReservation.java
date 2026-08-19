@@ -11,6 +11,7 @@ import java.util.UUID;
  * transaction and must never touch a detached persistence context.
  */
 public record ModelRequestReservation(
+        UUID userId,
         UUID userMessageId,
         UUID assistantMessageId,
         UUID correlationId,

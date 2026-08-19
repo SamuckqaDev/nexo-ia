@@ -36,6 +36,8 @@ class ConversationServiceTest {
     private ConversationMessageRepository messages;
     @Mock
     private ProviderConfigurationRepository providers;
+    @Mock
+    private com.nexoia.audit.service.AuditService audit;
     private ConversationService service;
 
     private final UUID userId = UUID.randomUUID();
@@ -43,7 +45,7 @@ class ConversationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConversationService(conversations, messages, providers);
+        service = new ConversationService(conversations, messages, providers, audit);
     }
 
     @Test

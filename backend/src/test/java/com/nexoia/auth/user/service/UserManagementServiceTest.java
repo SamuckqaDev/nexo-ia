@@ -51,7 +51,8 @@ class UserManagementServiceTest {
 
     @BeforeEach void setUp() {
         service = new UserManagementService(users, credentials, sessions, events, encoder,
-                cookies, tokens, access, Clock.fixed(NOW, ZoneOffset.UTC));
+                cookies, tokens, access, Clock.fixed(NOW, ZoneOffset.UTC),
+                org.mockito.Mockito.mock(com.nexoia.audit.service.AuditService.class));
     }
 
     @Test void disablingAMemberRevokesEveryActiveSession() {

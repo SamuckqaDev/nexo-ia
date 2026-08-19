@@ -1,0 +1,26 @@
+package com.nexoia.audit.model;
+
+/**
+ * The security-relevant actions recorded in the unified audit trail.
+ *
+ * <p>Session events — login, logout, token refresh — are recorded by the access-monitoring module in
+ * {@code access_event} instead, because they feed the member's device panel. See D-022.
+ */
+public enum AuditAction {
+    BOOTSTRAP_OWNER_CREATED,
+    MEMBER_CREATED,
+    MEMBER_DISABLED,
+    MEMBER_RESTORED,
+    MEMBER_SESSION_REVOKED,
+    PROVIDER_CREATED,
+    PROVIDER_UPDATED,
+    PROVIDER_REMOVED,
+    CONVERSATION_CREATED,
+    CONVERSATION_RENAMED,
+    CONVERSATION_ARCHIVED,
+    CONVERSATION_MODEL_SELECTED,
+    MODEL_REQUEST_STARTED,
+    MODEL_REQUEST_COMPLETED,
+    MODEL_REQUEST_CANCELLED,
+    MODEL_REQUEST_FAILED
+}

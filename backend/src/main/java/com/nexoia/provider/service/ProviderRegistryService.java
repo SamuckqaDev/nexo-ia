@@ -7,6 +7,10 @@ import com.nexoia.provider.exception.InvalidProviderEndpointException;
 import com.nexoia.provider.exception.ProviderConfigurationConflictException;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -20,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProviderRegistryService {
     private final ProviderConfigurationRepository repository;
+    private final AuditService audit;
 
     @Transactional(readOnly = true)
     public List<ProviderConfigurationResponse> list(UUID userId) {
@@ -32,10 +37,12 @@ public class ProviderRegistryService {
         if (repository.existsByUserIdAndEndpoint(userId, endpoint)) {
             throw new ProviderConfigurationConflictException();
         }
-        ProviderConfiguration provider = ProviderConfiguration.builder().id(UUID.randomUUID()).userId(userId)
-                .providerType(request.providerType()).displayName(request.displayName().trim())
-                .endpoint(endpoint).selectedModel(request.selectedModel()).enabled(true).build();
-        return response(repository.save(provider));
+        ProviderConfiguration provider = repository.save(ProviderConfiguration.builder().id(UUID.randomUUID())
+                .userId(userId).providerType(request.providerType()).displayName(request.displayName().trim())
+                .endpoint(endpoint).selectedModel(request.selectedModel()).enabled(true).build());
+        audit.record(RecordAuditCommand.success(
+                AuditAction.PROVIDER_CREATED, userId, null, AuditTargetType.PROVIDER, provider.getId()));
+        return response(provider);
     }
 
     @Transactional
@@ -47,6 +54,8 @@ public class ProviderRegistryService {
             throw new ProviderConfigurationConflictException();
         }
         provider.update(request.displayName().trim(), endpoint, request.selectedModel(), true);
+        audit.record(RecordAuditCommand.success(
+                AuditAction.PROVIDER_UPDATED, userId, null, AuditTargetType.PROVIDER, providerId));
         return response(repository.save(provider));
     }
 
@@ -55,6 +64,8 @@ public class ProviderRegistryService {
         ProviderConfiguration provider = repository.findByIdAndUserId(providerId, userId)
                 .orElseThrow(ProviderConfigurationNotFoundException::new);
         repository.delete(provider);
+        audit.record(RecordAuditCommand.success(
+                AuditAction.PROVIDER_REMOVED, userId, null, AuditTargetType.PROVIDER, providerId));
     }
 
     private String normalizeEndpoint(String endpoint) {

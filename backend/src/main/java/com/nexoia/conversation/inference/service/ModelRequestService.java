@@ -11,6 +11,11 @@ import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.service.ChatCompletionClient;
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditOutcome;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
@@ -38,6 +43,7 @@ public class ModelRequestService {
 
     private final ModelRequestStore store;
     private final ModelRequestRegistry registry;
+    private final AuditService audit;
     private final List<ChatCompletionClient> completionClients;
     private final Clock clock;
 
@@ -80,6 +86,8 @@ public class ModelRequestService {
 
         registry.register(messageId);
         store.markStreaming(messageId);
+        auditModelRequest(reservation, AuditAction.MODEL_REQUEST_STARTED, AuditOutcome.SUCCESS,
+                reservation.command().model());
         AtomicInteger index = new AtomicInteger();
 
         try {
@@ -91,11 +99,13 @@ public class ModelRequestService {
 
             if (outcome.cancelled()) {
                 Instant cancelledAt = store.recordCancellation(messageId, outcome.content(), latencyMs);
+                auditModelRequest(reservation, AuditAction.MODEL_REQUEST_CANCELLED, AuditOutcome.SUCCESS, null);
                 listener.onCancelled(new CancelledEvent(messageId, outcome.content(), cancelledAt));
                 return;
             }
 
             Instant completedAt = store.recordCompletion(messageId, outcome, latencyMs);
+            auditModelRequest(reservation, AuditAction.MODEL_REQUEST_COMPLETED, AuditOutcome.SUCCESS, null);
             listener.onUsage(new UsageEvent(
                     outcome.inputTokens(), outcome.outputTokens(), outcome.tokenSource(), latencyMs));
             listener.onCompleted(new CompletedEvent(messageId, outcome.content(), completedAt));
@@ -103,6 +113,7 @@ public class ModelRequestService {
             log.warn("[NEXO-BACK][INFERENCE] Model request failed correlationId={} reason={}",
                     reservation.correlationId(), exception.getClass().getSimpleName());
             store.recordFailure(messageId, STREAM_FAILURE, clock.millis() - startedAt);
+            auditModelRequest(reservation, AuditAction.MODEL_REQUEST_FAILED, AuditOutcome.FAILURE, STREAM_FAILURE);
             listener.onError(new StreamErrorEvent(messageId, STREAM_FAILURE,
                     "The model provider could not complete this request"));
         } finally {
@@ -131,6 +142,13 @@ public class ModelRequestService {
         if (failed > 0) {
             log.warn("[NEXO-BACK][INFERENCE] Failed {} in-flight model requests during shutdown", failed);
         }
+    }
+
+    private void auditModelRequest(
+            ModelRequestReservation reservation, AuditAction action, AuditOutcome outcome, String detail) {
+        audit.record(new RecordAuditCommand(
+                action, outcome, reservation.userId(), null, AuditTargetType.MESSAGE,
+                reservation.assistantMessageId(), reservation.correlationId(), detail));
     }
 
     private ChatCompletionClient clientFor(ChatCompletionCommand command) {

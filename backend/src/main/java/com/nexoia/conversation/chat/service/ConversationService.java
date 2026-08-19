@@ -12,6 +12,10 @@ import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import java.util.List;
@@ -27,6 +31,7 @@ public class ConversationService {
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
     private final ProviderConfigurationRepository providers;
+    private final AuditService audit;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> list(UUID userId) {
@@ -43,6 +48,9 @@ public class ConversationService {
                 .title(request.title().trim())
                 .archived(false)
                 .build());
+        audit.record(RecordAuditCommand.success(
+                AuditAction.CONVERSATION_CREATED, userId, null,
+                AuditTargetType.CONVERSATION, conversation.getId()));
 
         return conversationResponse(conversation);
     }
@@ -77,6 +85,9 @@ public class ConversationService {
     public ConversationResponse rename(UUID userId, UUID conversationId, RenameConversationRequest request) {
         Conversation conversation = writableConversation(userId, conversationId);
         conversation.rename(request.title().trim());
+        audit.record(RecordAuditCommand.success(
+                AuditAction.CONVERSATION_RENAMED, userId, null,
+                AuditTargetType.CONVERSATION, conversationId));
 
         return conversationResponse(conversation);
     }
@@ -84,6 +95,9 @@ public class ConversationService {
     @Transactional
     public void archive(UUID userId, UUID conversationId) {
         writableConversation(userId, conversationId).archive();
+        audit.record(RecordAuditCommand.success(
+                AuditAction.CONVERSATION_ARCHIVED, userId, null,
+                AuditTargetType.CONVERSATION, conversationId));
     }
 
     @Transactional
@@ -93,6 +107,10 @@ public class ConversationService {
         providers.findByIdAndUserId(request.providerConfigurationId(), userId)
                 .orElseThrow(ProviderConfigurationNotFoundException::new);
         conversation.selectModel(request.providerConfigurationId(), request.selectedModel().trim());
+        audit.record(new RecordAuditCommand(
+                AuditAction.CONVERSATION_MODEL_SELECTED, com.nexoia.audit.model.AuditOutcome.SUCCESS,
+                userId, null, AuditTargetType.CONVERSATION, conversationId, null,
+                request.selectedModel().trim()));
 
         return conversationResponse(conversation);
     }

@@ -29,6 +29,8 @@ class ProviderRegistryServiceTest {
 
     @Mock
     private ProviderConfigurationRepository repository;
+    @Mock
+    private com.nexoia.audit.service.AuditService audit;
     private ProviderRegistryService service;
 
     private final UUID userId = UUID.randomUUID();
@@ -36,7 +38,7 @@ class ProviderRegistryServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProviderRegistryService(repository);
+        service = new ProviderRegistryService(repository, audit);
     }
 
     @Test

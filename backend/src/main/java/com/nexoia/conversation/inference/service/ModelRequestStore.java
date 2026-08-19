@@ -106,6 +106,7 @@ public class ModelRequestStore {
         }
 
         return new ModelRequestReservation(
+                userId,
                 userMessage.getId(),
                 assistantMessage.getId(),
                 correlationId,

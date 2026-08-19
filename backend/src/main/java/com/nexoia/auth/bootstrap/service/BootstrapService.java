@@ -29,6 +29,7 @@ public class BootstrapService {
     private final PasswordCredentialRepository passwordCredentialRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final com.nexoia.audit.service.AuditService audit;
 
     @Transactional(readOnly = true)
     public BootstrapStatusResponse status() {
@@ -66,6 +67,10 @@ public class BootstrapService {
         } catch (DataIntegrityViolationException exception) {
             throw new BootstrapAlreadyCompletedException();
         }
+
+        audit.record(com.nexoia.audit.dto.RecordAuditCommand.success(
+                com.nexoia.audit.model.AuditAction.BOOTSTRAP_OWNER_CREATED, userId, UserRole.OWNER,
+                com.nexoia.audit.model.AuditTargetType.USER, userId));
 
         return toResponse(owner);
     }

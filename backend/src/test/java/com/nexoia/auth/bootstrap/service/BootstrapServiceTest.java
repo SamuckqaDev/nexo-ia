@@ -41,7 +41,8 @@ class BootstrapServiceTest {
     @BeforeEach
     void setUp() {
         bootstrapService = new BootstrapService(userAccountRepository, passwordCredentialRepository,
-                passwordEncoder, Clock.fixed(NOW, ZoneOffset.UTC));
+                passwordEncoder, Clock.fixed(NOW, ZoneOffset.UTC),
+                org.mockito.Mockito.mock(com.nexoia.audit.service.AuditService.class));
     }
 
     @Test
