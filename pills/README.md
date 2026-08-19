@@ -45,5 +45,6 @@ contract or become the sole source for a security-sensitive decision.
 | [PILL-008](PILL-008-ollama-ndjson-streaming-contract.md) | The Ollama chat streaming and token accounting contract | Accepted |
 | [PILL-009](PILL-009-short-transactions-around-model-streaming.md) | Short transactions around model streaming | Accepted |
 | [PILL-010](PILL-010-spring-boot-4-uses-jackson-3.md) | Spring Boot 4 auto-configures Jackson 3, not Jackson 2 | Accepted |
+| [PILL-011](PILL-011-method-security-denial-status.md) | A method-security denial must be handled, or it becomes a 500 | Accepted |
 | [PILL-011](PILL-011-jpql-aggregate-coalesce-and-avg-type.md) | JPQL aggregates need coalesce, and avg returns a Double | Accepted |
 | [PILL-012](PILL-012-bind-failures-are-client-errors.md) | An unbindable request parameter is a 400, not a 500 | Accepted |

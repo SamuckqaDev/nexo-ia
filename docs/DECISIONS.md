@@ -235,3 +235,25 @@ options considered, the selected approach, and its consequences.
   it when the Ollama API changes. Spring AI remains available for embeddings, vector stores, and MCP,
   where its contracts help rather than hide the lesson.
 - **Learning:** see [PILL-008](../pills/PILL-008-ollama-ndjson-streaming-contract.md).
+
+## D-022 — Separate the audit trail from session access monitoring
+
+- **Status:** accepted
+- **Context:** release `0.1` requires a correlated security audit trail covering bootstrap, user
+  lifecycle, role change, provider change, conversation lifecycle, model request, cancellation, and
+  administrative access. A `access_event` table already recorded session activity — login, logout,
+  refresh, password change, user creation and status change, session revocation — to power the
+  member-facing device panel. The domain lifecycle actions (provider, conversation, model request)
+  were not audited anywhere.
+- **Options:** extend `access_event` to carry every domain action; or add the `audit_event` record
+  the domain model already names and instrument the un-audited actions there.
+- **Decision:** keep `access_event` as the session and device monitoring feed, and add `audit_event`
+  as the unified security trail. Instrument the actions that had no audit — bootstrap, provider,
+  conversation, and model request — in `audit_event`, and mirror the administrative user-lifecycle
+  actions there alongside their existing access record. Session login and logout stay in
+  `access_event` only; the sensitive authentication path is not re-instrumented.
+- **Consequence:** `audit_event` carries the `correlation_id` that ties a model request to its
+  message and usage, and is inspectable only by an Owner. The two tables have distinct
+  responsibilities and consumers; a future administrative audit view may union them. The trail never
+  stores passwords, tokens, or message content — only a short, safe detail.
+- **Learning:** see [PILL-011](../pills/PILL-011-method-security-denial-status.md).

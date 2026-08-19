@@ -142,6 +142,15 @@ minimal vertical connection plus the first release `0.1` identity slice.
   governed implementation plan, Agent tasks, generated artifacts, and media oriented at the right
   edge and expands the selected section on demand. Capabilities without a connected runtime remain
   explicit previews or empty states instead of suggesting work was executed.
+- A unified security audit trail is recorded in `audit_event` and inspectable only by an Owner at
+  `GET /api/v1/admin/audit`, filterable by action and actor. It covers bootstrap, Member creation,
+  disablement, restoration, and session revocation, provider creation, update, and removal,
+  conversation creation, rename, archive, and model selection, and model requests started, completed,
+  cancelled, and failed. Each model-request event carries the `correlation_id` that ties it to its
+  message. The trail stores a short, safe detail only — never passwords, tokens, or message content —
+  and session login and logout remain in the member-facing `access_event` feed. See D-022.
+- Every Owner-only endpoint now answers `403` rather than `500` when a Member calls it: a
+  method-security denial is handled explicitly by the global advice. See PILL-011.
 - Personal usage accounting is now readable. `GET /api/v1/usage` reports the authenticated member's
   own request counts by terminal state, input and output tokens, average latency, provider-reported
   versus estimated counts, a per-day token series, and breakdowns by model and processing location,
@@ -176,8 +185,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   identity increment.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
-- `audit_event` does not exist yet. Security-relevant actions are logged without message content, but
-  the correlated audit trail required by release `0.1` is still pending.
+- The organization-level audit *view* that unions session and domain trails is a later increment.
 - Assistant answers render as plain text. CHAT-01 also asks for Markdown rendering, which needs a
   reviewed dependency and a recorded decision, so it is deliberately unfinished.
 - Agent mode remains a visible choice without a runtime: it must expose its plan, tools, limits,
