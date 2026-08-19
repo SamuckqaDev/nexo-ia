@@ -64,7 +64,7 @@ describe("MessageItem", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderItem(message({ content: "Copy this answer" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("Copy this answer"));
     expect(screen.getByRole("button", { name: "Content copied" })).toBeInTheDocument();
