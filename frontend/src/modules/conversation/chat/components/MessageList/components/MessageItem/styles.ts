@@ -6,7 +6,7 @@ export const Row = styled.article<{ $user: boolean }>`
   display: grid;
   grid-template-columns: 2rem minmax(0, 1fr);
   gap: ${({ theme }) => theme.spacing.sm};
-  width: min(46rem, 100%);
+  width: min(60rem, 100%);
   align-self: center;
   padding: ${({ theme }) => `${theme.spacing.md} ${theme.spacing.md} ${theme.spacing.sm}`};
   border: 1px solid ${({ theme, $user }) => ($user ? theme.colors.line : theme.colors.lineStrong)};

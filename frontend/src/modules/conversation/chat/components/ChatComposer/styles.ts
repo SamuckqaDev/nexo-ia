@@ -1,7 +1,7 @@
 import styled from "styled-components";
 
 export const ComposerCard = styled.div`
-  width: min(52rem, calc(100% - 2rem));
+  width: min(60rem, calc(100% - 2rem));
   margin: 0 auto ${({ theme }) => theme.spacing.lg};
   border: 1px solid ${({ theme }) => theme.colors.lineStrong};
   border-radius: ${({ theme }) => theme.radius.md};
