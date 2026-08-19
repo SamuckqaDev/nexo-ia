@@ -1,15 +1,13 @@
 import {
   ArrowRight,
-  BellRinging,
-  Brain,
-  CalendarCheck,
-  ChartLineUp,
   ChatCircleDots,
-  ClockCountdown,
   Cpu,
+  GraphicsCard,
   Plus,
+  Robot,
   ShieldCheck,
-  WarningCircle
+  Sparkle,
+  Vault
 } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
 import { SystemStatus } from "../../components/SystemStatus";
@@ -17,9 +15,7 @@ import type { HomePageProps } from "../../types/systemTypes";
 import {
   ActionButton,
   Actions,
-  Chart,
-  ChartBaseline,
-  ChartEmpty,
+  Columns,
   EmptyIcon,
   EmptyState,
   Eyebrow,
@@ -27,23 +23,29 @@ import {
   Hero,
   Intro,
   Metric,
-  MetricGrid,
+  MetricRow,
   Page,
   Panel,
   PanelAction,
   PanelCopy,
-  PanelGrid,
   PanelHeader,
   PanelIcon,
   PanelTitle,
   ProviderDetails,
   ProviderState,
-  RunLegend,
-  RunLegendItem,
-  StatusCard,
+  Roadmap,
+  RoadmapGrid,
+  RoadmapHead,
+  RoadmapItem,
+  RoadmapTag,
+  Stack,
+  StatBody,
+  StatIcon,
+  StatStrip,
+  StatTile,
   StatusDot,
   Summary,
-  WidePanel
+  SystemCard
 } from "./styles";
 
 const firstName = (name: string): string => name.trim().split(/\s+/)[0] ?? name;
@@ -53,121 +55,138 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
     <Page>
       <Hero>
         <Intro>
-          <Eyebrow>Operational workspace</Eyebrow>
+          <Eyebrow>Local workspace</Eyebrow>
           <Greeting>Good to see you, {firstName(user.name)}.</Greeting>
           <Summary>
-            Follow conversations, provider health, AI usage and governed work from one place.
+            Your assistant runs on your own machine. Start a conversation, connect a local model, and
+            keep an eye on usage — all private to your account.
           </Summary>
           <Actions>
             <ActionButton type="button" onClick={(): void => onNavigate("chat")}>
-              <Plus size={18} weight="bold" /> New chat
+              <Plus size={16} weight="bold" /> New chat
             </ActionButton>
-            <ActionButton type="button" $secondary onClick={(): void => onNavigate("cowork")}>
-              <Brain size={18} weight="duotone" /> Start Cowork
+            <ActionButton type="button" $secondary onClick={(): void => onOpenSettings("providers")}>
+              <Cpu size={16} weight="duotone" /> Manage providers
             </ActionButton>
           </Actions>
         </Intro>
-        <StatusCard>
-          <ShieldCheck size={24} weight="duotone" />
+        <SystemCard>
+          <ShieldCheck size={22} weight="duotone" />
           <div>
-            <strong>Local foundation online</strong>
+            <strong>Local foundation</strong>
             <SystemStatus />
           </div>
-        </StatusCard>
+        </SystemCard>
       </Hero>
 
-      <PanelGrid>
-        <WidePanel>
-          <PanelHeader>
-            <PanelCopy>
-              <PanelIcon><ChartLineUp size={21} weight="duotone" /></PanelIcon>
-              <div><PanelTitle>AI usage</PanelTitle><span>Tokens over the last 7 days</span></div>
-            </PanelCopy>
-            <PanelAction type="button" onClick={(): void => onOpenSettings("usage")}>
-              View usage <ArrowRight size={15} />
+      <StatStrip>
+        <StatTile type="button" onClick={(): void => onOpenSettings("providers")}>
+          <StatIcon $accent><Cpu size={19} weight="duotone" /></StatIcon>
+          <StatBody><span>Provider</span><strong>Not configured</strong></StatBody>
+          <ArrowRight size={15} />
+        </StatTile>
+        <StatTile type="button" onClick={(): void => onNavigate("chat")}>
+          <StatIcon><ChatCircleDots size={19} weight="duotone" /></StatIcon>
+          <StatBody><span>Conversations</span><strong>None yet</strong></StatBody>
+          <ArrowRight size={15} />
+        </StatTile>
+        <StatTile type="button" onClick={(): void => onOpenSettings("usage")}>
+          <StatIcon><GraphicsCard size={19} weight="duotone" /></StatIcon>
+          <StatBody><span>Tokens · 7 days</span><strong>—</strong></StatBody>
+          <ArrowRight size={15} />
+        </StatTile>
+      </StatStrip>
+
+      <Columns>
+        <Stack>
+          <Panel>
+            <PanelHeader>
+              <PanelCopy>
+                <PanelIcon><ChatCircleDots size={19} weight="duotone" /></PanelIcon>
+                <div><PanelTitle>Recent conversations</PanelTitle><span>Continue where you left off</span></div>
+              </PanelCopy>
+              <PanelAction type="button" onClick={(): void => onNavigate("chat")}>
+                Open chat <ArrowRight size={14} />
+              </PanelAction>
+            </PanelHeader>
+            <EmptyState>
+              <EmptyIcon><ChatCircleDots size={22} weight="duotone" /></EmptyIcon>
+              <strong>No conversations yet</strong>
+              <span>Start your first chat and it will show up here, private to your account.</span>
+            </EmptyState>
+          </Panel>
+
+          <Panel>
+            <PanelHeader>
+              <PanelCopy>
+                <PanelIcon><GraphicsCard size={19} weight="duotone" /></PanelIcon>
+                <div><PanelTitle>AI usage</PanelTitle><span>Your last 7 days</span></div>
+              </PanelCopy>
+              <PanelAction type="button" onClick={(): void => onOpenSettings("usage")}>
+                View usage <ArrowRight size={14} />
+              </PanelAction>
+            </PanelHeader>
+            <MetricRow>
+              <Metric><span>Input</span><strong>—</strong></Metric>
+              <Metric><span>Output</span><strong>—</strong></Metric>
+              <Metric><span>Total</span><strong>—</strong></Metric>
+            </MetricRow>
+          </Panel>
+        </Stack>
+
+        <Stack>
+          <Panel>
+            <PanelHeader>
+              <PanelCopy>
+                <PanelIcon $accent><Cpu size={19} weight="duotone" /></PanelIcon>
+                <div><PanelTitle>Current provider</PanelTitle><span>Model processing</span></div>
+              </PanelCopy>
+            </PanelHeader>
+            <ProviderState><StatusDot $online={false} /> Not configured</ProviderState>
+            <ProviderDetails>
+              <span>Provider<strong>None selected</strong></span>
+              <span>Model<strong>Unavailable</strong></span>
+              <span>Processing<strong>Local</strong></span>
+            </ProviderDetails>
+            <PanelAction type="button" onClick={(): void => onOpenSettings("providers")}>
+              Configure a provider <ArrowRight size={14} />
             </PanelAction>
-          </PanelHeader>
-          <MetricGrid>
-            <Metric><span>Input</span><strong>—</strong></Metric>
-            <Metric><span>Output</span><strong>—</strong></Metric>
-            <Metric><span>Total</span><strong>—</strong></Metric>
-          </MetricGrid>
-          <Chart aria-label="No token usage recorded">
-            <ChartBaseline />
-            <ChartEmpty>No usage recorded yet</ChartEmpty>
-          </Chart>
-        </WidePanel>
+          </Panel>
+        </Stack>
+      </Columns>
 
-        <Panel>
-          <PanelHeader>
-            <PanelCopy>
-              <PanelIcon $accent><Cpu size={21} weight="duotone" /></PanelIcon>
-              <div><PanelTitle>Current provider</PanelTitle><span>Model processing status</span></div>
-            </PanelCopy>
-          </PanelHeader>
-          <ProviderState><StatusDot $online={false} /> Not configured</ProviderState>
-          <ProviderDetails>
-            <span>Provider<strong>None selected</strong></span>
-            <span>Model<strong>Unavailable</strong></span>
-            <span>Processing<strong>Not started</strong></span>
-          </ProviderDetails>
-          <PanelAction type="button" onClick={(): void => onOpenSettings("providers")}>
-            Manage providers <ArrowRight size={15} />
-          </PanelAction>
-        </Panel>
-
-        <Panel>
-          <PanelHeader>
-            <PanelCopy>
-              <PanelIcon><ChatCircleDots size={21} weight="duotone" /></PanelIcon>
-              <div><PanelTitle>Recent conversations</PanelTitle><span>Continue where you left off</span></div>
-            </PanelCopy>
-          </PanelHeader>
-          <EmptyState>
-            <EmptyIcon><ChatCircleDots size={24} weight="duotone" /></EmptyIcon>
-            <strong>No conversations yet</strong>
-            <span>Your latest chats will appear here.</span>
-          </EmptyState>
-          <PanelAction type="button" onClick={(): void => onNavigate("chat")}>
-            Start first chat <ArrowRight size={15} />
-          </PanelAction>
-        </Panel>
-
-        <WidePanel>
-          <PanelHeader>
-            <PanelCopy>
-              <PanelIcon $accent><ClockCountdown size={21} weight="duotone" /></PanelIcon>
-              <div><PanelTitle>Runs and schedules</PanelTitle><span>Cowork, tasks and autonomous work</span></div>
-            </PanelCopy>
-            <PanelAction type="button" onClick={(): void => onNavigate("tasks")}>
-              Open calendar <ArrowRight size={15} />
-            </PanelAction>
-          </PanelHeader>
-          <RunLegend>
-            <RunLegendItem><CalendarCheck size={17} /><span>Upcoming</span><strong>0</strong></RunLegendItem>
-            <RunLegendItem><Brain size={17} /><span>Running</span><strong>0</strong></RunLegendItem>
-            <RunLegendItem $error><WarningCircle size={17} /><span>Needs attention</span><strong>0</strong></RunLegendItem>
-          </RunLegend>
-          <EmptyState $compact>
-            <strong>No scheduled runs</strong>
-            <span>Upcoming Cowork and automation executions, including failures, will appear here.</span>
-          </EmptyState>
-        </WidePanel>
-
-        <Panel>
-          <PanelHeader>
-            <PanelCopy>
-              <PanelIcon><BellRinging size={21} weight="duotone" /></PanelIcon>
-              <div><PanelTitle>Approvals</PanelTitle><span>Decisions waiting for you</span></div>
-            </PanelCopy>
-          </PanelHeader>
-          <EmptyState>
-            <EmptyIcon><ShieldCheck size={24} weight="duotone" /></EmptyIcon>
-            <strong>Nothing waiting</strong>
-            <span>Permission and execution approvals will appear here.</span>
-          </EmptyState>
-        </Panel>
-      </PanelGrid>
+      <Roadmap>
+        <RoadmapHead>
+          <h2>Coming to Nexo IA</h2>
+          <span>Not part of this release yet</span>
+        </RoadmapHead>
+        <RoadmapGrid>
+          <RoadmapItem>
+            <Vault size={18} weight="duotone" />
+            <div>
+              <strong>Knowledge Vaults</strong>
+              <small>Ask questions over your own local documents with cited answers.</small>
+              <RoadmapTag>Release 0.2</RoadmapTag>
+            </div>
+          </RoadmapItem>
+          <RoadmapItem>
+            <Sparkle size={18} weight="duotone" />
+            <div>
+              <strong>Workspaces</strong>
+              <small>Open a project folder for Nexo to inspect and edit under permission.</small>
+              <RoadmapTag>Release 0.3</RoadmapTag>
+            </div>
+          </RoadmapItem>
+          <RoadmapItem>
+            <Robot size={18} weight="duotone" />
+            <div>
+              <strong>Cowork &amp; automations</strong>
+              <small>Collaborate on a visible plan and schedule governed, unattended runs.</small>
+              <RoadmapTag>Release 0.6</RoadmapTag>
+            </div>
+          </RoadmapItem>
+        </RoadmapGrid>
+      </Roadmap>
     </Page>
   );
 }
