@@ -9,4 +9,4 @@ export type AppShellProps = {
   isLoggingOut: boolean;
 };
 export type PlaceholderPageProps = { title: string; description: string; icon: Icon };
-export type UserMenuProps = AppShellProps & { onNavigate: (section: AppSection) => void };
+export type SidebarAccountProps = AppShellProps & { onNavigate: (section: AppSection) => void; collapsed: boolean };

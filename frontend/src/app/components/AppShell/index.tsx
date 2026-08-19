@@ -2,11 +2,12 @@ import {
   Bell,
   Brain,
   CalendarCheck,
+  CaretLeft,
+  CaretRight,
   ChatCircleDots,
   Gear,
   House,
   List,
-  SidebarSimple,
   Sparkle,
   Users,
   Vault,
@@ -21,10 +22,11 @@ import { HomePage } from "../../../modules/system/status/pages/HomePage";
 import { ChatPage } from "../../../modules/conversation/chat/pages/ChatPage";
 import type { AppSection, AppShellProps, NavigationItem } from "../../types/navigationTypes";
 import { PlaceholderPage } from "../PlaceholderPage";
-import { UserMenu } from "../UserMenu";
+import { SidebarAccount } from "../SidebarAccount";
 import {
   Brand,
   BrandName,
+  EdgeToggle,
   Header,
   HeaderActions,
   HeaderIdentity,
@@ -40,7 +42,6 @@ import {
   NotificationButton,
   Shell,
   Sidebar,
-  SidebarToggle,
   Workspace
 } from "./styles";
 
@@ -102,6 +103,15 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
   return (
     <Shell $collapsed={collapsed}>
       <Sidebar $collapsed={collapsed}>
+        <EdgeToggle
+          type="button"
+          title={collapsed ? "Expand menu" : "Collapse menu"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={(): void => setCollapsed((value: boolean) => !value)}
+        >
+          {collapsed ? <CaretRight size={13} weight="bold" /> : <CaretLeft size={13} weight="bold" />}
+        </EdgeToggle>
+
         <Brand>
           <Logo src="/assets/logo/nexo-ia-symbol.png" alt="" />
           <BrandName $hidden={collapsed}>Nexo IA</BrandName>
@@ -124,16 +134,13 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
           ))}
         </Navigation>
 
-        <SidebarToggle
-          type="button"
-          title={collapsed ? "Expand menu" : undefined}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          $collapsed={collapsed}
-          onClick={(): void => setCollapsed((value: boolean) => !value)}
-        >
-          <SidebarSimple size={20} weight="duotone" />
-          <NavLabel $hidden={collapsed}>{collapsed ? "Expand menu" : "Collapse menu"}</NavLabel>
-        </SidebarToggle>
+        <SidebarAccount
+          user={user}
+          collapsed={collapsed}
+          onLogout={onLogout}
+          isLoggingOut={isLoggingOut}
+          onNavigate={navigate}
+        />
       </Sidebar>
 
       <Workspace>
@@ -157,12 +164,6 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
             <NotificationButton type="button" aria-label="Notifications">
               <Bell size={20} />
             </NotificationButton>
-            <UserMenu
-              user={user}
-              onLogout={onLogout}
-              isLoggingOut={isLoggingOut}
-              onNavigate={navigate}
-            />
           </HeaderActions>
           <MobileNavigation $open={mobileMenuOpen} aria-label="Nexo features">
             {featureNavigation.map((item: NavigationItem) => (

@@ -91,6 +91,37 @@ export const SidebarToggle = styled.button<{ $collapsed?: boolean }>`
   }
 `;
 
+export const EdgeToggle = styled.button<{ $collapsed?: boolean }>`
+  position: absolute;
+  top: 5.4rem;
+  right: -0.85rem;
+  z-index: 6;
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.round};
+  background: ${({ theme }) => theme.colors.backgroundElevated};
+  color: ${({ theme }) => theme.colors.textMuted};
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 56rem) {
+    display: none;
+  }
+`;
+
 export const Navigation = styled.nav`
   display: grid;
   gap: 0.25rem;
