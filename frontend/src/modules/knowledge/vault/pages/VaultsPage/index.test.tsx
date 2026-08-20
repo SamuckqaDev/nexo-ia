@@ -26,7 +26,8 @@ describe("VaultsPage", () => {
   it("opens source knowledge and attaches readable content to Chat", () => {
     render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Source: PRODUCT_VISION.md/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Nexo product docs/i }));
+    fireEvent.click(screen.getByRole("button", { name: /PRODUCT_VISION.md/i }));
     expect(screen.getByText(/local-first, team-ready AI workspace/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Attach to Chat" }));
@@ -36,10 +37,23 @@ describe("VaultsPage", () => {
   it("exposes an accessible map whose nodes open the matching knowledge", () => {
     render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
 
-    expect(screen.getByRole("heading", { name: "Knowledge map" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Knowledge workbench" }));
     expect(screen.getByLabelText(/Interactive knowledge map/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^Source: CONTEXT_AND_SKILL_GOVERNANCE.md/i }));
 
     expect(screen.getByText(/Explicit Skill invocation does not bypass identity/i)).toBeInTheDocument();
+  });
+
+  it("opens the knowledge map in a movable workbench window", () => {
+    render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Knowledge workbench" }));
+
+    expect(screen.getByRole("dialog", { name: "Knowledge Workbench" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Maximize workbench" }));
+    expect(screen.getByRole("button", { name: "Restore workbench" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close knowledge workbench" }));
+    expect(screen.queryByRole("dialog", { name: "Knowledge Workbench" })).not.toBeInTheDocument();
   });
 });

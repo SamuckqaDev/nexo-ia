@@ -41,3 +41,21 @@ export type VaultKnowledgeGraphProps = {
   onSelectVault: (vaultId: string) => void;
   onSelectSource: (vaultId: string, sourceId: string) => void;
 };
+
+export type VaultWorkbenchPosition = { x: number; y: number };
+
+export type VaultWorkbenchDragSnapshot = {
+  pointerId: number;
+  pointerX: number;
+  pointerY: number;
+  position: VaultWorkbenchPosition;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+export type VaultWorkbenchModalProps = VaultKnowledgeGraphProps & {
+  open: boolean;
+  onClose: () => void;
+};

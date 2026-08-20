@@ -20,6 +20,11 @@ export const Explorer = styled.div`
     overflow: hidden;
   }
 
+  > section:last-child > div:last-child {
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
   @media(max-width:48rem) {
     height: auto;
     grid-template-columns: 1fr;
@@ -30,33 +35,11 @@ export const Explorer = styled.div`
     > section { min-height: 20rem; }
   }
 `;
-export const KnowledgeWorkspace = styled.div`
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  grid-template-rows: minmax(13rem, 0.8fr) minmax(16rem, 1.2fr);
-  gap: ${({ theme }) => theme.spacing.lg};
-  overflow: hidden;
-
-  > section {
-    display: grid;
-    min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  > section > div:last-child { min-height: 0; }
-  > section:first-child > div:last-child { overflow: hidden; }
-  > section:last-child > div:last-child {
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
-
-  @media(max-width:48rem) {
-    grid-template-rows: minmax(22rem, 56vh) auto;
-    overflow: visible;
-
-    > section:last-child { min-height: 24rem; }
-  }
+export const PageActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
 `;
 export const Library = styled.div`display:grid;height:100%;min-height:0;grid-template-rows:auto minmax(0,1fr);gap:${({ theme }) => theme.spacing.md};padding:${({ theme }) => theme.spacing.md};overflow:hidden;`;
 export const VaultList = styled.div`display:grid;min-height:0;align-content:start;gap:.35rem;overflow:auto;overscroll-behavior:contain;`;

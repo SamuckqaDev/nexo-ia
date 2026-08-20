@@ -81,6 +81,8 @@ membership, shared-term relationships, selection, and attached-source state. Att
 sent inside the message to the selected provider as untrusted reference data; the map and excerpts
 are not an index, retrieval result, citation, durable Vault ingestion, or a tool the model can use to
 open an unattached source automatically. The contained Vault workspace keeps the collection library,
-relationship map, source list, and selected knowledge visible together on desktop; each surface owns
-its scrolling, while narrow screens stack the same surfaces inside the Vault explorer. PDF and Office
+source list, and selected knowledge visible together on desktop; each surface owns its scrolling,
+while narrow screens stack the same surfaces inside the Vault explorer. The relationship map opens as
+a movable, resizable knowledge workbench with maximize and restore controls instead of consuming the
+main explorer area; this is a client-side visualization and does not invoke a model. PDF and Office
 selections keep metadata only until supported parsers exist.
