@@ -33,7 +33,6 @@ import {
   Grid,
   IconButton,
   MonthLabel,
-  PreviewNote,
   Weekday
 } from "./styles";
 
@@ -79,7 +78,6 @@ export function CalendarPage(): ReactElement {
       contentMode="contained"
       actions={<Button type="button" icon={CalendarPlus} onClick={(): void => setComposing(true)}>New schedule</Button>}
     >
-      <PreviewNote><span>Interface preview</span> Example occurrences are marked and never executed. New items remain local to this session.</PreviewNote>
       <Grid>
         <WorkspacePanel
           title="Calendar"

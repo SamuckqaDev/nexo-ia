@@ -1,7 +1,6 @@
 import styled from "styled-components";
 import type { CalendarItemKind } from "../../types/calendarTypes";
 
-export const PreviewNote = styled.div`display:flex;align-items:center;gap:${({ theme }) => theme.spacing.sm};padding:.7rem 1rem;border:1px solid ${({ theme }) => theme.colors.line};border-radius:${({ theme }) => theme.radius.control};color:${({ theme }) => theme.colors.textMuted};font-size:.68rem;span{color:${({ theme }) => theme.colors.accentSoft};font-weight:700;}`;
 export const Grid = styled.div`
   display: grid;
   min-width: 0;

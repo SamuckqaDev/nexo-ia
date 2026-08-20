@@ -40,7 +40,7 @@ export function CoworkPage(): ReactElement {
         </WorkspacePanel>
       )}
       <Board>
-        <WorkspacePanel title="Active objective" description="A product-level preview of the durable session workspace." action={<WorkspaceBadge tone="attention">Interface preview</WorkspaceBadge>}>
+        <WorkspacePanel title="Active objective" description="Track the objective, milestones and current execution state.">
           <Objective>
             <ObjectiveCard>
               <div><Brain size={23} weight="duotone" /><span><small>Objective</small><strong>Prepare Nexo frontend for the next product slice</strong></span></div>
