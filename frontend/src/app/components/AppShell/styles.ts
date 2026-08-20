@@ -33,8 +33,7 @@ export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean 
     radial-gradient(circle at 0 100%, ${({ theme }) => theme.colors.dangerSurface}, transparent 12rem),
     ${({ theme }) => theme.colors.surfaceStrong};
   transition: padding 0.2s ease;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
 
   @media (max-width: 56rem) {
     position: fixed;
@@ -42,6 +41,9 @@ export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean 
     inset: 0 auto 0 0;
     width: min(18rem, calc(100vw - 3.5rem));
     padding: ${({ theme }) => theme.spacing.lg};
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     transform: translateX(${({ $mobileOpen }) => ($mobileOpen ? "0" : "-105%")});
     transition: transform 0.2s ease;
   }
@@ -92,6 +94,7 @@ export const EdgeToggle = styled.button<{ $collapsed?: boolean }>`
   border: 1px solid ${({ theme }) => theme.colors.lineStrong};
   border-radius: ${({ theme }) => theme.radius.round};
   background: ${({ theme }) => theme.colors.backgroundElevated};
+  box-shadow: ${({ theme }) => theme.shadow};
   color: ${({ theme }) => theme.colors.textMuted};
   cursor: pointer;
   transition: color 0.15s ease, border-color 0.15s ease;
@@ -113,7 +116,12 @@ export const EdgeToggle = styled.button<{ $collapsed?: boolean }>`
 
 export const Navigation = styled.nav`
   display: grid;
+  min-height: 0;
+  flex: 1;
+  align-content: start;
   gap: 0.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 `;
 
 export const NavigationLabel = styled.span<{ $hidden: boolean }>`
