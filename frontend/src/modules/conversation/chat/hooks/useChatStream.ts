@@ -22,6 +22,7 @@ import { conversationsKey, messagesKey } from "./useChat";
 
 export type ChatStream = {
   phase: StreamPhase;
+  startedAt: number | null;
   thinkingContent: string;
   streamingContent: string;
   usage: UsageEvent | null;
@@ -84,8 +85,10 @@ export const useChatStream = (
     if (!conversationId || activeRequests.has(conversationId)) return;
 
     if (latestAssistant && activeStatuses.has(latestAssistant.status)) {
+      const stored: ConversationStreamSnapshot | undefined = useChatStreamStore.getState().streams[conversationId];
       updateStream(conversationId, {
         phase: persistedPhase(latestAssistant),
+        startedAt: stored?.startedAt ?? new Date(latestAssistant.createdAt).getTime(),
         assistantMessageId: latestAssistant.id,
         errorMessage: null
       });
@@ -100,6 +103,7 @@ export const useChatStream = (
     if (stored && (stored.phase === "starting" || stored.phase === "streaming" || stored.phase === "cancelling")) {
       updateStream(conversationId, {
         phase: latestAssistant ? persistedPhase(latestAssistant) : "idle",
+        startedAt: null,
         thinkingContent: "",
         streamingContent: "",
         assistantMessageId: null
@@ -111,6 +115,7 @@ export const useChatStream = (
     activeRequests.delete(targetConversationId);
     updateStream(targetConversationId, {
       phase: next,
+      startedAt: null,
       thinkingContent: "",
       streamingContent: "",
       assistantMessageId: null
@@ -127,6 +132,7 @@ export const useChatStream = (
     activeRequests.set(conversationId, controller);
     updateStream(conversationId, {
       phase: "starting",
+      startedAt: Date.now(),
       thinkingContent: "",
       streamingContent: "",
       usage: null,
@@ -188,6 +194,7 @@ export const useChatStream = (
 
   return {
     phase: snapshot.phase,
+    startedAt: snapshot.startedAt,
     thinkingContent: snapshot.thinkingContent,
     streamingContent: snapshot.streamingContent,
     usage: snapshot.usage,

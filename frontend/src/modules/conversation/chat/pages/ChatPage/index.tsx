@@ -231,6 +231,7 @@ export function ChatPage(): ReactElement {
                 hasModel={hasModel}
                 hasConfiguredProvider={hasConfiguredProvider}
                 phase={stream.phase}
+                startedAt={stream.startedAt}
                 thinkingContent={stream.thinkingContent}
                 streamingContent={stream.streamingContent}
                 errorMessage={stream.errorMessage}

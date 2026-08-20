@@ -62,11 +62,32 @@ export const RunStatus = styled.div`
   background: ${({ theme }) => theme.colors.surfaceAccent};
   color: ${({ theme }) => theme.colors.primary};
   > svg { flex: 0 0 auto; animation: spin 1s linear infinite; }
-  > span { display: grid; gap: 0.16rem; }
+  > span { display: grid; min-width: 0; gap: 0.16rem; }
   strong { color: ${({ theme }) => theme.colors.text}; font-size: 0.74rem; }
   small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.62rem; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { > svg { animation: none; } }
+`;
+
+export const RunTimer = styled.time`
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 0.08rem;
+  margin-left: auto;
+  color: ${({ theme }) => theme.colors.primarySoft};
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  small {
+    color: ${({ theme }) => theme.colors.textSubtle};
+    font-size: 0.54rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
 `;
 
 export const Empty = styled.div`

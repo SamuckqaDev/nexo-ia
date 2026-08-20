@@ -38,7 +38,7 @@ describe("MessageItem", () => {
     expect(screen.getByText("20 in · 3 out")).toBeInTheDocument();
     expect(screen.getByText("23")).toBeInTheDocument();
     expect(screen.getByText(/Context 20 \/ 8,000 \(0.3%\)/)).toBeInTheDocument();
-    expect(screen.getByText("1.5s")).toBeInTheDocument();
+    expect(screen.getByText("Response time 1.5s")).toBeInTheDocument();
   });
 
   it("labels an estimated token count instead of presenting it as measured", () => {

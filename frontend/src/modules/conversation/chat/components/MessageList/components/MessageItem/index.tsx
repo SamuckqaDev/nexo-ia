@@ -103,7 +103,7 @@ export function MessageItem({
               </span>
             )}
             {message.totalTokens !== null && <span><strong>{message.totalTokens.toLocaleString()}</strong> total tokens</span>}
-            {message.latencyMs !== null && <span>{(message.latencyMs / 1000).toFixed(1)}s</span>}
+            {message.latencyMs !== null && <span>Response time {(message.latencyMs / 1000).toFixed(1)}s</span>}
             {message.processingLocation && <span>{message.processingLocation.toLowerCase()}</span>}
             {contextPercentage !== null && message.contextTokensUsed !== null && message.contextTokenBudget !== null && (
               <ContextMeter title="Nexo context assembly budget, not the model's discovered maximum window">

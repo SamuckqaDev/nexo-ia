@@ -1,5 +1,5 @@
 import { Brain, ChatCircleDots, Coins, Cpu, ShieldCheck, Sparkle, SlidersHorizontal, SpinnerGap } from "@phosphor-icons/react";
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import type { ConversationMessage, ConversationMode, StreamPhase } from "../../types/chatTypes";
 import { ChatLoading } from "../ChatLoading";
@@ -13,6 +13,7 @@ import {
   FeatureGrid,
   Messages,
   RunStatus,
+  RunTimer,
   StatusLive,
   StreamError,
   ThinkingTrace,
@@ -26,6 +27,7 @@ type MessageListProps = {
   hasModel: boolean;
   hasConfiguredProvider: boolean;
   phase: StreamPhase;
+  startedAt: number | null;
   thinkingContent: string;
   streamingContent: string;
   errorMessage: string | null;
@@ -46,6 +48,44 @@ const streamStatus = (phase: StreamPhase): string => {
   return "";
 };
 
+const formatElapsedTime = (elapsedSeconds: number): string => {
+  const hours: number = Math.floor(elapsedSeconds / 3_600);
+  const minutes: number = Math.floor((elapsedSeconds % 3_600) / 60);
+  const seconds: number = elapsedSeconds % 60;
+  const minuteSeconds: string = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  return hours > 0 ? `${hours.toString().padStart(2, "0")}:${minuteSeconds}` : minuteSeconds;
+};
+
+function GenerationStatus({ phase, startedAt }: { phase: StreamPhase; startedAt: number | null }): ReactElement {
+  const fallbackStartedAt = useRef<number>(Date.now());
+  const [now, setNow] = useState<number>(Date.now());
+
+  useEffect((): (() => void) => {
+    setNow(Date.now());
+    const timer = window.setInterval((): void => setNow(Date.now()), 1_000);
+    return (): void => window.clearInterval(timer);
+  }, []);
+
+  const elapsedSeconds: number = Math.max(0, Math.floor((now - (startedAt ?? fallbackStartedAt.current)) / 1_000));
+  const label: string = phase === "starting"
+    ? "Preparing response"
+    : phase === "cancelling" ? "Stopping response" : "Generating response";
+
+  return (
+    <RunStatus aria-label="Response generation status">
+      <SpinnerGap size={18} weight="bold" aria-hidden />
+      <span>
+        <strong>{label}</strong>
+        <small>You can open another chat and come back without stopping it.</small>
+      </span>
+      <RunTimer role="timer" aria-live="off" aria-label="Response generation elapsed time">
+        {formatElapsedTime(elapsedSeconds)}
+        <small>elapsed</small>
+      </RunTimer>
+    </RunStatus>
+  );
+}
+
 export function MessageList({
   messages,
   isLoading,
@@ -53,6 +93,7 @@ export function MessageList({
   hasModel,
   hasConfiguredProvider,
   phase,
+  startedAt,
   thinkingContent,
   streamingContent,
   errorMessage,
@@ -85,7 +126,7 @@ export function MessageList({
   const waitingForFirstToken: boolean = Boolean(streamingId) && !streamingContent;
   const conversationTokenTotal: number = messages.reduce((total: number, message: ConversationMessage): number =>
     total + (message.role === "ASSISTANT" ? message.totalTokens ?? 0 : 0), 0);
-  const showRunStatus: boolean = phase === "starting" || waitingForFirstToken;
+  const showRunStatus: boolean = phase === "starting" || phase === "streaming" || phase === "cancelling";
 
   return (
     <Messages>
@@ -133,13 +174,6 @@ export function MessageList({
         </ThinkingTrace>
       )}
 
-      {showRunStatus && (
-        <RunStatus role="status">
-          <SpinnerGap size={18} weight="bold" />
-          <span><strong>Nexo is working in this conversation</strong><small>You can open another chat and come back without stopping it.</small></span>
-        </RunStatus>
-      )}
-
       {messages.map((message: ConversationMessage) => message.id === streamingId && waitingForFirstToken
         ? null
         : (
@@ -150,6 +184,8 @@ export function MessageList({
             isStreaming={message.id === streamingId}
           />
         ))}
+
+      {showRunStatus && <GenerationStatus phase={phase} startedAt={startedAt} />}
 
       {errorMessage && <StreamError role="alert">{errorMessage}</StreamError>}
       {phase === "disconnected" && (

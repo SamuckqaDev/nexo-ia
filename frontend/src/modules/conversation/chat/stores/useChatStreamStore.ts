@@ -3,6 +3,7 @@ import type { ChatStreamState, ConversationStreamSnapshot } from "../types/chatS
 
 export const idleConversationStream: ConversationStreamSnapshot = {
   phase: "idle",
+  startedAt: null,
   thinkingContent: "",
   streamingContent: "",
   usage: null,

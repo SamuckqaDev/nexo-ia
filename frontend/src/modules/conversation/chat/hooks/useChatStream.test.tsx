@@ -47,6 +47,7 @@ describe("useChatStream", () => {
     );
 
     act((): void => result.current.send("Review this project"));
+    const startedAt: number | null = result.current.startedAt;
     act((): void => {
       handlers?.onStarted({
         userMessageId: "30000000-0000-4000-8000-000000000003",
@@ -64,6 +65,7 @@ describe("useChatStream", () => {
 
     rerender({ conversationId: firstConversation });
     expect(result.current.phase).toBe("streaming");
+    expect(result.current.startedAt).toBe(startedAt);
     expect(result.current.streamingContent).toBe("Working");
     expect(requestSignal().aborted).toBe(false);
   });

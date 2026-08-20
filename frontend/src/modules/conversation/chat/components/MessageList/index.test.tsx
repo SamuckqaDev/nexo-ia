@@ -1,10 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
 import { MessageList } from "./index";
 
 describe("MessageList", () => {
+  afterEach((): void => {
+    vi.useRealTimers();
+  });
+
   it("uses the Nexo loading identity while conversation history is restored", () => {
     render(
       <ThemeProvider theme={darkTheme}>
@@ -15,6 +19,7 @@ describe("MessageList", () => {
           hasModel
           hasConfiguredProvider
           phase="idle"
+          startedAt={null}
           thinkingContent=""
           streamingContent=""
           errorMessage={null}
@@ -37,6 +42,7 @@ describe("MessageList", () => {
           hasModel
           hasConfiguredProvider
           phase="starting"
+          startedAt={Date.now()}
           thinkingContent=""
           streamingContent=""
           errorMessage={null}
@@ -63,6 +69,7 @@ describe("MessageList", () => {
           hasModel={false}
           hasConfiguredProvider={false}
           phase="idle"
+          startedAt={null}
           thinkingContent=""
           streamingContent=""
           errorMessage={null}
@@ -87,6 +94,7 @@ describe("MessageList", () => {
           hasModel={false}
           hasConfiguredProvider
           phase="idle"
+          startedAt={null}
           thinkingContent=""
           streamingContent=""
           errorMessage={null}
@@ -127,6 +135,7 @@ describe("MessageList", () => {
           hasModel
           hasConfiguredProvider
           phase="streaming"
+          startedAt={Date.now()}
           thinkingContent="Checking the available evidence."
           streamingContent=""
           errorMessage={null}
@@ -138,5 +147,38 @@ describe("MessageList", () => {
 
     expect(screen.getByText("Checking the available evidence.")).toBeInTheDocument();
     expect(screen.getByText(/not saved/i)).toBeInTheDocument();
+  });
+
+  it("keeps a visible loading indicator and elapsed timer while response tokens arrive", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-20T19:00:00Z"));
+
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <MessageList
+          messages={[]}
+          isLoading={false}
+          hasConversation
+          hasModel
+          hasConfiguredProvider
+          phase="streaming"
+          startedAt={Date.now()}
+          thinkingContent=""
+          streamingContent="Partial answer"
+          errorMessage={null}
+          mode="chat"
+          onConfigureProvider={(): void => undefined}
+        />
+      </ThemeProvider>
+    );
+
+    expect(screen.getByText("Generating response")).toBeVisible();
+    expect(screen.getByRole("timer", { name: /response generation elapsed time/i })).toHaveTextContent("00:00");
+
+    act((): void => {
+      vi.advanceTimersByTime(3_000);
+    });
+
+    expect(screen.getByRole("timer", { name: /response generation elapsed time/i })).toHaveTextContent("00:03");
   });
 });

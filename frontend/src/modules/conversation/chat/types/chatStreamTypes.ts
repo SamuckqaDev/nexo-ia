@@ -2,6 +2,7 @@ import type { StreamPhase, UsageEvent } from "./chatTypes";
 
 export type ConversationStreamSnapshot = {
   phase: StreamPhase;
+  startedAt: number | null;
   thinkingContent: string;
   streamingContent: string;
   usage: UsageEvent | null;

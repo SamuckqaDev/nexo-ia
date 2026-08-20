@@ -230,11 +230,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
   states, and reports model, token usage, latency, and processing location on completed answers. An
   unterminated final SSE frame is flushed when the transport closes, so a completed persisted answer
   is not lost at the browser boundary. The send and stop controls stay as compact right-aligned
-  composer actions. An estimated token count is always labelled. Conversation creation uses an
-  accessible dialog. The workspace now follows the Nexo visual semantics: cyan identifies the
-  assistant and processing, coral identifies the person, model and privacy context stay visible in
-  the conversation header, and Chat, Agent, tools, and image capabilities live in the composer
-  without replacing the thread.
+  composer actions. While a request is active, a persistent spinner and elapsed timer remain at the
+  end of the conversation, survive switching between chats, and distinguish preparing, generating,
+  and stopping states. Completed answers label the measured response time. An estimated token count
+  is always labelled. Conversation creation uses an accessible dialog. The workspace now follows the
+  Nexo visual semantics: cyan identifies the assistant and processing, coral identifies the person,
+  model and privacy context stay visible in the conversation header, and Chat, Agent, tools, and
+  image capabilities live in the composer without replacing the thread.
   Chat uses the wider application workspace, a compact one-line header, per-message copy actions,
   and Nexo-branded conversation loading. It does not present request setup or time-to-first-token as
   model Thinking. When enabled in Preferences, only real, explicitly classified provider reasoning
@@ -275,7 +277,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- One hundred and two passing default backend tests and ninety-seven passing frontend tests, including cross-user
+- One hundred and two passing default backend tests and ninety-eight passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
