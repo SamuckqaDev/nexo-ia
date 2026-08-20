@@ -80,5 +80,7 @@ files, and lets the user attach readable excerpts to Chat. Its interactive knowl
 membership, shared-term relationships, selection, and attached-source state. Attached excerpts are
 sent inside the message to the selected provider as untrusted reference data; the map and excerpts
 are not an index, retrieval result, citation, durable Vault ingestion, or a tool the model can use to
-open an unattached source automatically. PDF and Office selections keep metadata only until supported
-parsers exist.
+open an unattached source automatically. The contained Vault workspace keeps the collection library,
+relationship map, source list, and selected knowledge visible together on desktop; each surface owns
+its scrolling, while narrow screens stack the same surfaces inside the Vault explorer. PDF and Office
+selections keep metadata only until supported parsers exist.

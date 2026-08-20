@@ -2,7 +2,10 @@ import styled, { css } from "styled-components";
 
 export const GraphShell = styled.div`
   display: grid;
+  height: 100%;
   min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
   background:
     radial-gradient(circle at 50% 42%, ${({ theme }) => theme.colors.surfaceAccent}, transparent 28rem),
     ${({ theme }) => theme.colors.background};
@@ -55,11 +58,13 @@ export const GraphSummary = styled.span`
 `;
 
 export const GraphViewport = styled.div`
-  max-height: min(31rem, 54vh);
-  min-height: 22rem;
+  height: 100%;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  background-image: radial-gradient(circle, ${({ theme }) => theme.colors.lineStrong} 0.75px, transparent 0.9px);
+  background-size: 1.4rem 1.4rem;
 `;
 
 export const GraphCanvas = styled.div<{ $width: number; $height: number }>`
@@ -132,7 +137,8 @@ export const GraphNode = styled.button<{
 
 export const EmptyGraph = styled.div`
   display: grid;
-  min-height: 22rem;
+  height: 100%;
+  min-height: 13rem;
   place-items: center;
   padding: ${({ theme }) => theme.spacing.xl};
   color: ${({ theme }) => theme.colors.textMuted};

@@ -19,7 +19,7 @@ export const ScrollArea = styled.div<{ $contained: boolean }>`
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: ${({ $contained }) => $contained ? "auto minmax(0, 1fr)" : "none"};
+  grid-template-rows: ${({ $contained }) => $contained ? "minmax(0, 1fr)" : "none"};
   align-content: ${({ $contained }) => $contained ? "stretch" : "start"};
   gap: ${({ theme }) => theme.spacing.lg};
   overflow: ${({ $contained }) => $contained ? "hidden" : "auto"};
