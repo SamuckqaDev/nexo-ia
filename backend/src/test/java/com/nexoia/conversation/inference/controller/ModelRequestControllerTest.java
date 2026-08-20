@@ -21,6 +21,7 @@ import com.nexoia.conversation.chat.exception.ConversationBusyException;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.inference.config.ModelStreamProperties;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
+import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
 import com.nexoia.conversation.inference.service.ModelRequestRegistry;
 import com.nexoia.conversation.inference.service.ModelRequestService;
 import com.nexoia.shared.exception.GlobalExceptionHandler;
@@ -38,10 +39,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /**
@@ -88,7 +89,7 @@ class ModelRequestControllerTest {
 
     @Test
     void answersNotFoundForAConversationTheCallerDoesNotOwn() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any()))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false)))
                 .thenThrow(new ConversationNotFoundException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -102,7 +103,7 @@ class ModelRequestControllerTest {
 
     @Test
     void answersConflictWhenTheConversationIsAlreadyGenerating() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any()))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false)))
                 .thenThrow(new ConversationBusyException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -115,7 +116,7 @@ class ModelRequestControllerTest {
 
     @Test
     void answersUnprocessableWhenNoModelIsSelected() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any()))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false)))
                 .thenThrow(new ModelNotSelectedException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -137,6 +138,20 @@ class ModelRequestControllerTest {
     }
 
     @Test
+    void forwardsTheEnabledThinkingPreferenceBeforeOpeningTheStream() throws Exception {
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(true)))
+                .thenThrow(new ConversationNotFoundException());
+
+        mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
+                        .with(principal()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"hello\",\"thinkingEnabled\":true}"))
+                .andExpect(status().isNotFound());
+
+        verify(service).begin(userId, conversationId, "hello", true);
+    }
+
+    @Test
     void cancelsTheRunningRequestForItsOwner() throws Exception {
         UUID messageId = UUID.randomUUID();
 
@@ -153,7 +168,7 @@ class ModelRequestControllerTest {
     @Test
     void reportsNoRunningRequestWhenCancellationArrivesTooLate() throws Exception {
         UUID messageId = UUID.randomUUID();
-        doThrow(new com.nexoia.conversation.inference.exception.ModelRequestNotFoundException())
+        doThrow(new ModelRequestNotFoundException())
                 .when(service).cancel(userId, conversationId, messageId);
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/{messageId}/cancel",

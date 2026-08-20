@@ -141,9 +141,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Settings now groups Profile, Security and sessions, Providers, and Token usage. Profile photo and
   account identity are centralized there; security reuses the implemented password and device
   controls. Provider configuration and usage accounting continue to evolve behind their contracts.
-- Settings includes persisted Preferences for the interface language and light or dark theme. Theme
-  changes are applied immediately; the saved language choice is ready to drive the localization
-  layer as translated interface content is introduced.
+- Settings includes persisted Preferences for the interface language, light or dark theme, and model
+  Thinking. Thinking is off by default and applies to new requests; the preference is sent explicitly
+  instead of relying on a provider default. Theme changes are applied immediately; the saved language
+  choice is ready to drive the localization layer as translated interface content is introduced.
 - Authenticated users can edit their own name, username, email, and date of birth from Profile;
   the frontend derives and displays age from that date instead of persisting a manually entered age.
   Username uniqueness is checked by the service and enforced case-insensitively by PostgreSQL;
@@ -159,8 +160,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   request, so a concurrent submission is rejected by the database rather than by an optimistic check.
 - `ChatCompletionClient` is the provider boundary for streamed inference, with Ollama as the first
   adapter. It reads the newline-delimited JSON of `POST /api/chat` and takes `prompt_eval_count` and
-  `eval_count` as provider-reported token counts. An unsupported provider type fails explicitly;
-  Nexo IA never falls back to another provider.
+  `eval_count` as provider-reported token counts. Ollama requests carry the explicit `think`
+  preference, and its `message.thinking` stream is kept separate from final `message.content`. An
+  unsupported provider type fails explicitly; Nexo IA never falls back to another provider.
 - `ProviderEndpointGuard` resolves a registered endpoint before the server dereferences it and blocks
   a managed vendor type pointed at a loopback, link-local, or private address, while self-hosted
   Ollama and OpenAI-compatible servers may stay on a private network. It also reports whether
@@ -172,11 +174,14 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Persistence runs in two short transactions with the stream between them, so no database connection
   or conversation lock is held while tokens arrive. Streaming runs on virtual threads.
 - Conversation history is assembled within an explicit, configurable token budget that drops the
-  oldest turns first, always sends the newest message, and excludes failed generations.
-- `POST /conversations/{id}/messages/stream` streams typed `started`, `token`, `usage`, `completed`,
-  `cancelled`, and `error` events over SSE, with a companion cancel endpoint. The request is reserved
-  before the emitter opens, so a missing conversation, an unselected model, a busy conversation, or
-  an invalid body still answers with the normal `BaseResponse` envelope and status.
+  oldest turns first, always sends the newest message, and excludes failed generations. Provider
+  reasoning is never persisted in conversation messages, so it cannot enter a later request's
+  history even when its temporary display is enabled.
+- `POST /conversations/{id}/messages/stream` streams typed `started`, `thinking`, `token`, `usage`,
+  `completed`, `cancelled`, and `error` events over SSE, with a companion cancel endpoint. A
+  `thinking` event is emitted only for a request that opted in. The request is reserved before the
+  emitter opens, so a missing conversation, an unselected model, a busy conversation, or an invalid
+  body still answers with the normal `BaseResponse` envelope and status.
 - The chat interface streams answers through a dedicated fetch client with Zod-validated frames,
   exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
   states, and reports model, token usage, latency, and processing location on completed answers. An
@@ -186,8 +191,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   and Chat, Agent, tools, and image capabilities live in the composer without replacing the thread.
   Chat uses the wider application workspace, a compact one-line header, per-message copy actions,
   and Nexo-branded conversation loading. It does not present request setup or time-to-first-token as
-  model Thinking: reasoning will only be shown when a reviewed provider and SSE contract emits real,
-  explicitly classified reasoning content. A minimized resource rail keeps the
+  model Thinking. When enabled in Preferences, only real, explicitly classified provider reasoning
+  is shown in a subtle live trace labelled as not saved; the trace is cleared at the terminal event
+  and excluded from persistence and future context. When disabled, Nexo asks the provider not to
+  generate it and discards any reasoning a model still emits. A minimized resource rail keeps the
   governed implementation plan, Agent tasks, generated artifacts, and media oriented at the right
   edge and expands the selected section on demand. Capabilities without a connected runtime remain
   explicit previews or empty states instead of suggesting work was executed.
@@ -206,7 +213,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- Ninety-one passing backend tests and fifty-four passing frontend tests, including cross-user
+- Ninety-two passing default backend tests and fifty-nine passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was

@@ -4,7 +4,18 @@ import { Button } from "../../../../../shared/components/Button";
 import type { ConversationMessage, ConversationMode, StreamPhase } from "../../types/chatTypes";
 import { ChatLoading } from "../ChatLoading";
 import { MessageItem } from "./components/MessageItem";
-import { Empty, EmptyIcon, EmptyKicker, EmptyTitle, Feature, FeatureGrid, Messages, StatusLive, StreamError } from "./styles";
+import {
+  Empty,
+  EmptyIcon,
+  EmptyKicker,
+  EmptyTitle,
+  Feature,
+  FeatureGrid,
+  Messages,
+  StatusLive,
+  StreamError,
+  ThinkingTrace
+} from "./styles";
 
 type MessageListProps = {
   messages: ConversationMessage[];
@@ -13,6 +24,7 @@ type MessageListProps = {
   hasModel: boolean;
   hasConfiguredProvider: boolean;
   phase: StreamPhase;
+  thinkingContent: string;
   streamingContent: string;
   errorMessage: string | null;
   mode: ConversationMode;
@@ -38,6 +50,7 @@ export function MessageList({
   hasModel,
   hasConfiguredProvider,
   phase,
+  thinkingContent,
   streamingContent,
   errorMessage,
   mode,
@@ -47,7 +60,7 @@ export function MessageList({
 
   useEffect((): void => {
     bottom.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
-  }, [messages, streamingContent]);
+  }, [messages, streamingContent, thinkingContent]);
 
   if (!hasConversation) {
     return (
@@ -96,6 +109,13 @@ export function MessageList({
             <Feature><ShieldCheck size={17} weight="duotone" /><strong>Governed action</strong><small>Capabilities remain visible and controlled.</small></Feature>
           </FeatureGrid>}
         </Empty>
+      )}
+
+      {streamingId && thinkingContent && (
+        <ThinkingTrace open>
+          <summary><Brain size={15} weight="duotone" /> Thinking <small>live · not saved</small></summary>
+          <p>{thinkingContent}</p>
+        </ThinkingTrace>
       )}
 
       {messages.map((message: ConversationMessage) => message.id === streamingId && waitingForFirstToken

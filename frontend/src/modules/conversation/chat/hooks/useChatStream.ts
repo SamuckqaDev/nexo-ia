@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../../../shared/api/ApiError";
+import { usePreferenceStore } from "../../../settings/stores/usePreferenceStore";
+import type { PreferenceState } from "../../../settings/types/preferenceTypes";
 import { cancelModelRequest } from "../api/chatApi";
 import { streamMessage } from "../api/chatStreamClient";
 import { messagesKey } from "./useChat";
@@ -10,12 +12,14 @@ import type {
   StartedEvent,
   StreamErrorEvent,
   StreamPhase,
+  ThinkingEvent,
   TokenEvent,
   UsageEvent
 } from "../types/chatTypes";
 
 export type ChatStream = {
   phase: StreamPhase;
+  thinkingContent: string;
   streamingContent: string;
   usage: UsageEvent | null;
   errorMessage: string | null;
@@ -33,7 +37,9 @@ export type ChatStream = {
  */
 export const useChatStream = (conversationId: string | null): ChatStream => {
   const queryClient = useQueryClient();
+  const thinkingEnabled: boolean = usePreferenceStore((state: PreferenceState) => state.thinkingEnabled);
   const [phase, setPhase] = useState<StreamPhase>("idle");
+  const [thinkingContent, setThinkingContent] = useState<string>("");
   const [streamingContent, setStreamingContent] = useState<string>("");
   const [usage, setUsage] = useState<UsageEvent | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -42,13 +48,24 @@ export const useChatStream = (conversationId: string | null): ChatStream => {
 
   const settle = useCallback((next: StreamPhase): void => {
     setPhase(next);
+    setThinkingContent("");
     setStreamingContent("");
     assistantMessageId.current = null;
     abortController.current = null;
     queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
   }, [conversationId, queryClient]);
 
-  useEffect((): (() => void) => (): void => abortController.current?.abort(), [conversationId]);
+  useEffect((): (() => void) => {
+    setPhase("idle");
+    setThinkingContent("");
+    setStreamingContent("");
+    setUsage(null);
+    setErrorMessage(null);
+    assistantMessageId.current = null;
+    abortController.current = null;
+
+    return (): void => abortController.current?.abort();
+  }, [conversationId]);
 
   const send = useCallback((content: string): void => {
     if (!conversationId || phase === "starting" || phase === "streaming") return;
@@ -56,16 +73,19 @@ export const useChatStream = (conversationId: string | null): ChatStream => {
     const controller = new AbortController();
     abortController.current = controller;
     setPhase("starting");
+    setThinkingContent("");
     setStreamingContent("");
     setUsage(null);
     setErrorMessage(null);
 
-    streamMessage(conversationId, content, {
+    streamMessage(conversationId, content, thinkingEnabled, {
       onStarted: (event: StartedEvent): void => {
         assistantMessageId.current = event.assistantMessageId;
         setPhase("streaming");
         queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
       },
+      onThinking: (event: ThinkingEvent): void =>
+        setThinkingContent((current: string): string => current + event.content),
       onToken: (event: TokenEvent): void =>
         setStreamingContent((current: string): string => current + event.content),
       onUsage: (event: UsageEvent): void => setUsage(event),
@@ -83,7 +103,7 @@ export const useChatStream = (conversationId: string | null): ChatStream => {
           : "The connection to Nexo IA was lost before the answer finished");
         settle(error instanceof ApiError ? "failed" : "disconnected");
       });
-  }, [conversationId, phase, queryClient, settle]);
+  }, [conversationId, phase, queryClient, settle, thinkingEnabled]);
 
   const cancel = useCallback((): void => {
     if (!conversationId || !assistantMessageId.current) return;
@@ -95,6 +115,7 @@ export const useChatStream = (conversationId: string | null): ChatStream => {
 
   return {
     phase,
+    thinkingContent,
     streamingContent,
     usage,
     errorMessage,

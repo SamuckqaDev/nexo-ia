@@ -12,6 +12,7 @@ import type {
   startedEventSchema,
   streamErrorEventSchema,
   streamEventSchema,
+  thinkingEventSchema,
   tokenEventSchema,
   usageEventSchema
 } from "../schemas/streamEventSchemas";
@@ -23,6 +24,7 @@ export type TokenSource = z.infer<typeof tokenSourceSchema>;
 export type ProcessingLocation = z.infer<typeof processingLocationSchema>;
 
 export type StartedEvent = z.infer<typeof startedEventSchema>;
+export type ThinkingEvent = z.infer<typeof thinkingEventSchema>;
 export type TokenEvent = z.infer<typeof tokenEventSchema>;
 export type UsageEvent = z.infer<typeof usageEventSchema>;
 export type CompletedEvent = z.infer<typeof completedEventSchema>;
@@ -43,6 +45,7 @@ export type StreamPhase =
 
 export type ChatStreamHandlers = {
   onStarted: (event: StartedEvent) => void;
+  onThinking: (event: ThinkingEvent) => void;
   onToken: (event: TokenEvent) => void;
   onUsage: (event: UsageEvent) => void;
   onCompleted: (event: CompletedEvent) => void;

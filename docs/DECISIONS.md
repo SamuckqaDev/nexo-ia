@@ -280,3 +280,24 @@ options considered, the selected approach, and its consequences.
   bounded and exclude generated dependency trees, and the signed native Companion remains required
   for canonical paths, governed file content, edits, commands, auditing, and remote-server/device
   separation.
+
+## D-024 — Keep model Thinking opt-in and outside conversation context
+
+- **Status:** accepted
+- **Context:** reasoning-capable models may spend output budget producing a trace before the final
+  answer. Ollama exposes that trace separately as `message.thinking`, but enables Thinking by default
+  for supported models. Replaying a trace in later history would also consume context and could expose
+  internal reasoning that is not part of the user's durable conversation. Provider behavior is not
+  uniform: GPT-OSS accepts effort levels and cannot fully disable its internal reasoning.
+- **Options:** always enable and save reasoning; hide it in the interface while still persisting it;
+  or make it an explicit request preference and keep its lifecycle separate from conversation data.
+- **Decision:** persist a personal browser preference that defaults to off and include it explicitly
+  in every new chat request. The Ollama adapter sends `think=false` or `think=true`, parses
+  `message.thinking` separately from `message.content`, and returns only final content in the
+  completion outcome. The service emits typed `thinking` SSE events only for an opted-in request.
+  Thinking deltas are never written to a message, usage detail, audit event, or later context.
+- **Consequence:** supported Ollama models can avoid unnecessary reasoning generation while the
+  preference is off. A model that ignores `think=false` may still reason internally, but Nexo IA
+  discards the trace before transport and persistence, so it never enters conversation context.
+  When enabled, the interface displays the live trace as temporary and removes it when the request
+  reaches a terminal state. The preference affects new requests only.

@@ -19,7 +19,8 @@ public interface ChatCompletionClient {
     boolean supports(ProviderType providerType);
 
     /**
-     * Streams a completion, handing every content delta to {@code onToken}.
+     * Streams a completion, handing provider reasoning to {@code onThinking} and final-answer deltas
+     * to {@code onToken}. Reasoning must not be included in the returned outcome content.
      *
      * <p>Implementations must consult {@code cancelled} between deltas and stop reading when it turns
      * true, returning the partial content with {@code cancelled} set on the outcome. They must never
@@ -27,6 +28,7 @@ public interface ChatCompletionClient {
      */
     ChatCompletionOutcome stream(
             ChatCompletionCommand command,
+            Consumer<String> onThinking,
             Consumer<String> onToken,
             BooleanSupplier cancelled);
 }

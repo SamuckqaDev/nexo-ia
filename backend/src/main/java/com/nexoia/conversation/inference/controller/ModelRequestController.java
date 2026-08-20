@@ -47,7 +47,7 @@ public class ModelRequestController {
             @PathVariable UUID conversationId,
             @Valid @RequestBody SendMessageRequest request) {
         ModelRequestReservation reservation =
-                service.begin(principal.userId(), conversationId, request.content());
+                service.begin(principal.userId(), conversationId, request.content(), request.thinkingEnabled());
         SseEmitter emitter = new SseEmitter(properties.timeout().toMillis());
         UUID messageId = reservation.assistantMessageId();
 

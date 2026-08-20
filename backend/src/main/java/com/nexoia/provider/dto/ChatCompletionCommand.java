@@ -11,4 +11,5 @@ public record ChatCompletionCommand(
         ProviderType providerType,
         String endpoint,
         String model,
-        List<ChatCompletionMessage> messages) {}
+        List<ChatCompletionMessage> messages,
+        boolean thinkingEnabled) {}

@@ -29,9 +29,18 @@ describe("streamEventSchema", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("rejects an unknown event name", () => {
+  it("accepts a real Thinking frame", () => {
     const parsed = streamEventSchema.safeParse({
       event: "thinking",
+      data: { content: "Checking the evidence", index: 0 }
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an unknown event name", () => {
+    const parsed = streamEventSchema.safeParse({
+      event: "provider_progress",
       data: { content: "..." }
     });
 

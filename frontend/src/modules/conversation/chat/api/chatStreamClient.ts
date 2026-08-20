@@ -34,6 +34,7 @@ const parseFrame = (frame: string): StreamEvent | null => {
 
 const dispatch = (event: StreamEvent, handlers: ChatStreamHandlers): void => {
   if (event.event === "started") handlers.onStarted(event.data);
+  else if (event.event === "thinking") handlers.onThinking(event.data);
   else if (event.event === "token") handlers.onToken(event.data);
   else if (event.event === "usage") handlers.onUsage(event.data);
   else if (event.event === "completed") handlers.onCompleted(event.data);
@@ -78,6 +79,7 @@ const rejectWithBackendError = (response: Response): Promise<never> =>
 export const streamMessage = (
   conversationId: string,
   content: string,
+  thinkingEnabled: boolean,
   handlers: ChatStreamHandlers,
   signal: AbortSignal
 ): Promise<void> =>
@@ -90,7 +92,7 @@ export const streamMessage = (
       Accept: "text/event-stream, application/json",
       "X-XSRF-TOKEN": csrfToken()
     },
-    body: JSON.stringify({ content })
+    body: JSON.stringify({ content, thinkingEnabled })
   }).then((response: Response) => response.ok
     ? readFrames(response, handlers)
     : rejectWithBackendError(response));

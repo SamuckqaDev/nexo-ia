@@ -10,11 +10,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
+import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
@@ -49,7 +51,7 @@ class ModelRequestServiceTest {
     @Mock
     private ChatCompletionClient client;
     @Mock
-    private com.nexoia.audit.service.AuditService audit;
+    private AuditService audit;
 
     private final ModelRequestRegistry registry = new ModelRequestRegistry();
     private final Clock clock = Clock.fixed(Instant.parse("2026-08-18T12:00:00Z"), ZoneOffset.UTC);
@@ -68,11 +70,13 @@ class ModelRequestServiceTest {
     }
 
     @Test
-    void emitsStartedTokensUsageAndCompletedForASuccessfulRequest() {
-        reservationIsAvailable();
+    void emitsStartedThinkingTokensUsageAndCompletedForASuccessfulRequest() {
+        reservationIsAvailable(true);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
-        when(client.stream(any(), any(), any())).thenAnswer(call -> {
-            Consumer<String> onToken = call.getArgument(1);
+        when(client.stream(any(), any(), any(), any())).thenAnswer(call -> {
+            Consumer<String> onThinking = call.getArgument(1);
+            Consumer<String> onToken = call.getArgument(2);
+            onThinking.accept("Checking");
             onToken.accept("Hel");
             onToken.accept("lo");
             return new ChatCompletionOutcome("Hello", 20, 3, TokenSource.PROVIDER, false, "stop");
@@ -80,10 +84,11 @@ class ModelRequestServiceTest {
         when(store.recordCompletion(eq(assistantMessageId), any(), anyLong()))
                 .thenReturn(Instant.parse("2026-08-18T12:00:01Z"));
 
-        service.stream(userId, conversationId, "hi", listener);
+        service.stream(userId, conversationId, "hi", true, listener);
 
         assertThat(listener.started).isNotNull();
         assertThat(listener.started.assistantMessageId()).isEqualTo(assistantMessageId);
+        assertThat(listener.thinking).extracting(ThinkingEvent::content).containsExactly("Checking");
         assertThat(listener.tokens).extracting(TokenEvent::content).containsExactly("Hel", "lo");
         assertThat(listener.tokens).extracting(TokenEvent::index).containsExactly(0, 1);
         assertThat(listener.usage.inputTokens()).isEqualTo(20);
@@ -95,17 +100,17 @@ class ModelRequestServiceTest {
 
     @Test
     void persistsThePartialAnswerAndEmitsCancelledWithoutCompleting() {
-        reservationIsAvailable();
+        reservationIsAvailable(false);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
-        when(client.stream(any(), any(), any())).thenAnswer(call -> {
-            Consumer<String> onToken = call.getArgument(1);
+        when(client.stream(any(), any(), any(), any())).thenAnswer(call -> {
+            Consumer<String> onToken = call.getArgument(2);
             onToken.accept("Hel");
             return new ChatCompletionOutcome("Hel", null, null, null, true, "cancelled");
         });
         when(store.recordCancellation(eq(assistantMessageId), eq("Hel"), anyLong()))
                 .thenReturn(Instant.parse("2026-08-18T12:00:02Z"));
 
-        service.stream(userId, conversationId, "hi", listener);
+        service.stream(userId, conversationId, "hi", false, listener);
 
         assertThat(listener.cancelled.content()).isEqualTo("Hel");
         assertThat(listener.completed).isNull();
@@ -114,13 +119,31 @@ class ModelRequestServiceTest {
     }
 
     @Test
-    void recordsAFailureAndEmitsASafeErrorWhenTheProviderBreaks() {
-        reservationIsAvailable();
+    void discardsProviderThinkingWhenThePreferenceIsDisabled() {
+        reservationIsAvailable(false);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
-        when(client.stream(any(), any(), any()))
+        when(client.stream(any(), any(), any(), any())).thenAnswer(call -> {
+            Consumer<String> onThinking = call.getArgument(1);
+            onThinking.accept("Provider trace that must not leave the backend");
+            return new ChatCompletionOutcome("Answer", 5, 1, TokenSource.PROVIDER, false, "stop");
+        });
+        when(store.recordCompletion(eq(assistantMessageId), any(), anyLong()))
+                .thenReturn(Instant.parse("2026-08-18T12:00:01Z"));
+
+        service.stream(userId, conversationId, "hi", false, listener);
+
+        assertThat(listener.thinking).isEmpty();
+        assertThat(listener.completed.content()).isEqualTo("Answer");
+    }
+
+    @Test
+    void recordsAFailureAndEmitsASafeErrorWhenTheProviderBreaks() {
+        reservationIsAvailable(false);
+        when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
+        when(client.stream(any(), any(), any(), any()))
                 .thenThrow(new ProviderStreamException(new IOException("connection refused to 10.0.0.9")));
 
-        service.stream(userId, conversationId, "hi", listener);
+        service.stream(userId, conversationId, "hi", false, listener);
 
         assertThat(listener.error.code()).isEqualTo("PROVIDER_STREAM_FAILED");
         assertThat(listener.error.message()).doesNotContain("10.0.0.9");
@@ -130,29 +153,29 @@ class ModelRequestServiceTest {
 
     @Test
     void releasesTheCancellationSignalAfterEveryOutcome() {
-        reservationIsAvailable();
+        reservationIsAvailable(false);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
-        when(client.stream(any(), any(), any()))
+        when(client.stream(any(), any(), any(), any()))
                 .thenReturn(new ChatCompletionOutcome("ok", 1, 1, TokenSource.PROVIDER, false, "stop"));
 
-        service.stream(userId, conversationId, "hi", listener);
+        service.stream(userId, conversationId, "hi", false, listener);
 
         assertThat(registry.activeRequests()).doesNotContain(assistantMessageId);
     }
 
     @Test
     void stopsTheReadingLoopWhenCancellationIsRequested() {
-        reservationIsAvailable();
+        reservationIsAvailable(false);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
-        when(client.stream(any(), any(), any())).thenAnswer(call -> {
-            BooleanSupplier cancelled = call.getArgument(2);
+        when(client.stream(any(), any(), any(), any())).thenAnswer(call -> {
+            BooleanSupplier cancelled = call.getArgument(3);
             assertThat(cancelled.getAsBoolean()).isFalse();
             service.cancel(userId, conversationId, assistantMessageId);
             assertThat(cancelled.getAsBoolean()).isTrue();
             return new ChatCompletionOutcome("part", null, null, null, true, "cancelled");
         });
 
-        service.stream(userId, conversationId, "hi", listener);
+        service.stream(userId, conversationId, "hi", false, listener);
 
         verify(store).markCancelling(userId, conversationId, assistantMessageId);
         assertThat(listener.cancelled).isNotNull();
@@ -160,10 +183,10 @@ class ModelRequestServiceTest {
 
     @Test
     void refusesAProviderTypeWithoutAnAdapterInsteadOfFallingBack() {
-        reservationIsAvailable();
+        reservationIsAvailable(false);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.stream(userId, conversationId, "hi", listener))
+        assertThatThrownBy(() -> service.stream(userId, conversationId, "hi", false, listener))
                 .isInstanceOf(UnsupportedProviderException.class);
         assertThat(listener.started).isNull();
     }
@@ -177,19 +200,20 @@ class ModelRequestServiceTest {
         verify(store).failInFlightRequests("SERVER_SHUTDOWN");
     }
 
-    private void reservationIsAvailable() {
-        when(store.reserve(userId, conversationId, "hi")).thenReturn(new ModelRequestReservation(
+    private void reservationIsAvailable(boolean thinkingEnabled) {
+        when(store.reserve(userId, conversationId, "hi", thinkingEnabled)).thenReturn(new ModelRequestReservation(
                 userId,
                 userMessageId,
                 assistantMessageId,
                 UUID.randomUUID(),
                 new ChatCompletionCommand(ProviderType.OLLAMA, "http://127.0.0.1:11434", "qwen3:8b",
-                        List.of(new ChatCompletionMessage("user", "hi"))),
+                        List.of(new ChatCompletionMessage("user", "hi")), thinkingEnabled),
                 ProcessingLocation.LOCAL));
     }
 
     private static final class RecordingListener implements ModelStreamListener {
         private StartedEvent started;
+        private final List<ThinkingEvent> thinking = new ArrayList<>();
         private final List<TokenEvent> tokens = new ArrayList<>();
         private UsageEvent usage;
         private CompletedEvent completed;
@@ -199,6 +223,11 @@ class ModelRequestServiceTest {
         @Override
         public void onStarted(StartedEvent event) {
             started = event;
+        }
+
+        @Override
+        public void onThinking(ThinkingEvent event) {
+            thinking.add(event);
         }
 
         @Override

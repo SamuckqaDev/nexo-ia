@@ -1,21 +1,22 @@
 package com.nexoia.conversation.inference.service;
 
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditOutcome;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
+import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.service.ChatCompletionClient;
-import com.nexoia.audit.dto.RecordAuditCommand;
-import com.nexoia.audit.model.AuditAction;
-import com.nexoia.audit.model.AuditOutcome;
-import com.nexoia.audit.model.AuditTargetType;
-import com.nexoia.audit.service.AuditService;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
@@ -53,8 +54,13 @@ public class ModelRequestService {
      * <p>Every validation failure is raised by the reservation, before the first event is emitted, so
      * the transport can still answer with a normal error status.
      */
-    public void stream(UUID userId, UUID conversationId, String content, ModelStreamListener listener) {
-        run(begin(userId, conversationId, content), listener);
+    public void stream(
+            UUID userId,
+            UUID conversationId,
+            String content,
+            boolean thinkingEnabled,
+            ModelStreamListener listener) {
+        run(begin(userId, conversationId, content, thinkingEnabled), listener);
     }
 
     /**
@@ -64,8 +70,10 @@ public class ModelRequestService {
      * unselected model, a busy conversation, or an unsupported provider is still reported as an
      * ordinary error status rather than as an event on an already-committed stream.
      */
-    public ModelRequestReservation begin(UUID userId, UUID conversationId, String content) {
-        ModelRequestReservation reservation = store.reserve(userId, conversationId, content);
+    public ModelRequestReservation begin(
+            UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
+        ModelRequestReservation reservation =
+                store.reserve(userId, conversationId, content, thinkingEnabled);
         clientFor(reservation.command());
 
         return reservation;
@@ -88,12 +96,19 @@ public class ModelRequestService {
         store.markStreaming(messageId);
         auditModelRequest(reservation, AuditAction.MODEL_REQUEST_STARTED, AuditOutcome.SUCCESS,
                 reservation.command().model());
-        AtomicInteger index = new AtomicInteger();
+        AtomicInteger thinkingIndex = new AtomicInteger();
+        AtomicInteger tokenIndex = new AtomicInteger();
 
         try {
             ChatCompletionOutcome outcome = client.stream(
                     reservation.command(),
-                    delta -> listener.onToken(new TokenEvent(delta, index.getAndIncrement())),
+                    delta -> {
+                        if (reservation.command().thinkingEnabled()) {
+                            listener.onThinking(new ThinkingEvent(
+                                    delta, thinkingIndex.getAndIncrement()));
+                        }
+                    },
+                    delta -> listener.onToken(new TokenEvent(delta, tokenIndex.getAndIncrement())),
                     () -> registry.isCancellationRequested(messageId));
             long latencyMs = clock.millis() - startedAt;
 

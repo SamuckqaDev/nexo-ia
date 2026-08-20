@@ -2,7 +2,6 @@ package com.nexoia.provider.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import tools.jackson.databind.json.JsonMapper;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
@@ -13,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Proves streaming and token accounting against a real Ollama installation.
@@ -32,7 +32,7 @@ class OllamaChatCompletionSmokeTest {
         AtomicInteger deltas = new AtomicInteger();
         StringBuilder streamed = new StringBuilder();
 
-        ChatCompletionOutcome outcome = client.stream(command(), delta -> {
+        ChatCompletionOutcome outcome = client.stream(command(), delta -> { }, delta -> {
             deltas.incrementAndGet();
             streamed.append(delta);
         }, () -> false);
@@ -52,7 +52,8 @@ class OllamaChatCompletionSmokeTest {
 
         ChatCompletionOutcome outcome = client.stream(
                 new ChatCompletionCommand(ProviderType.OLLAMA, endpoint(), model(),
-                        List.of(new ChatCompletionMessage("user", "Count slowly from 1 to 200."))),
+                        List.of(new ChatCompletionMessage("user", "Count slowly from 1 to 200.")), false),
+                delta -> { },
                 streamed::append,
                 () -> streamed.length() > 0);
 
@@ -62,7 +63,7 @@ class OllamaChatCompletionSmokeTest {
 
     private ChatCompletionCommand command() {
         return new ChatCompletionCommand(ProviderType.OLLAMA, endpoint(), model(),
-                List.of(new ChatCompletionMessage("user", "Reply with the single word: hello")));
+                List.of(new ChatCompletionMessage("user", "Reply with the single word: hello")), false);
     }
 
     private String endpoint() {

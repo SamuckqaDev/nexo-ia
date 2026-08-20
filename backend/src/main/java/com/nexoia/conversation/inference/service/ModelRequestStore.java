@@ -57,7 +57,8 @@ public class ModelRequestStore {
      * only.
      */
     @Transactional
-    public ModelRequestReservation reserve(UUID userId, UUID conversationId, String content) {
+    public ModelRequestReservation reserve(
+            UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
         Conversation conversation = conversations.findOwnedForUpdate(conversationId, userId)
                 .orElseThrow(ConversationNotFoundException::new);
 
@@ -114,7 +115,8 @@ public class ModelRequestStore {
                         provider.getProviderType(),
                         provider.getEndpoint(),
                         conversation.getSelectedModel(),
-                        contextAssembler.assemble(conversationId)),
+                        contextAssembler.assemble(conversationId),
+                        thinkingEnabled),
                 processingLocation);
     }
 

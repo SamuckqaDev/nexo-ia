@@ -18,6 +18,11 @@ export const tokenEventSchema = z.object({
   index: z.number().int().nonnegative()
 });
 
+export const thinkingEventSchema = z.object({
+  content: z.string(),
+  index: z.number().int().nonnegative()
+});
+
 export const usageEventSchema = z.object({
   inputTokens: z.number().int().nullable(),
   outputTokens: z.number().int().nullable(),
@@ -45,6 +50,7 @@ export const streamErrorEventSchema = z.object({
 
 export const streamEventSchema = z.discriminatedUnion("event", [
   z.object({ event: z.literal("started"), data: startedEventSchema }),
+  z.object({ event: z.literal("thinking"), data: thinkingEventSchema }),
   z.object({ event: z.literal("token"), data: tokenEventSchema }),
   z.object({ event: z.literal("usage"), data: usageEventSchema }),
   z.object({ event: z.literal("completed"), data: completedEventSchema }),

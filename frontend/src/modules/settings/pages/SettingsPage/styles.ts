@@ -172,3 +172,67 @@ export const Status = styled.span`
 export const PreferenceGrid = styled.div`display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:${({theme})=>theme.spacing.md};@media(max-width:42rem){grid-template-columns:1fr;}`;
 export const PreferenceField = styled.label`display:grid;gap:${({theme})=>theme.spacing.sm};padding:${({theme})=>theme.spacing.md};border:1px solid ${({theme})=>theme.colors.line};border-radius:${({theme})=>theme.radius.control};background:${({theme})=>theme.colors.surface};span{color:${({theme})=>theme.colors.textMuted};font-size:.74rem;}strong{font-size:.88rem;}`;
 export const Select = styled.select`width:100%;border:1px solid ${({theme})=>theme.colors.lineStrong};border-radius:${({theme})=>theme.radius.control};padding:.72rem .8rem;background:${({theme})=>theme.colors.surfaceStrong};color:${({theme})=>theme.colors.text};font:inherit;font-size:.8rem;cursor:pointer;`;
+
+export const PreferenceOption = styled.div`
+  display: grid;
+  grid-column: 1 / -1;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.md};
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.surface};
+
+  p,
+  > small {
+    margin: 0;
+    color: ${({ theme }) => theme.colors.textMuted};
+    font-size: .74rem;
+    line-height: 1.55;
+  }
+
+  > small { color: ${({ theme }) => theme.colors.textSubtle}; }
+`;
+
+export const PreferenceHeader = styled.div`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+
+  > span {
+    display: grid;
+    width: 2.3rem;
+    height: 2.3rem;
+    place-items: center;
+    border-radius: ${({ theme }) => theme.radius.control};
+    background: ${({ theme }) => theme.colors.surfaceAccent};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+
+  div { display: grid; gap: .12rem; }
+  strong { font-size: .88rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: .66rem; }
+`;
+
+export const Toggle = styled.button<{ $checked: boolean }>`
+  display: flex;
+  width: 2.75rem;
+  height: 1.55rem;
+  align-items: center;
+  padding: .18rem;
+  border: 1px solid ${({ theme, $checked }) => $checked ? theme.colors.primary : theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.round};
+  background: ${({ theme, $checked }) => $checked ? theme.colors.surfaceAccent : theme.colors.surfaceStrong};
+  cursor: pointer;
+
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.primary}; outline-offset: 2px; }
+`;
+
+export const ToggleThumb = styled.span<{ $checked: boolean }>`
+  width: 1rem;
+  height: 1rem;
+  border-radius: ${({ theme }) => theme.radius.round};
+  background: ${({ theme, $checked }) => $checked ? theme.colors.primary : theme.colors.textSubtle};
+  transform: translateX(${({ $checked }) => $checked ? ".95rem" : "0"});
+  transition: transform 150ms ease, background 150ms ease;
+`;

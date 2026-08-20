@@ -18,4 +18,8 @@ public record OllamaChatStreamChunk(
     public String contentDelta() {
         return message == null || message.content() == null ? "" : message.content();
     }
+
+    public String thinkingDelta() {
+        return message == null || message.thinking() == null ? "" : message.thinking();
+    }
 }

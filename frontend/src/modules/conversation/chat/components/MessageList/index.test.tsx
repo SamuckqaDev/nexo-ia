@@ -15,6 +15,7 @@ describe("MessageList", () => {
           hasModel
           hasConfiguredProvider
           phase="idle"
+          thinkingContent=""
           streamingContent=""
           errorMessage={null}
           mode="chat"
@@ -36,6 +37,7 @@ describe("MessageList", () => {
           hasModel
           hasConfiguredProvider
           phase="starting"
+          thinkingContent=""
           streamingContent=""
           errorMessage={null}
           mode="chat"
@@ -60,6 +62,7 @@ describe("MessageList", () => {
           hasModel={false}
           hasConfiguredProvider={false}
           phase="idle"
+          thinkingContent=""
           streamingContent=""
           errorMessage={null}
           mode="chat"
@@ -83,6 +86,7 @@ describe("MessageList", () => {
           hasModel={false}
           hasConfiguredProvider
           phase="idle"
+          thinkingContent=""
           streamingContent=""
           errorMessage={null}
           mode="chat"
@@ -93,5 +97,42 @@ describe("MessageList", () => {
 
     expect(screen.getByText(/pick one of your configured local models/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /configure a provider/i })).not.toBeInTheDocument();
+  });
+
+  it("shows only real streamed Thinking and labels it as temporary", () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <MessageList
+          messages={[{
+            id: "0c29a88f-ed8d-42f6-abbb-a373d096fd9a",
+            role: "ASSISTANT",
+            status: "STREAMING",
+            content: "",
+            model: "qwen3:8b",
+            inputTokens: null,
+            outputTokens: null,
+            tokenSource: null,
+            latencyMs: null,
+            processingLocation: "LOCAL",
+            failureCode: null,
+            createdAt: "2026-08-20T12:00:00Z",
+            completedAt: null
+          }]}
+          isLoading={false}
+          hasConversation
+          hasModel
+          hasConfiguredProvider
+          phase="streaming"
+          thinkingContent="Checking the available evidence."
+          streamingContent=""
+          errorMessage={null}
+          mode="chat"
+          onConfigureProvider={(): void => undefined}
+        />
+      </ThemeProvider>
+    );
+
+    expect(screen.getByText("Checking the available evidence.")).toBeInTheDocument();
+    expect(screen.getByText(/not saved/i)).toBeInTheDocument();
   });
 });

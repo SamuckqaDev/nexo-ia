@@ -1,4 +1,4 @@
-import { ChartDonut, Cpu, IdentificationCard, SlidersHorizontal, ShieldCheck } from "@phosphor-icons/react";
+import { Brain, ChartDonut, Cpu, IdentificationCard, SlidersHorizontal, ShieldCheck } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
 import { useThemeStore } from "../../../../app/stores/useThemeStore";
 import type { ThemeMode, ThemeState } from "../../../../app/types/themeTypes";
@@ -23,7 +23,9 @@ import {
   Page,
   PageHeader,
   PreferenceField,
+  PreferenceHeader,
   PreferenceGrid,
+  PreferenceOption,
   ProfileContent,
   ProfileDetails,
   Section,
@@ -31,6 +33,8 @@ import {
   SectionIcon,
   Select,
   Status,
+  Toggle,
+  ToggleThumb,
   Title,
 } from "./styles";
 
@@ -47,6 +51,10 @@ export function SettingsPage({ user, section, onSectionChange }: SettingsPagePro
   const setMode: ThemeState["setMode"] = useThemeStore((state: ThemeState) => state.setMode);
   const language: AppLanguage = usePreferenceStore((state: PreferenceState) => state.language);
   const setLanguage: PreferenceState["setLanguage"] = usePreferenceStore((state: PreferenceState) => state.setLanguage);
+  const thinkingEnabled: boolean = usePreferenceStore((state: PreferenceState) => state.thinkingEnabled);
+  const setThinkingEnabled: PreferenceState["setThinkingEnabled"] = usePreferenceStore(
+    (state: PreferenceState) => state.setThinkingEnabled
+  );
   const createdAt: string = new Intl.DateTimeFormat("en", { dateStyle: "long" })
     .format(new Date(user.createdAt));
 
@@ -108,7 +116,7 @@ export function SettingsPage({ user, section, onSectionChange }: SettingsPagePro
         <Section>
           <SectionHeader>
             <SectionIcon><SlidersHorizontal size={22} weight="duotone" /></SectionIcon>
-            <div><Title>Preferences</Title><Description>Choose how Nexo looks and which language it should use.</Description></div>
+            <div><Title>Preferences</Title><Description>Choose how Nexo looks, responds, and uses model resources.</Description></div>
           </SectionHeader>
           <PreferenceGrid>
             <PreferenceField>
@@ -127,6 +135,31 @@ export function SettingsPage({ user, section, onSectionChange }: SettingsPagePro
                 <option value="light">Light</option>
               </Select>
             </PreferenceField>
+            <PreferenceOption>
+              <PreferenceHeader>
+                <span aria-hidden="true"><Brain size={19} weight="duotone" /></span>
+                <div>
+                  <strong>Model Thinking</strong>
+                  <small>{thinkingEnabled ? "On for new requests" : "Off for new requests"}</small>
+                </div>
+                <Toggle
+                  type="button"
+                  role="switch"
+                  aria-checked={thinkingEnabled}
+                  aria-label="Enable model Thinking"
+                  $checked={thinkingEnabled}
+                  onClick={(): void => setThinkingEnabled(!thinkingEnabled)}
+                >
+                  <ToggleThumb $checked={thinkingEnabled} />
+                </Toggle>
+              </PreferenceHeader>
+              <p>
+                Off asks supported models not to generate reasoning and Nexo always excludes it from saved
+                conversation context. On streams real provider reasoning temporarily; it is never saved or
+                sent back in later turns.
+              </p>
+              <small>Some models, including GPT-OSS, may still reason internally even when the trace is disabled.</small>
+            </PreferenceOption>
           </PreferenceGrid>
         </Section>
       )}

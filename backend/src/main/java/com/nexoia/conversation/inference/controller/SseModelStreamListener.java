@@ -4,6 +4,7 @@ import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
+import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.service.ModelRequestRegistry;
@@ -33,6 +34,11 @@ public class SseModelStreamListener implements ModelStreamListener {
     @Override
     public void onStarted(StartedEvent event) {
         send("started", event);
+    }
+
+    @Override
+    public void onThinking(ThinkingEvent event) {
+        send("thinking", event);
     }
 
     @Override

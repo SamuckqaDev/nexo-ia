@@ -1,6 +1,5 @@
 package com.nexoia.provider.service;
 
-import tools.jackson.databind.ObjectMapper;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.OllamaChatRequest;
@@ -21,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Streams chat completions from an Ollama endpoint.
@@ -46,9 +46,11 @@ public class OllamaChatCompletionClient implements ChatCompletionClient {
     @Override
     public ChatCompletionOutcome stream(
             ChatCompletionCommand command,
+            Consumer<String> onThinking,
             Consumer<String> onToken,
             BooleanSupplier cancelled) {
-        OllamaChatRequest payload = new OllamaChatRequest(command.model(), command.messages(), true);
+        OllamaChatRequest payload = new OllamaChatRequest(
+                command.model(), command.messages(), true, command.thinkingEnabled());
 
         try {
             return restClientBuilder.clone().baseUrl(command.endpoint()).build()
@@ -64,7 +66,7 @@ public class OllamaChatCompletionClient implements ChatCompletionClient {
                                     "Provider answered status " + response.getStatusCode().value()));
                         }
 
-                        return readStream(response.getBody(), onToken, cancelled);
+                        return readStream(response.getBody(), onThinking, onToken, cancelled);
                     });
         } catch (ProviderStreamException exception) {
             log.warn("[NEXO-BACK][PROVIDER] Ollama rejected the request model={}", command.model());
@@ -77,7 +79,10 @@ public class OllamaChatCompletionClient implements ChatCompletionClient {
     }
 
     private ChatCompletionOutcome readStream(
-            java.io.InputStream body, Consumer<String> onToken, BooleanSupplier cancelled) {
+            java.io.InputStream body,
+            Consumer<String> onThinking,
+            Consumer<String> onToken,
+            BooleanSupplier cancelled) {
         StringBuilder content = new StringBuilder();
         Integer inputTokens = null;
         Integer outputTokens = null;
@@ -97,6 +102,10 @@ public class OllamaChatCompletionClient implements ChatCompletionClient {
 
                 OllamaChatStreamChunk chunk =
                         objectMapper.readValue(line, OllamaChatStreamChunk.class);
+                String thinkingDelta = chunk.thinkingDelta();
+                if (!thinkingDelta.isEmpty()) {
+                    onThinking.accept(thinkingDelta);
+                }
                 String delta = chunk.contentDelta();
                 if (!delta.isEmpty()) {
                     content.append(delta);

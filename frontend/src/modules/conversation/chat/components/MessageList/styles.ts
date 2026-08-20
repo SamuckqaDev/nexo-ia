@@ -66,3 +66,37 @@ export const StreamError = styled.p`
   font-size: 0.8rem;
   text-align: center;
 `;
+
+export const ThinkingTrace = styled.details`
+  width: min(46rem, calc(100% - 3rem));
+  align-self: flex-start;
+  padding-left: ${({ theme }) => theme.spacing.md};
+  border-left: 2px solid ${({ theme }) => theme.colors.primary};
+  color: ${({ theme }) => theme.colors.textMuted};
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    color: ${({ theme }) => theme.colors.primarySoft};
+    font-size: .72rem;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker { display: none; }
+    small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: .62rem; font-weight: 500; }
+  }
+
+  p {
+    max-height: 11rem;
+    margin: ${({ theme }) => `${theme.spacing.xs} 0 0`};
+    overflow: auto;
+    color: ${({ theme }) => theme.colors.textMuted};
+    font-size: .72rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+
+  @media (max-width: 48rem) { width: calc(100% - 1rem); }
+`;

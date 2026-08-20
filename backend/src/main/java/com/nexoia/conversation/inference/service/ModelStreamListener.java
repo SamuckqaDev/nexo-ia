@@ -4,6 +4,7 @@ import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
+import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 
@@ -16,6 +17,8 @@ import com.nexoia.conversation.inference.dto.event.UsageEvent;
 public interface ModelStreamListener {
 
     void onStarted(StartedEvent event);
+
+    void onThinking(ThinkingEvent event);
 
     void onToken(TokenEvent event);
 
