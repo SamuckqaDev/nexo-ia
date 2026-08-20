@@ -14,6 +14,7 @@ const handlers: ChatStreamHandlers = {
 
 afterEach((): void => {
   vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("streamMessage", () => {
@@ -31,5 +32,26 @@ describe("streamMessage", () => {
 
     const request = fetchMock.mock.calls[0]?.[1];
     expect(JSON.parse(String(request?.body))).toEqual({ content: "hello", thinkingEnabled });
+  });
+
+  it("dispatches the final SSE frame even when the connection closes without a blank separator", async () => {
+    const messageId = "23ab2ec1-9fc5-4dd9-a18c-6cc8b62130c5";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+      `event: completed\ndata: {"messageId":"${messageId}","content":"Ready","completedAt":"2026-08-20T18:44:02Z"}`,
+      { status: 200, headers: { "Content-Type": "text/event-stream" } }
+    ));
+
+    await streamMessage(
+      "33ab2ec1-9fc5-4dd9-a18c-6cc8b62130c6",
+      "hello",
+      false,
+      handlers,
+      new AbortController().signal
+    );
+
+    expect(handlers.onCompleted).toHaveBeenCalledWith(expect.objectContaining({
+      messageId,
+      content: "Ready"
+    }));
   });
 });

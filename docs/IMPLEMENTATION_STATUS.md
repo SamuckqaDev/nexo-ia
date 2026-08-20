@@ -215,7 +215,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   `completed`, `cancelled`, and `error` events over SSE, with a companion cancel endpoint. A
   `thinking` event is emitted only for a request that opted in. The request is reserved before the
   emitter opens, so a missing conversation, an unselected model, a busy conversation, or an invalid
-  body still answers with the normal `BaseResponse` envelope and status.
+  body still answers with the normal `BaseResponse` envelope and status. Authenticated initial
+  requests remain the authorization boundary; Spring Security permits only the subsequent `ASYNC`
+  and `ERROR` redispatches needed to finish the already-open SSE response, avoiding an access denial
+  after response commitment.
 - The SSE connection is no longer the owner of model execution. Navigating to another conversation
   or losing the response connection stops only delivery to that reader; the server continues the
   reserved request and persists its terminal result. The frontend keeps one stream snapshot per
@@ -225,10 +228,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - The chat interface streams answers through a dedicated fetch client with Zod-validated frames,
   exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
   states, and reports model, token usage, latency, and processing location on completed answers. An
-  estimated token count is always labelled. Conversation creation uses an accessible dialog. The
-  workspace now follows the Nexo visual semantics: cyan identifies the assistant and processing,
-  coral identifies the person, model and privacy context stay visible in the conversation header,
-  and Chat, Agent, tools, and image capabilities live in the composer without replacing the thread.
+  unterminated final SSE frame is flushed when the transport closes, so a completed persisted answer
+  is not lost at the browser boundary. The send and stop controls stay as compact right-aligned
+  composer actions. An estimated token count is always labelled. Conversation creation uses an
+  accessible dialog. The workspace now follows the Nexo visual semantics: cyan identifies the
+  assistant and processing, coral identifies the person, model and privacy context stay visible in
+  the conversation header, and Chat, Agent, tools, and image capabilities live in the composer
+  without replacing the thread.
   Chat uses the wider application workspace, a compact one-line header, per-message copy actions,
   and Nexo-branded conversation loading. It does not present request setup or time-to-first-token as
   model Thinking. When enabled in Preferences, only real, explicitly classified provider reasoning
@@ -269,7 +275,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- One hundred and one passing default backend tests and ninety-four passing frontend tests, including cross-user
+- One hundred and two passing default backend tests and ninety-seven passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was

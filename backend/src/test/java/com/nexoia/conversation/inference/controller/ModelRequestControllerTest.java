@@ -2,13 +2,16 @@ package com.nexoia.conversation.inference.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.nexoia.auth.access.service.ClientAccessService;
@@ -20,16 +23,23 @@ import com.nexoia.auth.user.model.UserRole;
 import com.nexoia.conversation.chat.exception.ConversationBusyException;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.inference.config.ModelStreamProperties;
+import com.nexoia.conversation.inference.dto.ModelRequestReservation;
+import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
 import com.nexoia.conversation.inference.service.ModelRequestRegistry;
 import com.nexoia.conversation.inference.service.ModelRequestService;
+import com.nexoia.conversation.inference.service.ModelStreamListener;
+import com.nexoia.provider.dto.ChatCompletionCommand;
+import com.nexoia.provider.model.ProcessingLocation;
+import com.nexoia.provider.model.ProviderType;
 import com.nexoia.shared.exception.GlobalExceptionHandler;
 import com.nexoia.shared.security.SecurityConfiguration;
 import com.nexoia.shared.security.handler.ApiAccessDeniedHandler;
 import com.nexoia.shared.security.handler.ApiAuthenticationEntryPoint;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.Test;
@@ -43,6 +53,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /**
@@ -175,6 +186,46 @@ class ModelRequestControllerTest {
                         conversationId, messageId)
                         .with(principal()).with(csrf()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void permitsTheAuthenticatedStreamToCompleteItsAsyncDispatch() throws Exception {
+        UUID userMessageId = UUID.randomUUID();
+        UUID assistantMessageId = UUID.randomUUID();
+        ModelRequestReservation reservation = new ModelRequestReservation(
+                userId,
+                userMessageId,
+                assistantMessageId,
+                UUID.randomUUID(),
+                new ChatCompletionCommand(
+                        ProviderType.OLLAMA,
+                        "http://127.0.0.1:11434",
+                        "qwen3:8b",
+                        List.of(),
+                        false),
+                ProcessingLocation.LOCAL);
+        when(service.begin(userId, conversationId, "hello", false)).thenReturn(reservation);
+        doAnswer(invocation -> {
+            ModelStreamListener listener = invocation.getArgument(1);
+            listener.onCompleted(new CompletedEvent(
+                    assistantMessageId, "Ready", Instant.parse("2026-08-20T18:44:02Z")));
+            return null;
+        }).when(service).run(eq(reservation), any(ModelStreamListener.class));
+        doAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            return null;
+        }).when(modelRequestExecutor).execute(any(Runnable.class));
+
+        MvcResult stream = mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
+                        .with(principal()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"hello\"}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(stream))
+                .andExpect(status().isOk());
     }
 
     private RequestPostProcessor principal() {

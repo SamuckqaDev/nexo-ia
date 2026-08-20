@@ -1,6 +1,5 @@
 import { ChatCircleDots, ImageSquare, Paperclip, PaperPlaneRight, Robot, Sparkle, Stop, Wrench, X } from "@phosphor-icons/react";
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
-import { Button } from "../../../../../shared/components/Button";
 import { attachedVaultSources, useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
 import type { VaultCatalogState, VaultSourceReference } from "../../../../knowledge/vault/types/vaultTypes";
 import { useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
@@ -26,7 +25,8 @@ import {
   SkillCopy,
   SkillMenu,
   SkillOption,
-  SkillPaletteHint
+  SkillPaletteHint,
+  StopButton
 } from "./styles";
 
 export function ChatComposer({
@@ -167,18 +167,18 @@ export function ChatComposer({
               </ModeButton>
             </ModeControl>
             <CapabilityButton type="button" disabled title="Tools will appear here when enabled">
-              <Wrench size={16} weight="duotone" /> Tools
+              <Wrench size={16} weight="duotone" /> <span>Tools</span>
             </CapabilityButton>
             <CapabilityButton type="button" title="Choose a Skill or type /" onClick={openSkills}>
-              <Sparkle size={16} weight="duotone" /> Skills
+              <Sparkle size={16} weight="duotone" /> <span>Skills</span>
             </CapabilityButton>
             <CapabilityButton type="button" disabled title="Image generation requires the ComfyUI runtime">
-              <ImageSquare size={16} weight="duotone" /> Image
+              <ImageSquare size={16} weight="duotone" /> <span>Image</span>
             </CapabilityButton>
             {isBusy ? (
-              <Button type="button" variant="outline" icon={Stop} disabled={phase === "cancelling"} onClick={onCancel}>
-                Stop
-              </Button>
+              <StopButton type="button" aria-label="Stop response" disabled={phase === "starting" || phase === "cancelling"} onClick={onCancel}>
+                <Stop size={18} weight="fill" />
+              </StopButton>
             ) : (
               <SendButton type="submit" aria-label="Send message" disabled={disabled || !hasModel || !content.trim() || mode === "agent"}>
                 <PaperPlaneRight size={19} weight="fill" />

@@ -49,17 +49,24 @@ const readFrames = (response: Response, handlers: ChatStreamHandlers): Promise<v
   const decoder = new TextDecoder();
   let buffer = "";
 
+  const dispatchFrame = (frame: string): void => {
+    if (!frame.trim()) return;
+    const event = parseFrame(frame);
+    if (event) dispatch(event, handlers);
+  };
+
   const pump = (): Promise<void> => reader.read().then(({ done, value }) => {
-    if (done) return undefined;
+    if (done) {
+      buffer += decoder.decode();
+      dispatchFrame(buffer);
+      return undefined;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const frames = buffer.split(FRAME_SEPARATOR);
     buffer = frames.pop() ?? "";
 
-    frames.forEach((frame: string) => {
-      const event = parseFrame(frame);
-      if (event) dispatch(event, handlers);
-    });
+    frames.forEach(dispatchFrame);
 
     return pump();
   });

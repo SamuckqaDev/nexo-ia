@@ -4,6 +4,7 @@ import com.nexoia.auth.token.config.TokenProperties;
 import com.nexoia.auth.token.security.JwtCookieAuthenticationFilter;
 import com.nexoia.shared.security.handler.ApiAccessDeniedHandler;
 import com.nexoia.shared.security.handler.ApiAuthenticationEntryPoint;
+import jakarta.servlet.DispatcherType;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,8 @@ public class SecurityConfiguration {
             ApiAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http
                 .authorizeHttpRequests(authorize -> authorize
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR)
+                        .permitAll()
                         .requestMatchers(
                                 "/api/v1/system",
                                 "/api/v1/auth/csrf",

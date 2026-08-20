@@ -151,6 +151,7 @@ export const ModeHint = styled.p`
 
 export const ComposerFooter = styled.div`
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.xs};
   padding: ${({ theme }) => theme.spacing.sm};
@@ -203,6 +204,7 @@ export const SendButton = styled.button`
   display: grid;
   width: 2.5rem;
   height: 2.5rem;
+  flex: 0 0 auto;
   margin-left: auto;
   place-items: center;
   border: 0;
@@ -212,4 +214,17 @@ export const SendButton = styled.button`
   cursor: pointer;
   &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.primarySoft}; }
   &:disabled { cursor: not-allowed; opacity: 0.38; }
+`;
+
+export const StopButton = styled(SendButton)`
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  background: ${({ theme }) => theme.colors.dangerSurface};
+  color: ${({ theme }) => theme.colors.accentSoft};
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.accent};
+    color: ${({ theme }) => theme.colors.background};
+  }
+
+  &:disabled { cursor: wait; }
 `;

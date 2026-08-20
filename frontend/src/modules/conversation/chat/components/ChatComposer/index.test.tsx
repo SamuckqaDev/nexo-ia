@@ -4,13 +4,16 @@ import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
 import { previewVaults, useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
 import { builtInSkills, useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
+import type { StreamPhase } from "../../types/chatTypes";
 import { ChatComposer } from "./index";
 
 const renderComposer = (
   mode: "chat" | "agent",
   onModeChange = vi.fn(),
   initialContent = "",
-  onSend = vi.fn()
+  onSend = vi.fn(),
+  isBusy = false,
+  phase: StreamPhase = "idle"
 ) => {
   render(
     <ThemeProvider theme={darkTheme}>
@@ -18,8 +21,8 @@ const renderComposer = (
         disabled={false}
         initialContent={initialContent}
         hasModel
-        phase="idle"
-        isBusy={false}
+        phase={phase}
+        isBusy={isBusy}
         mode={mode}
         onModeChange={onModeChange}
         onSend={onSend}
@@ -98,5 +101,19 @@ describe("ChatComposer", () => {
       position: "relative",
       zIndex: "1"
     });
+  });
+
+  it("keeps send and stop as compact controls on the right edge", () => {
+    renderComposer("chat", vi.fn(), "Hello");
+    expect(screen.getByRole("button", { name: "Send message" })).toHaveStyle({
+      width: "2.5rem",
+      height: "2.5rem",
+      marginLeft: "auto"
+    });
+
+    renderComposer("chat", vi.fn(), "", vi.fn(), true, "streaming");
+    const stop = screen.getByRole("button", { name: "Stop response" });
+    expect(stop).toHaveStyle({ width: "2.5rem", height: "2.5rem", marginLeft: "auto" });
+    expect(stop).not.toHaveTextContent("Stop");
   });
 });
