@@ -53,7 +53,8 @@ describe("MessageList", () => {
     );
 
     expect(screen.getByText(/waiting for model output/i)).toBeInTheDocument();
-    expect(screen.getByText(/you can open another chat and come back/i)).toBeVisible();
+    expect(screen.getByLabelText("Nexo is preparing a response")).toBeVisible();
+    expect(screen.queryByText(/you can open another chat and come back/i)).not.toBeInTheDocument();
     expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
     expect(screen.queryByText(/preparing the selected model/i)).not.toBeInTheDocument();
   });
@@ -172,7 +173,10 @@ describe("MessageList", () => {
       </ThemeProvider>
     );
 
-    expect(screen.getByText("Generating response")).toBeVisible();
+    const indicator = screen.getByLabelText("Nexo is responding");
+    expect(indicator).toBeVisible();
+    expect(indicator).toHaveStyle({ width: "fit-content", border: "0", padding: "0 0.25rem", background: "transparent" });
+    expect(screen.queryByText(/you can open another chat/i)).not.toBeInTheDocument();
     expect(screen.getByRole("timer", { name: /response generation elapsed time/i })).toHaveTextContent("00:00");
 
     act((): void => {

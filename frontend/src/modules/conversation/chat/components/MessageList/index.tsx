@@ -68,19 +68,14 @@ function GenerationStatus({ phase, startedAt }: { phase: StreamPhase; startedAt:
 
   const elapsedSeconds: number = Math.max(0, Math.floor((now - (startedAt ?? fallbackStartedAt.current)) / 1_000));
   const label: string = phase === "starting"
-    ? "Preparing response"
-    : phase === "cancelling" ? "Stopping response" : "Generating response";
+    ? "Nexo is preparing a response"
+    : phase === "cancelling" ? "Nexo is stopping the response" : "Nexo is responding";
 
   return (
-    <RunStatus aria-label="Response generation status">
-      <SpinnerGap size={18} weight="bold" aria-hidden />
-      <span>
-        <strong>{label}</strong>
-        <small>You can open another chat and come back without stopping it.</small>
-      </span>
+    <RunStatus aria-label={label} title={label}>
+      <SpinnerGap size={13} weight="bold" aria-hidden />
       <RunTimer role="timer" aria-live="off" aria-label="Response generation elapsed time">
         {formatElapsedTime(elapsedSeconds)}
-        <small>elapsed</small>
       </RunTimer>
     </RunStatus>
   );

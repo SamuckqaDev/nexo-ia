@@ -236,9 +236,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   states, and reports model, token usage, latency, and processing location on completed answers. An
   unterminated final SSE frame is flushed when the transport closes, so a completed persisted answer
   is not lost at the browser boundary. The send and stop controls stay as compact right-aligned
-  composer actions. While a request is active, a persistent spinner and elapsed timer remain at the
-  end of the conversation, survive switching between chats, and distinguish preparing, generating,
-  and stopping states. Completed answers label the measured response time. An estimated token count
+  composer actions. While a request is active, a minimal inline spinner and elapsed timer remain at
+  the end of the conversation without a status card or explanatory block, survive switching between
+  chats, and expose preparing, responding, and stopping states through accessible labels. Completed
+  answers label the measured response time. An estimated token count
   is always labelled. The composer derives a private recent-prompt history from the selected
   conversation's persisted user messages, removes duplicated prompts and internal context envelopes,
   and exposes both a compact up-arrow list and terminal-style `ArrowUp`/`ArrowDown` recall. Conversation
