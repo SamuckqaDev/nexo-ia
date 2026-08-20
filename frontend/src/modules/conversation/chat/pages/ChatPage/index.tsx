@@ -1,5 +1,5 @@
 import { ChatCircleDots, Cpu, FolderOpen, LockKey } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
@@ -28,8 +28,9 @@ import {
   useSelectConversationModel
 } from "../../hooks/useChat";
 import { useChatStream } from "../../hooks/useChatStream";
+import { parseContextualChatMessage } from "../../services/chatContextService";
 import { useChatDraftStore } from "../../stores/useChatDraftStore";
-import type { Conversation, ConversationMode } from "../../types/chatTypes";
+import type { Conversation, ConversationMessage, ConversationMode } from "../../types/chatTypes";
 import type { ChatDraftState } from "../../types/chatDraftTypes";
 import {
   Chat,
@@ -79,6 +80,10 @@ export function ChatPage(): ReactElement {
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
   const stream = useChatStream(selectedId, messages.data ?? []);
+  const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
+    .filter((message: ConversationMessage): boolean => message.role === "USER")
+    .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
+    .filter((content: string): boolean => Boolean(content.trim())), [messages.data]);
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
 
   useEffect((): void => {
@@ -242,6 +247,7 @@ export function ChatPage(): ReactElement {
 
               <ChatComposer
                 initialContent={initialDraft}
+                messageHistory={messageHistory}
                 disabled={!selectedId}
                 hasModel={hasModel}
                 phase={stream.phase}

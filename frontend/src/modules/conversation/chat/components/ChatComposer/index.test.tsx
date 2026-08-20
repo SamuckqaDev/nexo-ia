@@ -13,13 +13,15 @@ const renderComposer = (
   initialContent = "",
   onSend = vi.fn(),
   isBusy = false,
-  phase: StreamPhase = "idle"
+  phase: StreamPhase = "idle",
+  messageHistory: string[] = []
 ) => {
   render(
     <ThemeProvider theme={darkTheme}>
       <ChatComposer
         disabled={false}
         initialContent={initialContent}
+        messageHistory={messageHistory}
         hasModel
         phase={phase}
         isBusy={isBusy}
@@ -115,5 +117,40 @@ describe("ChatComposer", () => {
     const stop = screen.getByRole("button", { name: "Stop response" });
     expect(stop).toHaveStyle({ width: "2.5rem", height: "2.5rem", marginLeft: "auto" });
     expect(stop).not.toHaveTextContent("Stop");
+  });
+
+  it("opens a deduplicated list of recent messages and restores one by click", () => {
+    renderComposer("chat", vi.fn(), "", vi.fn(), false, "idle", [
+      "Review authentication",
+      "Explain this module",
+      "Explain this module",
+      "Create the tests"
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Recent messages" }));
+
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(3);
+    expect(options[0]).toHaveTextContent("Create the tests");
+    expect(options[1]).toHaveTextContent("Explain this module");
+    fireEvent.click(options[1]);
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("Explain this module");
+  });
+
+  it("browses sent messages with ArrowUp and ArrowDown, then sends the recalled prompt", () => {
+    const onSend = vi.fn();
+    renderComposer("chat", vi.fn(), "", onSend, false, "idle", ["First prompt", "Second prompt", "Latest prompt"]);
+    const message = screen.getByRole("textbox", { name: "Message" });
+
+    fireEvent.keyDown(message, { key: "ArrowUp" });
+    expect(message).toHaveValue("Latest prompt");
+    fireEvent.keyDown(message, { key: "ArrowUp" });
+    expect(message).toHaveValue("Second prompt");
+    fireEvent.keyDown(message, { key: "ArrowDown" });
+    expect(message).toHaveValue("Latest prompt");
+    fireEvent.keyDown(message, { key: "Enter" });
+
+    expect(onSend).toHaveBeenCalledWith("Latest prompt");
+    expect(message).toHaveValue("");
   });
 });

@@ -111,6 +111,43 @@ export const SkillCommand = styled.code`
   font-size: 0.62rem;
 `;
 
+export const HistoryMenu = styled(SkillMenu)`
+  max-height: min(20rem, 48vh);
+`;
+
+export const HistoryOption = styled.button<{ $active: boolean }>`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: ${({ theme }) => theme.spacing.sm};
+  width: 100%;
+  border: 1px solid ${({ theme, $active }) => $active ? theme.colors.lineStrong : "transparent"};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: ${({ theme }) => theme.spacing.sm};
+  background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
+  color: ${({ theme }) => theme.colors.primary};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover, &:focus-visible {
+    border-color: ${({ theme }) => theme.colors.lineStrong};
+    background: ${({ theme }) => theme.colors.surfaceAccent};
+  }
+`;
+
+export const HistoryCopy = styled.span`
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: ${({ theme }) => theme.colors.text};
+  font-size: 0.68rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+`;
+
 export const Field = styled.textarea`
   flex: 1;
   min-height: 3rem;
@@ -198,6 +235,35 @@ export const CapabilityButton = styled.button`
   font-size: 0.7rem;
   &:disabled { cursor: not-allowed; opacity: 0.65; }
   @media (max-width: 38rem) { span { display: none; } }
+`;
+
+export const ComposerActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+`;
+
+export const HistoryButton = styled.button`
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.backgroundSoft};
+  color: ${({ theme }) => theme.colors.textMuted};
+  cursor: pointer;
+
+  &:hover:not(:disabled), &:focus-visible {
+    border-color: ${({ theme }) => theme.colors.lineStrong};
+    background: ${({ theme }) => theme.colors.surfaceAccent};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+
+  &:disabled { cursor: not-allowed; opacity: 0.35; }
 `;
 
 export const SendButton = styled.button`

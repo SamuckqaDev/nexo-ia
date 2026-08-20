@@ -1,4 +1,4 @@
-import { ChatCircleDots, ImageSquare, Paperclip, PaperPlaneRight, Robot, Sparkle, Stop, Wrench, X } from "@phosphor-icons/react";
+import { ArrowUp, ChatCircleDots, ImageSquare, Paperclip, PaperPlaneRight, Robot, Sparkle, Stop, Wrench, X } from "@phosphor-icons/react";
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 import { attachedVaultSources, useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
 import type { VaultCatalogState, VaultSourceReference } from "../../../../knowledge/vault/types/vaultTypes";
@@ -11,11 +11,16 @@ import {
   ActiveContextCopy,
   CapabilityButton,
   Composer,
+  ComposerActions,
   ComposerCard,
   ComposerFooter,
   ComposerSurface,
   Field,
   Hint,
+  HistoryButton,
+  HistoryCopy,
+  HistoryMenu,
+  HistoryOption,
   ModeButton,
   ModeControl,
   ModeHint,
@@ -31,6 +36,7 @@ import {
 
 export function ChatComposer({
   initialContent = "",
+  messageHistory = [],
   disabled,
   hasModel,
   phase,
@@ -44,15 +50,29 @@ export function ChatComposer({
   const [activeSkill, setActiveSkill] = useState<SkillDefinition | null>(null);
   const [skillIndex, setSkillIndex] = useState<number>(0);
   const [skillMenuDismissed, setSkillMenuDismissed] = useState<boolean>(false);
+  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const field = useRef<HTMLTextAreaElement>(null);
+  const draftBeforeHistory = useRef<string>("");
   const skills: SkillDefinition[] = useSkillCatalogStore((state: SkillCatalogState) => state.skills);
   const vaultState: VaultCatalogState = useVaultCatalogStore();
   const vaultSources: VaultSourceReference[] = useMemo<VaultSourceReference[]>(
     () => attachedVaultSources(vaultState),
     [vaultState]
   );
+  const recentMessages: string[] = useMemo<string[]>(() => {
+    const seen = new Set<string>();
+    const recent: string[] = [];
+    for (let index = messageHistory.length - 1; index >= 0 && recent.length < 12; index -= 1) {
+      const message: string = messageHistory[index]?.trim() ?? "";
+      if (!message || seen.has(message)) continue;
+      seen.add(message);
+      recent.push(message);
+    }
+    return recent;
+  }, [messageHistory]);
   const skillQuery: string = content.startsWith("/") ? content.slice(1).toLowerCase() : "";
-  const skillMenuOpen: boolean = !skillMenuDismissed && content.startsWith("/") && !/\s/.test(skillQuery);
+  const skillMenuOpen: boolean = !historyOpen && !skillMenuDismissed && content.startsWith("/") && !/\s/.test(skillQuery);
   const visibleSkills: SkillDefinition[] = useMemo<SkillDefinition[]>(() => skills
     .filter((skill: SkillDefinition): boolean => skill.enabled)
     .filter((skill: SkillDefinition): boolean =>
@@ -72,6 +92,25 @@ export function ChatComposer({
     onSend(buildContextualChatMessage(content, { skill: activeSkill, vaultSources }));
     setContent("");
     setActiveSkill(null);
+    setHistoryOpen(false);
+    setHistoryIndex(-1);
+  };
+
+  const selectHistoryMessage = (message: string): void => {
+    setContent(message);
+    setHistoryOpen(false);
+    setHistoryIndex(-1);
+    setSkillMenuDismissed(true);
+    field.current?.focus();
+  };
+
+  const openHistory = (): void => {
+    if (!recentMessages.length) return;
+    draftBeforeHistory.current = content;
+    setHistoryOpen((current: boolean): boolean => !current);
+    setHistoryIndex(-1);
+    setSkillMenuDismissed(true);
+    field.current?.focus();
   };
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
@@ -100,6 +139,38 @@ export function ChatComposer({
         return;
       }
     }
+    if (event.key === "ArrowUp" && recentMessages.length && (!content || historyOpen)) {
+      event.preventDefault();
+      const nextIndex: number = historyOpen
+        ? Math.min(historyIndex + 1, recentMessages.length - 1)
+        : 0;
+      if (!historyOpen) draftBeforeHistory.current = content;
+      setHistoryOpen(true);
+      setHistoryIndex(nextIndex);
+      setContent(recentMessages[nextIndex]);
+      setSkillMenuDismissed(true);
+      return;
+    }
+    if (event.key === "ArrowDown" && historyOpen) {
+      event.preventDefault();
+      if (historyIndex <= 0) {
+        setContent(draftBeforeHistory.current);
+        setHistoryOpen(false);
+        setHistoryIndex(-1);
+        return;
+      }
+      const nextIndex: number = historyIndex - 1;
+      setHistoryIndex(nextIndex);
+      setContent(recentMessages[nextIndex]);
+      return;
+    }
+    if (event.key === "Escape" && historyOpen) {
+      event.preventDefault();
+      setContent(draftBeforeHistory.current);
+      setHistoryOpen(false);
+      setHistoryIndex(-1);
+      return;
+    }
     if (event.key !== "Enter" || event.shiftKey || isBusy || !content.trim()) return;
 
     event.preventDefault();
@@ -108,12 +179,16 @@ export function ChatComposer({
 
   const updateContent = (event: ChangeEvent<HTMLTextAreaElement>): void => {
     setContent(event.target.value);
+    setHistoryOpen(false);
+    setHistoryIndex(-1);
     setSkillMenuDismissed(false);
     setSkillIndex(0);
   };
 
   const openSkills = (): void => {
     setContent("/");
+    setHistoryOpen(false);
+    setHistoryIndex(-1);
     setSkillMenuDismissed(false);
     setSkillIndex(0);
     field.current?.focus();
@@ -175,15 +250,27 @@ export function ChatComposer({
             <CapabilityButton type="button" disabled title="Image generation requires the ComfyUI runtime">
               <ImageSquare size={16} weight="duotone" /> <span>Image</span>
             </CapabilityButton>
-            {isBusy ? (
-              <StopButton type="button" aria-label="Stop response" disabled={phase === "starting" || phase === "cancelling"} onClick={onCancel}>
-                <Stop size={18} weight="fill" />
-              </StopButton>
-            ) : (
-              <SendButton type="submit" aria-label="Send message" disabled={disabled || !hasModel || !content.trim() || mode === "agent"}>
-                <PaperPlaneRight size={19} weight="fill" />
-              </SendButton>
-            )}
+            <ComposerActions>
+              <HistoryButton
+                type="button"
+                aria-label="Recent messages"
+                aria-expanded={historyOpen}
+                title="Recent messages · press ↑ in an empty field"
+                disabled={isBusy || !recentMessages.length || mode === "agent"}
+                onClick={openHistory}
+              >
+                <ArrowUp size={17} weight="bold" />
+              </HistoryButton>
+              {isBusy ? (
+                <StopButton type="button" aria-label="Stop response" disabled={phase === "starting" || phase === "cancelling"} onClick={onCancel}>
+                  <Stop size={18} weight="fill" />
+                </StopButton>
+              ) : (
+                <SendButton type="submit" aria-label="Send message" disabled={disabled || !hasModel || !content.trim() || mode === "agent"}>
+                  <PaperPlaneRight size={19} weight="fill" />
+                </SendButton>
+              )}
+            </ComposerActions>
           </ComposerFooter>
         </Composer>
       </ComposerSurface>
@@ -206,6 +293,24 @@ export function ChatComposer({
             </SkillOption>
           )) : <SkillPaletteHint><span>No matching Skill</span><small>Open Skills from the sidebar to create one.</small></SkillPaletteHint>}
         </SkillMenu>
+      )}
+      {historyOpen && (
+        <HistoryMenu role="listbox" aria-label="Recent messages">
+          <SkillPaletteHint><span>Recent messages</span><small>↑/↓ to browse · Enter to send · Esc to restore</small></SkillPaletteHint>
+          {recentMessages.map((message: string, index: number) => (
+            <HistoryOption
+              key={`${index}-${message}`}
+              type="button"
+              role="option"
+              aria-selected={index === historyIndex}
+              $active={index === historyIndex}
+              onClick={(): void => selectHistoryMessage(message)}
+            >
+              <ArrowUp size={15} weight="bold" />
+              <HistoryCopy>{message}</HistoryCopy>
+            </HistoryOption>
+          ))}
+        </HistoryMenu>
       )}
     </ComposerCard>
   );

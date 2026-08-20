@@ -15,6 +15,7 @@ export type ConversationContextPanelProps = {
 
 export type ChatComposerProps = {
   initialContent?: string;
+  messageHistory?: string[];
   disabled: boolean;
   hasModel: boolean;
   phase: StreamPhase;
