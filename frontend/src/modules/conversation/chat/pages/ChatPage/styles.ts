@@ -23,6 +23,7 @@ export const Chat = styled.div`
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
   background: linear-gradient(180deg, ${({ theme }) => theme.colors.surface} 0, transparent 8rem);
 `;
 
@@ -85,42 +86,31 @@ export const Header = styled.header`
 
 export const HeaderLeading = styled.div`
   display: flex;
+  flex: 1;
   min-width: 0;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
+  overflow: hidden;
 `;
 
 export const OpenConversations = styled.button`
-  display: inline-flex;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
   flex: 0 0 auto;
-  align-items: center;
-  gap: 0.38rem;
+  place-items: center;
   border: 1px solid ${({ theme }) => theme.colors.lineStrong};
   border-radius: ${({ theme }) => theme.radius.control};
-  padding: 0.42rem 0.55rem;
+  padding: 0;
   background: ${({ theme }) => theme.colors.surfaceAccent};
   color: ${({ theme }) => theme.colors.primarySoft};
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
   cursor: pointer;
   &:hover, &:focus-visible { border-color: ${({ theme }) => theme.colors.primary}; color: ${({ theme }) => theme.colors.primary}; }
-  @media (max-width: 34rem) { > span { display: none; } }
-`;
-
-export const OpenConversationsCount = styled.small`
-  display: grid;
-  min-width: 1.35rem;
-  height: 1.35rem;
-  place-items: center;
-  border-radius: ${({ theme }) => theme.radius.round};
-  background: ${({ theme }) => theme.colors.surfaceStrong};
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: 0.56rem;
 `;
 
 export const HeaderCopy = styled.div`
   display: flex;
+  flex: 1;
   min-width: 0;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};

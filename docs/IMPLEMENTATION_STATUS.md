@@ -218,7 +218,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   generated artifacts, and media oriented at the right edge and expands the selected section on
   demand. The expanded conversation list remains a scroll-owning left panel and becomes an overlay
   drawer on compact screens. When minimized it disappears completely, preserves the active
-  conversation, and is reopened from a compact header control instead of consuming width as a rail.
+  conversation, and is reopened from an icon-only header control instead of consuming width as a
+  rail. The Chat workspace establishes its own paint layer so internal drawers and counters cannot
+  overlap the application's primary sidebar.
   Capabilities without a connected runtime remain explicit previews or empty states instead of
   suggesting work was executed.
 - A unified security audit trail is recorded in `audit_event` and inspectable only by an Owner at

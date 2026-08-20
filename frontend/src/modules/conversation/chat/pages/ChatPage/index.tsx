@@ -44,7 +44,6 @@ import {
   LoadFailure,
   ModelArea,
   OpenConversations,
-  OpenConversationsCount,
   PrivacyBadge,
   WorkspaceContext
 } from "./styles";
@@ -178,8 +177,6 @@ export function ChatPage(): ReactElement {
                 onClick={(): void => setIsConversationMenuOpen(true)}
               >
                 <ChatCircleDots size={18} weight="duotone" />
-                <span>Conversations</span>
-                <OpenConversationsCount>{conversations.data?.length ?? 0}</OpenConversationsCount>
               </OpenConversations>
             )}
             <HeaderCopy>

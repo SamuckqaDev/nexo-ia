@@ -20,6 +20,7 @@ export const Shell = styled.div<{ $collapsed: boolean }>`
 
 export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean }>`
   position: sticky;
+  z-index: 10;
   top: 0;
   display: flex;
   height: 100%;
@@ -169,12 +170,15 @@ export const NavLabel = styled.span<{ $hidden: boolean }>`
 `;
 
 export const Workspace = styled.div`
+  position: relative;
+  z-index: 0;
   display: grid;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  isolation: isolate;
 `;
 
 export const MobileMenuButton = styled.button`
