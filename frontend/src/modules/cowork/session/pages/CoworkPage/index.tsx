@@ -1,13 +1,19 @@
 import { Brain, CheckCircle, Circle, Clock, Flag, Plus, ShieldCheck, UserFocus } from "@phosphor-icons/react";
-import { useState, type ReactElement } from "react";
+import { useState, type ChangeEvent, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Input } from "../../../../../shared/components/Input";
 import { Select } from "../../../../../shared/components/Select";
 import { WorkspaceBadge, WorkspacePage, WorkspacePanel } from "../../../../../shared/components/WorkspacePage";
+import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
+import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
+import type { ProjectWorkspace, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
 import { Activity, ActivityItem, Board, Composer, Milestone, Objective, ObjectiveCard, Plan, Progress } from "./styles";
 
 export function CoworkPage(): ReactElement {
   const [creating, setCreating] = useState<boolean>(false);
+  const activeWorkspace = useActiveWorkspace();
+  const workspaces: ProjectWorkspace[] = useWorkspaceStore((state: WorkspaceState) => state.workspaces);
+  const selectWorkspace: WorkspaceState["selectWorkspace"] = useWorkspaceStore((state: WorkspaceState) => state.selectWorkspace);
 
   return (
     <WorkspacePage
@@ -21,7 +27,13 @@ export function CoworkPage(): ReactElement {
         <WorkspacePanel title="Start a Cowork objective" description="Define outcome and authorized context before any plan is proposed." action={<WorkspaceBadge tone="attention">Draft only</WorkspaceBadge>}>
           <Composer>
             <Input id="cowork-objective" label="Objective" placeholder="What result should this session deliver?" />
-            <Select id="cowork-project" label="Project context" options={[{ label: "No authorized project", value: "none" }, { label: "Nexo IA · preview", value: "preview" }]} />
+            <Select
+              id="cowork-project"
+              label="Project context"
+              value={activeWorkspace?.id ?? "none"}
+              options={[{ label: "No workspace selected", value: "none" }, ...workspaces.map((workspace: ProjectWorkspace) => ({ label: workspace.name, value: workspace.id }))]}
+              onChange={(event: ChangeEvent<HTMLSelectElement>): void => selectWorkspace(event.target.value === "none" ? null : event.target.value)}
+            />
             <Input id="cowork-done" label="Completion evidence" placeholder="Build passes, report delivered, decision recorded…" />
             <Button type="button" disabled>Cowork runtime required</Button>
           </Composer>
@@ -32,7 +44,7 @@ export function CoworkPage(): ReactElement {
           <Objective>
             <ObjectiveCard>
               <div><Brain size={23} weight="duotone" /><span><small>Objective</small><strong>Prepare Nexo frontend for the next product slice</strong></span></div>
-              <p>Coordinate scope, design, implementation evidence and the decisions that still require a human.</p>
+              <p>Coordinate scope, design, implementation evidence and the decisions that still require a human. Workspace: {activeWorkspace?.name ?? "not selected"}.</p>
               <Progress><span>2 of 4 milestones ready</span><div><i /></div></Progress>
             </ObjectiveCard>
             <Plan aria-label="Cowork plan">

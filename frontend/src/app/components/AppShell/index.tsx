@@ -42,6 +42,8 @@ const SettingsPage = lazy(() => import("../../../modules/settings/pages/Settings
   .then((module) => ({ default: module.SettingsPage })));
 const UserManagement = lazy(() => import("../../../modules/auth/user/components/UserManagement")
   .then((module) => ({ default: module.UserManagement })));
+const WorkspaceSwitcher = lazy(() => import("../../../modules/project/workspace/components/WorkspaceSwitcher")
+  .then((module) => ({ default: module.WorkspaceSwitcher })));
 const ProjectsPage = lazy(() => import("../../../modules/project/workspace/pages/ProjectsPage")
   .then((module) => ({ default: module.ProjectsPage })));
 const CoworkPage = lazy(() => import("../../../modules/cowork/session/pages/CoworkPage")
@@ -119,6 +121,10 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
           <BrandName $hidden={sidebarCollapsed}>Nexo IA</BrandName>
         </Brand>
 
+        <Suspense fallback={null}>
+          <WorkspaceSwitcher collapsed={sidebarCollapsed} onManage={(): void => navigate("projects")} />
+        </Suspense>
+
         <NavigationLabel $hidden={sidebarCollapsed}>Workspace</NavigationLabel>
         <Navigation aria-label="Nexo features">
           {featureNavigation.map((item: NavigationItem) => (
@@ -167,7 +173,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
             <Routes>
               <Route path="/" element={<HomePage user={user} onNavigate={navigate} onOpenSettings={openSettings} />} />
               <Route path="/chat" element={<ChatPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects" element={<ProjectsPage onOpenChat={(): void => navigate("chat")} />} />
               <Route path="/cowork" element={<CoworkPage />} />
               <Route path="/tasks" element={<CalendarPage />} />
               <Route path="/vaults" element={<VaultsPage />} />

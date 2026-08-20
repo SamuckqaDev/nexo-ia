@@ -1,49 +1,123 @@
-import { CheckCircle, FolderOpen, GitBranch, HardDrives, Plus, ShieldCheck, TerminalWindow } from "@phosphor-icons/react";
-import { useState, type ReactElement } from "react";
+import {
+  ArrowRight,
+  CheckCircle,
+  FolderOpen,
+  FolderSimplePlus,
+  GitBranch,
+  HardDrives,
+  MagnifyingGlass,
+  Plus,
+  ShieldCheck
+} from "@phosphor-icons/react";
+import { useMemo, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Input } from "../../../../../shared/components/Input";
-import { Select } from "../../../../../shared/components/Select";
 import { WorkspaceBadge, WorkspaceEmptyState, WorkspacePage, WorkspacePanel } from "../../../../../shared/components/WorkspacePage";
-import { AccessGrid, AccessItem, Authorize, ProjectCard, ProjectList, ProjectMeta, ProjectTitle, ProjectsGrid, SafetyNote } from "./styles";
+import { WorkspaceForm } from "../../components/WorkspaceForm";
+import { useActiveWorkspace } from "../../hooks/useActiveWorkspace";
+import { useWorkspaceStore } from "../../stores/useWorkspaceStore";
+import type { ProjectWorkspace, ProjectsPageProps, WorkspaceState } from "../../types/workspaceTypes";
+import {
+  ActiveContext,
+  Detail,
+  DetailActions,
+  DetailHeader,
+  DetailMeta,
+  Library,
+  Path,
+  ProjectsGrid,
+  WorkspaceButton,
+  WorkspaceCopy,
+  WorkspaceList
+} from "./styles";
 
-export function ProjectsPage(): ReactElement {
-  const [authorizing, setAuthorizing] = useState<boolean>(false);
+export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
+  const workspaces: ProjectWorkspace[] = useWorkspaceStore((state: WorkspaceState) => state.workspaces);
+  const selectWorkspace: WorkspaceState["selectWorkspace"] = useWorkspaceStore((state: WorkspaceState) => state.selectWorkspace);
+  const active = useActiveWorkspace();
+  const [selectedId, setSelectedId] = useState<string | null>(active?.id ?? workspaces[0]?.id ?? null);
+  const [adding, setAdding] = useState<boolean>(workspaces.length === 0);
+  const [query, setQuery] = useState<string>("");
+  const selected: ProjectWorkspace | undefined = workspaces.find((workspace: ProjectWorkspace) => workspace.id === selectedId) ?? active;
+  const visibleWorkspaces = useMemo<ProjectWorkspace[]>(() => workspaces.filter((workspace: ProjectWorkspace) =>
+    `${workspace.name} ${workspace.path}`.toLowerCase().includes(query.toLowerCase())
+  ), [query, workspaces]);
+
+  const chooseWorkspace = (workspace: ProjectWorkspace): void => {
+    setSelectedId(workspace.id);
+    selectWorkspace(workspace.id);
+    setAdding(false);
+  };
 
   return (
     <WorkspacePage
-      eyebrow="Governed workspaces"
-      title="Projects"
-      description="Bind objectives, exact filesystem roots, Git state, permissions and verification evidence to one durable project context."
+      eyebrow="Project context"
+      title="Projects & workspaces"
+      description="Choose the exact project folder Nexo should treat as the working context, then enter Chat or Cowork with that selection visible everywhere."
       icon={FolderOpen}
-      actions={<Button type="button" icon={Plus} onClick={(): void => setAuthorizing(true)}>Authorize project</Button>}
+      actions={<Button type="button" icon={Plus} onClick={(): void => setAdding(true)}>Add workspace</Button>}
     >
+      {active && (
+        <ActiveContext>
+          <FolderOpen size={22} weight="fill" />
+          <div><span>Active workspace</span><strong>{active.name}</strong><small>{active.path}</small></div>
+          <WorkspaceBadge tone="positive">Selected</WorkspaceBadge>
+          <Button type="button" icon={ArrowRight} onClick={onOpenChat}>Open Chat</Button>
+        </ActiveContext>
+      )}
+
       <ProjectsGrid>
-        <WorkspacePanel title="Authorized projects" description="Only canonical roots explicitly granted to your current account appear here.">
-          <ProjectList>
-            <ProjectCard type="button">
-              <FolderOpen size={23} weight="duotone" />
-              <ProjectTitle><strong>Nexo IA</strong><span>/workspace/nexo-ia</span><ProjectMeta><WorkspaceBadge tone="attention">Interface preview</WorkspaceBadge><small>Git · main</small></ProjectMeta></ProjectTitle>
-            </ProjectCard>
-            <WorkspaceEmptyState icon={FolderOpen} title="Connect your real workspace" description="The preview demonstrates the project card. Authorize an exact root to make a project discoverable when the Companion API is available." />
-          </ProjectList>
+        <WorkspacePanel title="Project folders" description="Switching here changes the session workspace shown across Nexo." action={<WorkspaceBadge>{workspaces.length} saved this session</WorkspaceBadge>}>
+          <Library>
+            {workspaces.length > 0 && (
+              <Input id="workspace-search" label="Find a workspace" icon={MagnifyingGlass} value={query} onChange={(event): void => setQuery(event.target.value)} placeholder="Name or folder path" />
+            )}
+            {visibleWorkspaces.length > 0 ? (
+              <WorkspaceList>
+                {visibleWorkspaces.map((workspace: ProjectWorkspace) => (
+                  <WorkspaceButton key={workspace.id} type="button" $active={active?.id === workspace.id} onClick={(): void => chooseWorkspace(workspace)}>
+                    <FolderOpen size={21} weight={active?.id === workspace.id ? "fill" : "duotone"} />
+                    <WorkspaceCopy>
+                      <strong>{workspace.name}</strong>
+                      <span>{workspace.path}</span>
+                      <small>{active?.id === workspace.id ? "Active workspace" : "Select workspace"}</small>
+                    </WorkspaceCopy>
+                    {active?.id === workspace.id ? <CheckCircle size={18} weight="fill" /> : <ArrowRight size={16} />}
+                  </WorkspaceButton>
+                ))}
+              </WorkspaceList>
+            ) : (
+              <WorkspaceEmptyState
+                icon={FolderSimplePlus}
+                title={workspaces.length ? "No matching workspace" : "Choose a project folder"}
+                description={workspaces.length ? "Try another name or exact path." : "Add the folder you want Nexo to treat as the working directory. You can switch workspaces at any time from the sidebar."}
+                action={!workspaces.length ? <Button type="button" icon={FolderSimplePlus} onClick={(): void => setAdding(true)}>Add first workspace</Button> : undefined}
+              />
+            )}
+          </Library>
         </WorkspacePanel>
 
-        <WorkspacePanel as="aside" title={authorizing ? "Authorize a workspace" : "Project access model"} description={authorizing ? "Choose an exact root and the smallest useful capability set." : "Nexo separates reading, editing and command execution."}>
-          {authorizing ? (
-            <Authorize>
-              <Input id="project-name" label="Project name" placeholder="My application" />
-              <Input id="project-root" label="Exact workspace root" placeholder="/home/user/projects/application" helperText="Broad home folders and unresolved paths are rejected by the backend." />
-              <Select id="project-access" label="Initial capability" options={[{ label: "Read-only inspection", value: "read" }, { label: "Read and propose edits", value: "propose" }, { label: "Commands require approval", value: "commands" }]} />
-              <SafetyNote><ShieldCheck size={18} /><span>Authorization is unavailable until the project/Companion API exists. This form does not access your filesystem.</span></SafetyNote>
-              <Button type="button" disabled>Companion API required</Button>
-            </Authorize>
-          ) : (
-            <AccessGrid>
-              <AccessItem><HardDrives size={19} /><div><strong>Inspect</strong><span>Files and metadata inside one canonical root.</span></div><CheckCircle size={16} /></AccessItem>
-              <AccessItem><GitBranch size={19} /><div><strong>Propose changes</strong><span>Visible patches and diffs before consequential effects.</span></div><CheckCircle size={16} /></AccessItem>
-              <AccessItem><TerminalWindow size={19} /><div><strong>Execute</strong><span>Separate command grants, timeout and observable evidence.</span></div><ShieldCheck size={16} /></AccessItem>
-            </AccessGrid>
-          )}
+        <WorkspacePanel as="aside" title={adding ? "Add a project folder" : selected ? "Workspace details" : "No workspace selected"} description={adding ? "Name the folder and choose the initial session scope." : "Review the exact working context before starting."}>
+          {adding ? (
+            <WorkspaceForm onAdded={(workspace: ProjectWorkspace): void => { setSelectedId(workspace.id); setAdding(false); }} onCancel={(): void => setAdding(false)} />
+          ) : selected ? (
+            <Detail>
+              <DetailHeader>
+                <span><FolderOpen size={25} weight="duotone" /></span>
+                <div><WorkspaceBadge tone={active?.id === selected.id ? "positive" : "default"}>{active?.id === selected.id ? "Active" : "Available"}</WorkspaceBadge><h2>{selected.name}</h2></div>
+              </DetailHeader>
+              <Path><span>Working directory</span><code>{selected.path}</code></Path>
+              <DetailMeta>
+                <div><HardDrives size={18} /><span>Session scope<strong>{selected.access}</strong></span></div>
+                <div><GitBranch size={18} /><span>Git context<strong>{selected.branch ?? "Detect on connect"}</strong></span></div>
+                <div><ShieldCheck size={18} /><span>Authorization<strong>Companion required</strong></span></div>
+              </DetailMeta>
+              <DetailActions>
+                {active?.id !== selected.id && <Button type="button" onClick={(): void => selectWorkspace(selected.id)}>Use this workspace</Button>}
+                <Button type="button" variant={active?.id === selected.id ? "primary" : "outline"} icon={ArrowRight} onClick={(): void => { selectWorkspace(selected.id); onOpenChat(); }}>Open in Chat</Button>
+              </DetailActions>
+            </Detail>
+          ) : <WorkspaceEmptyState icon={FolderOpen} title="Select a workspace" description="Choose a project folder from the list or add a new one." />}
         </WorkspacePanel>
       </ProjectsGrid>
     </WorkspacePage>

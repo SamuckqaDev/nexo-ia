@@ -1,4 +1,4 @@
-import { Cpu, LockKey } from "@phosphor-icons/react";
+import { Cpu, FolderOpen, LockKey } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
@@ -7,6 +7,7 @@ import { useConfirmationStore } from "../../../../../shared/feedback/stores/useC
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
 import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
+import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { ChatComposer } from "../../components/ChatComposer";
 import { ConversationContextPanel } from "../../components/ConversationContextPanel";
 import { ConversationSidebar } from "../../components/ConversationSidebar";
@@ -35,7 +36,8 @@ import {
   Layout,
   LoadFailure,
   ModelArea,
-  PrivacyBadge
+  PrivacyBadge,
+  WorkspaceContext
 } from "./styles";
 
 export function ChatPage(): ReactElement {
@@ -44,6 +46,7 @@ export function ChatPage(): ReactElement {
   const create = useCreateConversation();
   const archive = useArchiveConversation();
   const providers = useProviderRegistry();
+  const activeWorkspace = useActiveWorkspace();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<ConversationMode>("chat");
@@ -128,6 +131,15 @@ export function ChatPage(): ReactElement {
             <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>
             <HeaderMeta>
               <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
+              <WorkspaceContext
+                type="button"
+                $active={Boolean(activeWorkspace)}
+                title={activeWorkspace ? `Session workspace: ${activeWorkspace.path}` : "Choose a workspace"}
+                onClick={(): void => { navigate("/projects"); }}
+              >
+                <FolderOpen size={12} weight={activeWorkspace ? "fill" : "duotone"} />
+                {activeWorkspace?.name ?? "Choose workspace"}
+              </WorkspaceContext>
               {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
             </HeaderMeta>
           </HeaderCopy>

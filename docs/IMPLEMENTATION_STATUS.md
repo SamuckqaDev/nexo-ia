@@ -74,12 +74,19 @@ minimal vertical connection plus the first release `0.1` identity slice.
   views, occurrence inspection, and session-only schedule drafts. Knowledge Vaults provides a
   searchable collection list, source explorer, governed scope creation, and local file selection.
   Skills provides a filterable library and a complete editor for ownership, activation,
-  instructions, output contracts, and declared dependencies. Projects and Cowork expose their own
-  authorization, capability, objective, milestone, activity, and decision surfaces.
+  instructions, output contracts, and declared dependencies. Projects now owns a searchable project
+  folder list, active-workspace detail, and add/select flow; Cowork exposes objective, milestone,
+  activity, and decision surfaces.
+- The selected project workspace is shared in memory through the project module's Zustand store. A
+  user can add a folder path, make it active, switch it directly from the sidebar, and see the same
+  selection in Home, Chat, Projects, and Cowork. This follows the desktop coding-agent model where
+  project folder selection precedes work, while keeping the Nexo security boundary explicit: the
+  client selection is context intent, not filesystem authorization.
 - Preview records and newly created client drafts are labeled explicitly. Calendar drafts never
   execute, selected Vault files are not uploaded or indexed, Skill drafts are not published, and
   Project/Cowork controls never access the computer until their authoritative backend and Companion
-  APIs are implemented.
+  APIs are implemented. Workspace names and paths remain session-only and are not persisted by the
+  frontend.
 - Settings now uses a responsive two-column workspace layout with sticky section navigation on
   desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
   preferences, provider, and usage components remain the owners of their implemented behavior.

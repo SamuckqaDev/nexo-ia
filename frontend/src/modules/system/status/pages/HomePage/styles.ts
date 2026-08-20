@@ -93,12 +93,21 @@ export const CommandFooter = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-export const CommandHint = styled.span`
+export const CommandHint = styled.button`
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: transparent;
   color: ${({ theme }) => theme.colors.textSubtle};
+  font: inherit;
   font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  &:hover, &:focus-visible { color: ${({ theme }) => theme.colors.primary}; }
 `;
 
 export const CommandSubmit = styled.button`

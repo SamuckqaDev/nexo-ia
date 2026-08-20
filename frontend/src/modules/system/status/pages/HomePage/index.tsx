@@ -18,6 +18,7 @@ import type { ChatDraftState } from "../../../../conversation/chat/types/chatDra
 import type { Conversation } from "../../../../conversation/chat/types/chatTypes";
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
 import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
+import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { useUsage } from "../../../../usage/hooks/useUsage";
 import { SystemStatus } from "../../components/SystemStatus";
 import type { HomePageProps } from "../../types/systemTypes";
@@ -74,6 +75,7 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
   const usage = useUsage("LAST_7_DAYS");
   const configuredProvider: ProviderConfiguration | undefined = providers.data
     ?.find((provider: ProviderConfiguration) => provider.enabled && Boolean(provider.selectedModel));
+  const activeWorkspace = useActiveWorkspace();
   const recentConversations: Conversation[] = conversations.data?.slice(0, 3) ?? [];
   const [request, setRequest] = useState<string>("");
   const setDraft: ChatDraftState["setContent"] = useChatDraftStore((state: ChatDraftState) => state.setContent);
@@ -104,7 +106,10 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
               onChange={(event): void => setRequest(event.target.value)}
             />
             <CommandFooter>
-              <CommandHint><FolderOpen size={15} /> No project selected</CommandHint>
+              <CommandHint type="button" title={activeWorkspace?.path ?? "Choose a project folder"} onClick={(): void => onNavigate("projects")}>
+                <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
+                {activeWorkspace?.name ?? "Choose workspace"}
+              </CommandHint>
               <CommandSubmit type="submit" disabled={!request.trim()}>
                 Start <ArrowRight size={16} />
               </CommandSubmit>
@@ -112,7 +117,7 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
           </CommandComposer>
           <Actions>
             <ActionButton type="button" $secondary onClick={(): void => onNavigate("projects")}>
-              <FolderOpen size={16} weight="duotone" /> Browse projects
+              <FolderOpen size={16} weight="duotone" /> {activeWorkspace ? "Change workspace" : "Choose workspace"}
             </ActionButton>
             <ActionButton type="button" $secondary onClick={(): void => onOpenSettings("providers")}>
               <Cpu size={16} weight="duotone" /> Configure models

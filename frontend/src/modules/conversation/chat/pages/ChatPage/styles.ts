@@ -100,6 +100,24 @@ export const PrivacyBadge = styled.span`
   color: ${({ theme }) => theme.colors.accentSoft};
 `;
 
+export const WorkspaceContext = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 12rem;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textSubtle)};
+  font: inherit;
+  font-size: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  &:hover, &:focus-visible { color: ${({ theme }) => theme.colors.primary}; }
+`;
+
 export const ModelArea = styled.div`
   display: flex;
   align-items: center;
