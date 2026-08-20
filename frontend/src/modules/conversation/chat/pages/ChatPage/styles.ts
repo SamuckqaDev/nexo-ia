@@ -1,18 +1,17 @@
 import styled from "styled-components";
 
-export const Layout = styled.section`
+export const Layout = styled.section<{ $sidebarOpen: boolean }>`
+  position: relative;
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
+  grid-template-columns: ${({ $sidebarOpen }) => $sidebarOpen ? "15rem minmax(0, 1fr)" : "3.5rem minmax(0, 1fr)"};
   width: 100%;
-  height: 100dvh;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   background:
     radial-gradient(circle at 85% 0, ${({ theme }) => theme.colors.surfaceAccent}, transparent 26rem),
     ${({ theme }) => theme.colors.surfaceStrong};
   overflow: hidden;
-
-  @media (max-width: 56rem) {
-    height: calc(100dvh - 4.5rem);
-  }
 
   @media (max-width: 48rem) {
     grid-template-columns: 1fr;
@@ -23,6 +22,7 @@ export const Chat = styled.div`
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  min-width: 0;
   background: linear-gradient(180deg, ${({ theme }) => theme.colors.surface} 0, transparent 8rem);
 `;
 
@@ -76,6 +76,11 @@ export const Header = styled.header`
 
   @media (max-width: 48rem) {
     flex-wrap: wrap;
+    padding-left: 7.2rem;
+  }
+
+  @media (max-width: 28rem) {
+    align-items: stretch;
   }
 `;
 
@@ -132,6 +137,11 @@ export const ModelArea = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.xs};
+
+  @media (max-width: 28rem) {
+    width: 100%;
+    > div { width: 100%; justify-items: stretch; }
+  }
 `;
 
 export const LoadFailure = styled.div`

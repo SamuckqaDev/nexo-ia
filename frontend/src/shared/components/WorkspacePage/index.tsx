@@ -20,6 +20,7 @@ import {
   PanelBody,
   PanelCopy,
   PanelHeader,
+  ScrollArea,
   SegmentButton,
   Segments,
   Title
@@ -35,7 +36,7 @@ export function WorkspacePage({ eyebrow, title, description, icon: Icon, actions
         </HeaderCopy>
         {actions && <HeaderActions>{actions}</HeaderActions>}
       </Header>
-      {children}
+      <ScrollArea>{children}</ScrollArea>
     </Page>
   );
 }

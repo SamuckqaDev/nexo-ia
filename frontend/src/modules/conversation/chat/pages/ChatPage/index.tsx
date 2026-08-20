@@ -6,6 +6,7 @@ import { Loading } from "../../../../../shared/components/Loading";
 import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
+import { useProviderModelCatalogs } from "../../../../provider/hooks/useProviderModelCatalogs";
 import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
 import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
@@ -58,6 +59,11 @@ export function ChatPage(): ReactElement {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<ConversationMode>("chat");
+  const [isConversationMenuOpen, setIsConversationMenuOpen] = useState<boolean>((): boolean =>
+    typeof window === "undefined"
+    || typeof window.matchMedia !== "function"
+    || !window.matchMedia("(max-width: 48rem)").matches
+  );
   const [isContextOpen, setIsContextOpen] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
@@ -89,7 +95,8 @@ export function ChatPage(): ReactElement {
   const selected: Conversation | undefined = conversations.data
     ?.find((item: Conversation) => item.id === selectedId);
   const configuredProviders: ProviderConfiguration[] = providers.registry.data
-    ?.filter((provider: ProviderConfiguration) => Boolean(provider.selectedModel)) ?? [];
+    ?.filter((provider: ProviderConfiguration) => provider.enabled) ?? [];
+  const modelCatalogs = useProviderModelCatalogs(configuredProviders);
   const hasModel: boolean = Boolean(selected?.selectedModel);
   const hasConfiguredProvider: boolean = configuredProviders.length > 0;
 
@@ -98,6 +105,9 @@ export function ChatPage(): ReactElement {
       onSuccess: (conversation: Conversation): void => {
         setSelectedId(conversation.id);
         setIsDialogOpen(false);
+        if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) {
+          setIsConversationMenuOpen(false);
+        }
       }
     });
   };
@@ -133,14 +143,16 @@ export function ChatPage(): ReactElement {
   }
 
   return (
-    <Layout>
+    <Layout $sidebarOpen={isConversationMenuOpen}>
       <ConversationSidebar
         conversations={conversations.data ?? []}
         selectedId={selectedId}
         isCreating={create.isPending}
+        open={isConversationMenuOpen}
         onSelect={setSelectedId}
         onNew={(): void => setIsDialogOpen(true)}
         onArchive={archiveConversation}
+        onOpenChange={setIsConversationMenuOpen}
       />
 
       <Chat>
@@ -163,8 +175,9 @@ export function ChatPage(): ReactElement {
           </HeaderCopy>
           <ModelArea>
             <ModelPicker
-              providers={configuredProviders}
+              catalogs={modelCatalogs}
               selectedProviderId={selected?.providerConfigurationId ?? null}
+              selectedModel={selected?.selectedModel ?? null}
               disabled={!selectedId || selectModel.isPending || stream.isBusy}
               onSelect={(providerConfigurationId: string, selectedModel: string): void =>
                 selectModel.mutate({ providerConfigurationId, selectedModel })}

@@ -5,7 +5,11 @@ export const Panel = styled.section`
   align-content: start;
   gap: ${({ theme }) => theme.spacing.lg};
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: ${({ theme }) => theme.spacing.lg};
 
   @media (max-width: 40rem) {

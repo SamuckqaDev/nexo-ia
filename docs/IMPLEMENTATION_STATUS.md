@@ -69,6 +69,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   longer wraps route content in padding or a centered frame: Chat is edge-to-edge, while Home,
   Settings, Administration, and planned-capability states apply only their own responsive internal
   spacing. Outer page borders, rounded shells, and drop shadows no longer frame the central area.
+- The authenticated shell now owns a bounded `100dvh` viewport with a complete `min-height: 0`
+  layout chain. The document no longer scrolls behind the application: sidebar navigation, routed
+  workspaces, Settings, Administration, Home, conversation messages, resource panels, and long
+  feature content scroll inside their owning component. Shared workspace headers remain visible,
+  compact navigation uses the same `56rem` breakpoint as the shell, and intentional calendar-grid
+  horizontal scrolling remains inside the calendar surface.
 - Projects, Knowledge Vaults, Skills, Cowork, and Tasks/calendar now have dedicated product
   workspaces instead of a shared placeholder. Tasks/calendar provides navigable month and agenda
   views, occurrence inspection, and session-only schedule drafts. Knowledge Vaults provides a
@@ -127,14 +133,18 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - The provider roadmap explicitly includes local Ollama, remote/home-server Ollama, OpenAI, Google
   Gemini, Anthropic API, and custom OpenAI-compatible servers. External credentials remain blocked
   behind the planned encrypted Secret Store; Nexo must never silently fall back to a remote provider.
-- The next Provider Registry increment is user-scoped: a first-use user without a provider enters
-  provider setup, chooses local or remote, tests the connection before saving, stores the endpoint
-  and protected configuration, and synchronizes the provider's available models. Users can edit,
-  retest, refresh models, select a model, or remove their own provider without changing another
-  user's configuration.
 - Provider Registry foundation is now persisted in PostgreSQL through a user-owned configuration
   table and authenticated CRUD API. Settings shows first-use setup for provider type, name, endpoint,
   and optional selected model, plus isolated provider listing and protected removal confirmation.
+- Chat model discovery now resolves the requested provider configuration together with the
+  authenticated user before any network access, applies `ProviderEndpointGuard`, and reads Ollama's
+  real `/api/tags` catalog from the saved endpoint without holding a database transaction open.
+  Available, empty, unavailable, disabled, and unsupported protocols are represented explicitly;
+  protocols without an implemented adapter never receive fabricated model lists. The Chat picker
+  groups every discovered model by provider and persists both provider-configuration ID and model on
+  the conversation. A saved default remains fallback metadata rather than limiting the picker to one
+  model. Remote vendor discovery, credential storage, and provider connection testing remain future
+  increments.
 - Browser navigation now uses React Router DOM with direct, refresh-safe workspace and Settings URLs.
   A shared confirmation modal built on the accessible Radix UI Dialog primitive protects logout,
   session revocation, and Member disablement before their irreversible effects are executed.
@@ -196,8 +206,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   and excluded from persistence and future context. When disabled, Nexo asks the provider not to
   generate it and discards any reasoning a model still emits. A minimized resource rail keeps the
   governed implementation plan, Agent tasks, generated artifacts, and media oriented at the right
-  edge and expands the selected section on demand. Capabilities without a connected runtime remain
-  explicit previews or empty states instead of suggesting work was executed.
+  edge and expands the selected section on demand. The conversation list has the matching behavior:
+  it minimizes to a compact left rail with expand and new-conversation actions, preserves the active
+  conversation, and becomes an overlay drawer on compact screens so it never consumes message space.
+  Capabilities without a connected runtime remain explicit previews or empty states instead of
+  suggesting work was executed.
 - A unified security audit trail is recorded in `audit_event` and inspectable only by an Owner at
   `GET /api/v1/admin/audit`, filterable by action and actor. It covers bootstrap, Member creation,
   disablement, restoration, and session revocation, provider creation, update, and removal,
@@ -213,7 +226,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- Ninety-two passing default backend tests and fifty-nine passing frontend tests, including cross-user
+- Ninety-eight passing default backend tests and sixty-nine passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was

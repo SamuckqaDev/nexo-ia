@@ -3,9 +3,13 @@ import styled from "styled-components";
 export const Page = styled.div`
   display: grid;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   gap: ${({ theme }) => theme.spacing.lg};
   align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: ${({ theme }) => theme.spacing.lg};
 
   @media (max-width: 40rem) {
@@ -33,7 +37,7 @@ export const Layout = styled.div`
 
 export const Navigation = styled.nav`
   position: sticky;
-  top: ${({ theme }) => theme.spacing.lg};
+  top: 0;
   display: grid;
   gap: .25rem;
 

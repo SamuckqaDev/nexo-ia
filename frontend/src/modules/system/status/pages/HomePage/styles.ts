@@ -3,9 +3,13 @@ import styled from "styled-components";
 export const Page = styled.section`
   display: grid;
   width: 100%;
-  min-height: calc(100vh - ${({ theme }) => theme.spacing.xl});
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   gap: ${({ theme }) => theme.spacing.lg};
   align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: ${({ theme }) => theme.spacing.lg};
 
   @media (max-width: 40rem) {
@@ -73,7 +77,7 @@ export const CommandComposer = styled.form`
 export const CommandInput = styled.textarea`
   width: 100%;
   min-height: 7rem;
-  resize: vertical;
+  resize: none;
   border: 0;
   outline: 0;
   padding: ${({ theme }) => theme.spacing.sm};

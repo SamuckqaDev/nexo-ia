@@ -2,13 +2,29 @@ import styled, { css } from "styled-components";
 
 export const Page = styled.section`
   display: grid;
-  min-height: 100vh;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   gap: ${({ theme }) => theme.spacing.lg};
+  overflow: hidden;
   padding: clamp(1rem, 2.4vw, 2rem);
   background:
     radial-gradient(circle at 92% 0, ${({ theme }) => theme.colors.surfaceAccent}, transparent 24rem),
     ${({ theme }) => theme.colors.background};
+`;
+
+export const ScrollArea = styled.div`
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: ${({ theme }) => theme.spacing.lg};
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.2rem 0.2rem 0;
+  scrollbar-gutter: stable;
 `;
 
 export const Header = styled.header`

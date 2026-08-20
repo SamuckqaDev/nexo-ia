@@ -22,18 +22,25 @@ public class OllamaProviderService {
     private String baseUrl;
 
     public ProviderStatusResponse status() {
+        List<ProviderModelResponse> models = models(baseUrl);
+        return new ProviderStatusResponse("ollama", "Ollama", "LOCAL", baseUrl,
+                true, models);
+    }
+
+    public List<ProviderModelResponse> models(String endpoint) {
         try {
-            OllamaTagsResponse response = restClientBuilder.clone().baseUrl(baseUrl).build()
+            OllamaTagsResponse response = restClientBuilder.clone().baseUrl(endpoint).build()
                     .get().uri("/api/tags").accept(MediaType.APPLICATION_JSON).retrieve()
                     .body(OllamaTagsResponse.class);
-            List<ProviderModelResponse> models = response == null || response.models() == null
-                    ? List.of() : response.models().stream().map(model -> new ProviderModelResponse(
-                            model.name(), model.modifiedAt(), model.size())).toList();
-            return new ProviderStatusResponse("ollama", "Ollama", "LOCAL", baseUrl,
-                    true, models);
+            return response == null || response.models() == null
+                    ? List.of()
+                    : response.models().stream()
+                            .filter(model -> model.name() != null && !model.name().isBlank())
+                            .map(model -> new ProviderModelResponse(
+                                    model.name(), model.modifiedAt(), model.size()))
+                            .toList();
         } catch (RestClientException exception) {
             throw new ProviderUnavailableException();
         }
     }
-
 }

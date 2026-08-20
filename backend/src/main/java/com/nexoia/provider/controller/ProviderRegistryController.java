@@ -3,6 +3,8 @@ package com.nexoia.provider.controller;
 import com.nexoia.auth.session.security.NexoUserPrincipal;
 import com.nexoia.provider.dto.CreateProviderRequest;
 import com.nexoia.provider.dto.ProviderConfigurationResponse;
+import com.nexoia.provider.dto.ProviderModelCatalogResponse;
+import com.nexoia.provider.service.ProviderModelCatalogService;
 import com.nexoia.provider.service.ProviderRegistryService;
 import com.nexoia.shared.api.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,11 +28,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/providers/configurations")
 public class ProviderRegistryController {
     private final ProviderRegistryService service;
+    private final ProviderModelCatalogService modelCatalogService;
 
     @GetMapping
     @Operation(summary = "List the authenticated user's provider configurations")
     public ResponseEntity<BaseResponse<ProviderConfigurationResponse>> list(@AuthenticationPrincipal NexoUserPrincipal principal) {
         return ResponseEntity.ok(BaseResponse.success(200, "Providers retrieved", service.list(principal.userId())));
+    }
+
+    @GetMapping("/{providerId}/models")
+    @Operation(summary = "List models exposed by one of the authenticated user's providers")
+    public ResponseEntity<BaseResponse<ProviderModelCatalogResponse>> models(
+            @AuthenticationPrincipal NexoUserPrincipal principal,
+            @PathVariable UUID providerId) {
+        return ResponseEntity.ok(BaseResponse.success(
+                200,
+                "Provider model catalog inspected",
+                modelCatalogService.discover(principal.userId(), providerId)));
     }
 
     @PostMapping

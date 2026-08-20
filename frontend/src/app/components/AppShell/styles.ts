@@ -1,9 +1,15 @@
 import styled from "styled-components";
 
 export const Shell = styled.div<{ $collapsed: boolean }>`
+  position: fixed;
+  inset: 0;
   display: grid;
   grid-template-columns: ${({ $collapsed }) => ($collapsed ? "5rem" : "17rem")} minmax(0, 1fr);
-  min-height: 100vh;
+  width: 100%;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: ${({ theme }) => theme.colors.background};
   transition: grid-template-columns 0.2s ease;
 
@@ -16,7 +22,8 @@ export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean 
   position: sticky;
   top: 0;
   display: flex;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   flex-direction: column;
   padding: ${({ theme, $collapsed }) => ($collapsed ? theme.spacing.md : theme.spacing.lg)};
   border-right: 1px solid ${({ theme }) => theme.colors.line};
@@ -25,6 +32,8 @@ export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean 
     radial-gradient(circle at 0 100%, ${({ theme }) => theme.colors.dangerSurface}, transparent 12rem),
     ${({ theme }) => theme.colors.surfaceStrong};
   transition: padding 0.2s ease;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 
   @media (max-width: 56rem) {
     position: fixed;
@@ -160,8 +169,12 @@ export const NavLabel = styled.span<{ $hidden: boolean }>`
 `;
 
 export const Workspace = styled.div`
+  display: grid;
+  width: 100%;
+  height: 100%;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
+  overflow: hidden;
 `;
 
 export const MobileMenuButton = styled.button`
@@ -203,10 +216,12 @@ export const MobileScrim = styled.button`
 
 export const Main = styled.main`
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 
-  @media (max-width: 40rem) {
+  @media (max-width: 56rem) {
     padding-top: 4.5rem;
   }
 `;

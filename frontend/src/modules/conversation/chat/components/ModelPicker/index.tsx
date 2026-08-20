@@ -1,43 +1,123 @@
 import type { ReactElement } from "react";
-import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
-import { Picker } from "./styles";
+import type {
+  ProviderModel,
+  ProviderModelCatalogView
+} from "../../../../provider/types/providerConfigurationTypes";
+import { Field, Picker, Status } from "./styles";
 
 type ModelPickerProps = {
-  providers: ProviderConfiguration[];
+  catalogs: ProviderModelCatalogView[];
   selectedProviderId: string | null;
+  selectedModel: string | null;
   disabled: boolean;
   onSelect: (providerConfigurationId: string, selectedModel: string) => void;
 };
 
-/**
- * Lists only the user's own providers that already have a model selected, so the conversation can
- * never be pointed at another person's configuration.
- */
+const selectionValue = (providerConfigurationId: string, model: string): string =>
+  JSON.stringify([providerConfigurationId, model]);
+
+const catalogModels = (
+  catalog: ProviderModelCatalogView,
+  selectedProviderId: string | null,
+  selectedModel: string | null
+): ProviderModel[] => {
+  const models: ProviderModel[] = [...catalog.models];
+  const fallback: string | null = catalog.status === "LOADING" || catalog.status === "UNAVAILABLE"
+    ? catalog.selectedModel
+    : null;
+  const current: string | null = catalog.providerConfigurationId === selectedProviderId
+    && catalog.status !== "EMPTY"
+    && catalog.status !== "UNSUPPORTED"
+    ? selectedModel
+    : null;
+
+  [fallback, current].forEach((name: string | null): void => {
+    if (name && !models.some((model: ProviderModel) => model.name === name)) {
+      models.push({ name, modifiedAt: null, size: null });
+    }
+  });
+  return models;
+};
+
+const statusLabel = (catalog: ProviderModelCatalogView): string | null => {
+  if (catalog.status === "LOADING") return "Loading models…";
+  if (catalog.status === "EMPTY") return "No installed models";
+  if (catalog.status === "UNSUPPORTED") return "Discovery not supported";
+  if (catalog.status === "UNAVAILABLE") return "Provider unavailable";
+  return null;
+};
+
 export function ModelPicker({
-  providers,
+  catalogs,
   selectedProviderId,
+  selectedModel,
   disabled,
   onSelect
 }: ModelPickerProps): ReactElement {
-  const change = (providerConfigurationId: string): void => {
-    const provider = providers.find((item: ProviderConfiguration) => item.id === providerConfigurationId);
-    if (provider?.selectedModel) onSelect(provider.id, provider.selectedModel);
+  const selectedValue: string = selectedProviderId && selectedModel
+    ? selectionValue(selectedProviderId, selectedModel)
+    : "";
+  const selectableCount: number = catalogs.reduce((count: number, catalog: ProviderModelCatalogView) =>
+    count + catalogModels(catalog, selectedProviderId, selectedModel).length, 0);
+  const discoveredCount: number = catalogs.reduce((count: number, catalog: ProviderModelCatalogView) =>
+    count + catalog.models.length, 0);
+  const loading: boolean = catalogs.some((catalog: ProviderModelCatalogView) => catalog.status === "LOADING");
+  const unavailable: boolean = catalogs.some((catalog: ProviderModelCatalogView) => catalog.status === "UNAVAILABLE");
+  const summary: string = loading
+    ? "Refreshing provider models"
+    : discoveredCount > 0
+      ? `${discoveredCount} model${discoveredCount === 1 ? "" : "s"} reported by providers`
+      : unavailable && selectableCount > 0
+        ? "Provider unavailable · configured fallback shown"
+        : "No models reported by providers";
+
+  const change = (value: string): void => {
+    if (!value) return;
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (!Array.isArray(parsed) || parsed.length !== 2) return;
+      const [providerConfigurationId, model]: unknown[] = parsed;
+      if (typeof providerConfigurationId === "string" && typeof model === "string") {
+        onSelect(providerConfigurationId, model);
+      }
+    } catch {
+      return;
+    }
   };
 
   return (
-    <Picker
-      id="conversation-model"
-      aria-label="Model for this conversation"
-      value={selectedProviderId ?? ""}
-      disabled={disabled || providers.length === 0}
-      onChange={(event): void => change(event.target.value)}
-    >
-      <option value="">{providers.length ? "Select a model" : "No model configured"}</option>
-      {providers.map((provider: ProviderConfiguration) => (
-        <option key={provider.id} value={provider.id}>
-          {provider.displayName} · {provider.selectedModel}
+    <Field>
+      <Picker
+        id="conversation-model"
+        aria-label="Model for this conversation"
+        value={selectedValue}
+        disabled={disabled || selectableCount === 0}
+        onChange={(event): void => change(event.target.value)}
+      >
+        <option value="">
+          {!catalogs.length ? "No provider configured" : selectableCount ? "Select a model" : "No model available"}
         </option>
-      ))}
-    </Picker>
+        {catalogs.map((catalog: ProviderModelCatalogView) => {
+          const models: ProviderModel[] = catalogModels(catalog, selectedProviderId, selectedModel);
+          const catalogStatus: string | null = statusLabel(catalog);
+          return (
+            <optgroup key={catalog.providerConfigurationId} label={catalog.displayName}>
+              {models.map((model: ProviderModel) => (
+                <option
+                  key={model.name}
+                  value={selectionValue(catalog.providerConfigurationId, model.name)}
+                >
+                  {model.name}{model.name === catalog.selectedModel
+                    ? catalog.status === "AVAILABLE" ? " · default" : " · configured fallback"
+                    : ""}
+                </option>
+              ))}
+              {catalogStatus && <option disabled>{catalogStatus}</option>}
+            </optgroup>
+          );
+        })}
+      </Picker>
+      <Status aria-live="polite">{summary}</Status>
+    </Field>
   );
 }

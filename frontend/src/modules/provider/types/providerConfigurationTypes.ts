@@ -4,6 +4,20 @@ import { z } from "zod";
 export const providerTypeSchema = z.enum(["OLLAMA", "OPENAI", "GOOGLE_GEMINI", "ANTHROPIC", "OPENAI_COMPATIBLE"]);
 export type ProviderType = z.infer<typeof providerTypeSchema>;
 export type ProviderConfiguration = { id: string; providerType: ProviderType; displayName: string; endpoint: string; selectedModel: string | null; enabled: boolean; lastConnectedAt: string | null };
+export type ProviderCatalogStatus = "AVAILABLE" | "EMPTY" | "UNAVAILABLE" | "UNSUPPORTED";
+export type ProviderModel = { name: string; modifiedAt: string | null; size: number | null };
+export type ProviderModelCatalog = {
+  providerConfigurationId: string;
+  providerType: ProviderType;
+  displayName: string;
+  selectedModel: string | null;
+  status: ProviderCatalogStatus;
+  models: ProviderModel[];
+  message: string | null;
+};
+export type ProviderModelCatalogView = Omit<ProviderModelCatalog, "status"> & {
+  status: ProviderCatalogStatus | "LOADING";
+};
 export type ProviderConfigurationInput = { providerType: ProviderType; displayName: string; endpoint: string; selectedModel?: string };
 export type ProviderRegistryResult = UseQueryResult<ProviderConfiguration[], Error>;
 export type ProviderMutationResult = UseMutationResult<ProviderConfiguration, Error, ProviderConfigurationInput>;
