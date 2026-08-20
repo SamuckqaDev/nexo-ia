@@ -26,6 +26,16 @@ export const ProjectsGrid = styled.div`
   @media (max-width: 64rem) { grid-template-columns: 1fr; }
 `;
 
+export const StorageWarning = styled.p`
+  margin: 0;
+  padding: ${({ theme }) => theme.spacing.sm};
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.dangerSurface};
+  color: ${({ theme }) => theme.colors.accentSoft};
+  font-size: 0.68rem;
+`;
+
 export const Library = styled.div`display: grid; gap: ${({ theme }) => theme.spacing.md}; padding: ${({ theme }) => theme.spacing.md};`;
 export const WorkspaceList = styled.div`display: grid; gap: ${({ theme }) => theme.spacing.sm};`;
 
@@ -71,6 +81,7 @@ export const Path = styled.div`
   gap: 0.35rem;
   span { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; }
   code { overflow: auto; padding: ${({ theme }) => theme.spacing.sm}; border: 1px solid ${({ theme }) => theme.colors.line}; border-radius: ${({ theme }) => theme.radius.control}; background: ${({ theme }) => theme.colors.background}; color: ${({ theme }) => theme.colors.primarySoft}; font-size: 0.7rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.58rem; line-height: 1.5; }
 `;
 
 export const DetailMeta = styled.div`

@@ -257,3 +257,26 @@ options considered, the selected approach, and its consequences.
   responsibilities and consumers; a future administrative audit view may union them. The trail never
   stores passwords, tokens, or message content — only a short, safe detail.
 - **Learning:** see [PILL-011](../pills/PILL-011-method-security-denial-status.md).
+
+## D-023 — Use a browser-scoped workspace bridge before the native Companion
+
+- **Status:** accepted
+- **Context:** the web-first interface needs a real project-folder selection flow before the native
+  Companion exists. A text field containing a user-entered path neither proves access nor lets Nexo
+  detect external project changes. Giving the backend a path selected in the browser would also be
+  incorrect when the server and browser run on different devices.
+- **Options:** keep session-only path labels; open a server-host file chooser; introduce Electron or
+  Tauri immediately; or use the browser's explicit File System Access capability as a constrained
+  bridge while preserving the later Companion boundary.
+- **Decision:** on supported desktop Chromium browsers, call `showDirectoryPicker()` from a user
+  action and request read access only. Store the structured-cloneable directory handle and a bounded
+  metadata snapshot in origin-scoped IndexedDB, partitioned by authenticated user ID. Revalidate the
+  handle and compare project structure before entering Chat. Do not claim an absolute path, transmit
+  the handle to the backend, read file contents into the snapshot, or treat browser state as an
+  authoritative Workspace permission.
+- **Consequence:** Windows, Linux, and macOS users on Chrome or Edge receive their operating system's
+  folder chooser, saved workspace restoration, and visible change warnings now. Firefox and Safari
+  cannot provide this persistent flow, permission may require confirmation after a reload, scans are
+  bounded and exclude generated dependency trees, and the signed native Companion remains required
+  for canonical paths, governed file content, edits, commands, auditing, and remote-server/device
+  separation.

@@ -1,6 +1,7 @@
 import { CaretRight, FolderOpen, SlidersHorizontal } from "@phosphor-icons/react";
 import type { ChangeEvent, ReactElement } from "react";
 import { useActiveWorkspace } from "../../hooks/useActiveWorkspace";
+import { workspacePlatformLabel } from "../../services/workspacePlatformService";
 import { useWorkspaceStore } from "../../stores/useWorkspaceStore";
 import type { ProjectWorkspace, WorkspaceState, WorkspaceSwitcherProps } from "../../types/workspaceTypes";
 import { CollapsedButton, Copy, Label, ManageButton, Select, Switcher } from "./styles";
@@ -32,7 +33,7 @@ export function WorkspaceSwitcher({ collapsed, onManage }: WorkspaceSwitcherProp
             <option value="">{workspaces.length ? "No workspace" : "Choose a project folder"}</option>
             {workspaces.map((workspace: ProjectWorkspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
           </Select>
-          <span>{active?.path ?? "Chat without project context"}</span>
+          <span>{active ? `${active.directoryName} · ${workspacePlatformLabel(active.platform)}` : "Chat without project context"}</span>
         </Copy>
         <ManageButton type="button" title="Manage workspaces" aria-label="Manage workspaces" onClick={onManage}>
           {workspaces.length ? <SlidersHorizontal size={16} /> : <CaretRight size={16} />}

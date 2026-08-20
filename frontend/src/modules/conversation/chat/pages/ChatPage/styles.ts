@@ -26,12 +26,20 @@ export const Chat = styled.div`
   background: linear-gradient(180deg, ${({ theme }) => theme.colors.surface} 0, transparent 8rem);
 `;
 
+export const ChatContent = styled.div`
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+`;
+
 export const ConversationBody = styled.div<{ $contextOpen: boolean }>`
   position: relative;
   display: grid;
   grid-template-columns: ${({ $contextOpen }) => $contextOpen ? "minmax(0, 1fr) 17rem" : "minmax(0, 1fr) 3.5rem"};
   min-width: 0;
   min-height: 0;
+  flex: 1;
 
   @media (max-width: 78rem) {
     grid-template-columns: ${({ $contextOpen }) => $contextOpen ? "minmax(0, 1fr) 14.5rem" : "minmax(0, 1fr) 3.5rem"};
@@ -103,15 +111,17 @@ export const PrivacyBadge = styled.span`
 export const WorkspaceContext = styled.button<{ $active: boolean }>`
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  max-width: 12rem;
+  gap: 0.38rem;
+  max-width: 16rem;
   overflow: hidden;
-  border: 0;
-  padding: 0;
-  background: transparent;
+  border: 1px solid ${({ theme, $active }) => ($active ? theme.colors.lineStrong : theme.colors.line)};
+  border-radius: ${({ theme }) => theme.radius.round};
+  padding: 0.35rem 0.6rem;
+  background: ${({ theme, $active }) => ($active ? theme.colors.surfaceAccent : "transparent")};
   color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textSubtle)};
   font: inherit;
-  font-size: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;

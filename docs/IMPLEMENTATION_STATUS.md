@@ -77,16 +77,27 @@ minimal vertical connection plus the first release `0.1` identity slice.
   instructions, output contracts, and declared dependencies. Projects now owns a searchable project
   folder list, active-workspace detail, and add/select flow; Cowork exposes objective, milestone,
   activity, and decision surfaces.
-- The selected project workspace is shared in memory through the project module's Zustand store. A
-  user can add a folder path, make it active, switch it directly from the sidebar, and see the same
-  selection in Home, Chat, Projects, and Cowork. This follows the desktop coding-agent model where
-  project folder selection precedes work, while keeping the Nexo security boundary explicit: the
-  client selection is context intent, not filesystem authorization.
+- The selected project workspace is shared through the project module's Zustand store and persisted
+  in origin-scoped IndexedDB under the authenticated user's identifier. On supported desktop
+  Chromium browsers, Projects opens the operating system's folder chooser through the File System
+  Access API, stores the browser-managed read handle, detects Windows, Linux, or macOS for the UI,
+  and restores the active workspace after reload without sending the handle or an absolute path to
+  the backend. A user can switch it directly from the sidebar and see the same selection in Home,
+  Chat, Projects, and Cowork.
+- Selecting a local workspace records a bounded metadata snapshot of the project tree. Before Chat
+  opens, Nexo revalidates browser permission and compares names, entry types, file sizes, and modified
+  timestamps. Added, removed, or modified entries produce a prominent Chat warning with review and
+  accept-current-structure actions. Generated or dependency-heavy directories such as `.git`,
+  `node_modules`, `dist`, and `target` are not traversed, and no file content is copied into the
+  snapshot.
 - Preview records and newly created client drafts are labeled explicitly. Calendar drafts never
   execute, selected Vault files are not uploaded or indexed, Skill drafts are not published, and
-  Project/Cowork controls never access the computer until their authoritative backend and Companion
-  APIs are implemented. Workspace names and paths remain session-only and are not persisted by the
-  frontend.
+  Project/Cowork execution controls remain inactive until their authoritative backend and Companion
+  APIs are implemented. The browser workspace bridge can enumerate metadata only after an explicit
+  folder selection; it does not grant the model, backend, Cowork, commands, or editing tools access
+  to file contents. Persistent folder handles require Chrome or Edge on HTTPS or localhost. Firefox
+  and Safari remain unsupported until their platform contracts or the native Companion provide an
+  equivalent reusable directory capability.
 - Settings now uses a responsive two-column workspace layout with sticky section navigation on
   desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
   preferences, provider, and usage components remain the owners of their implemented behavior.
@@ -193,7 +204,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- Ninety-one passing backend tests and forty-one passing frontend tests, including cross-user
+- Ninety-one passing backend tests and fifty-four passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
