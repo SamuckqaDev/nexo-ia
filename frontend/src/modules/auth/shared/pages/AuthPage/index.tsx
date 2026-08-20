@@ -1,10 +1,11 @@
+import { Brain, FolderOpen, ShieldCheck } from "@phosphor-icons/react";
 import { useState, type ReactElement } from "react";
 import { CreateOwnerForm } from "../../../bootstrap/components/CreateOwnerForm";
 import { LoginForm } from "../../../session/components/LoginForm";
 import { ForgotPasswordForm } from "../../../recovery/components/ForgotPasswordForm";
 import { ResetPasswordForm } from "../../../recovery/components/ResetPasswordForm";
 import type { AuthPageProps, AuthView } from "../../../types/authTypes";
-import { Brand, BrandContent, BrandName, BrandPromise, Card, Logo, Page } from "./styles";
+import { Brand, BrandContent, BrandName, BrandPromise, Card, Feature, Features, Logo, Page } from "./styles";
 
 export function AuthPage({ bootstrapRequired }: AuthPageProps): ReactElement {
   const resetToken: string = new URLSearchParams(window.location.search).get("token") ?? "";
@@ -31,6 +32,11 @@ export function AuthPage({ bootstrapRequired }: AuthPageProps): ReactElement {
         <BrandContent>
           <BrandName>Nexo IA</BrandName>
           <BrandPromise>Your knowledge. Your tools. Your control.</BrandPromise>
+          <Features>
+            <Feature><Brain size={20} weight="duotone" /><div><strong>Understand</strong><span>Talk to models and ground answers in your own context.</span></div></Feature>
+            <Feature><FolderOpen size={20} weight="duotone" /><div><strong>Build</strong><span>Work with authorized projects through visible plans and diffs.</span></div></Feature>
+            <Feature><ShieldCheck size={20} weight="duotone" /><div><strong>Stay in control</strong><span>Every capability remains scoped, inspectable and accountable.</span></div></Feature>
+          </Features>
         </BrandContent>
       </Brand>
       <Card>{content}</Card>

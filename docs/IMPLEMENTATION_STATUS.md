@@ -69,6 +69,18 @@ minimal vertical connection plus the first release `0.1` identity slice.
   longer wraps route content in padding or a centered frame: Chat is edge-to-edge, while Home,
   Settings, Administration, and planned-capability states apply only their own responsive internal
   spacing. Outer page borders, rounded shells, and drop shadows no longer frame the central area.
+- Projects, Knowledge Vaults, Skills, Cowork, and Tasks/calendar now have distinct planned-workspace
+  surfaces derived from the feature catalog instead of one generic empty placeholder. Each surface
+  explains its purpose, target release, capability groups, authorization/work/verification flow,
+  and the absence of an execution runtime; its only active handoff returns to the implemented Chat.
+- Settings now uses a responsive two-column workspace layout with sticky section navigation on
+  desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
+  preferences, provider, and usage components remain the owners of their implemented behavior.
+- The authentication surface now communicates the product promise through Understand, Build, and
+  Stay in control pillars on desktop while preserving a focused, overflow-free form on mobile.
+- Chat, Settings, and Administration are route-split with React lazy loading and the shared Nexo
+  loading state. The production entry bundle was reduced from approximately 803 kB to 457 kB while
+  those larger feature surfaces load only when opened.
 - Brand color semantics are reflected in the interface: cyan identifies Nexo capabilities and
   processing, while coral highlights the authenticated person, decisions, notifications, planned
   states, and secondary navigation accents.

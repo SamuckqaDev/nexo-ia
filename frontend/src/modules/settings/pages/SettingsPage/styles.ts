@@ -13,8 +13,56 @@ export const Page = styled.div`
   }
 `;
 
-export const Navigation = styled.nav`display:flex;gap:${({theme})=>theme.spacing.xs};overflow-x:auto;padding-bottom:.2rem;`;
-export const NavButton = styled.button<{ $active:boolean }>`flex:0 0 auto;border:1px solid ${({theme,$active})=>$active?theme.colors.lineStrong:theme.colors.line};border-radius:${({theme})=>theme.radius.control};padding:.65rem .9rem;background:${({theme,$active})=>$active?theme.colors.surfaceAccent:theme.colors.surface};color:${({theme,$active})=>$active?theme.colors.primarySoft:theme.colors.textMuted};font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;`;
+export const PageHeader = styled.header`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding-bottom: ${({ theme }) => theme.spacing.md};
+
+  > span { color: ${({ theme }) => theme.colors.primarySoft}; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.8rem); letter-spacing: -.04em; }
+`;
+
+export const Layout = styled.div`
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: ${({ theme }) => theme.spacing.xl};
+  align-items: start;
+
+  @media (max-width: 50rem) { grid-template-columns: 1fr; }
+`;
+
+export const Navigation = styled.nav`
+  position: sticky;
+  top: ${({ theme }) => theme.spacing.lg};
+  display: grid;
+  gap: .25rem;
+
+  @media (max-width: 50rem) {
+    position: static;
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: .2rem;
+  }
+`;
+
+export const NavButton = styled.button<{ $active:boolean }>`
+  position: relative;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: ${({theme})=>theme.radius.control};
+  padding: .72rem .85rem;
+  background: ${({theme,$active})=>$active?theme.colors.surfaceAccent:"transparent"};
+  color: ${({theme,$active})=>$active?theme.colors.primarySoft:theme.colors.textMuted};
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  &::before{position:absolute;top:.55rem;bottom:.55rem;left:0;width:.18rem;border-radius:${({theme})=>theme.radius.round};background:${({theme,$active})=>$active?theme.colors.primary:"transparent"};content:"";}
+  &:hover{background:${({theme})=>theme.colors.surface};color:${({theme})=>theme.colors.primarySoft};}
+`;
+
+export const Content = styled.div`min-width:0;`;
 
 export const Description = styled.p`
   margin: 0;
@@ -26,7 +74,7 @@ export const Description = styled.p`
 export const Section = styled.section`
   display: grid;
   gap: ${({ theme }) => theme.spacing.lg};
-  padding: ${({ theme }) => theme.spacing.lg};
+  padding: clamp(1rem, 3vw, 2rem);
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.colors.surface};
 `;

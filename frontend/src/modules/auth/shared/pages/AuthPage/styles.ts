@@ -19,9 +19,12 @@ export const Page = styled.main`
 `;
 
 export const Brand = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.lg};
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: ${({ theme }) => theme.spacing.xl};
+
+  @media (max-width: 760px) { display: none; }
 `;
 
 export const Logo = styled.img`
@@ -45,6 +48,26 @@ export const BrandPromise = styled.span`
   max-width: 25rem;
   color: ${({ theme }) => theme.colors.textMuted};
   line-height: 1.5;
+`;
+
+export const Features = styled.div`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.sm};
+  max-width: 34rem;
+  margin-top: ${({ theme }) => theme.spacing.lg};
+`;
+
+export const Feature = styled.div`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.primary};
+
+  strong { display: block; color: ${({ theme }) => theme.colors.text}; font-size: .78rem; }
+  span { display: block; margin-top: .2rem; color: ${({ theme }) => theme.colors.textMuted}; font-size: .68rem; line-height: 1.5; }
 `;
 
 export const Card = styled.section`

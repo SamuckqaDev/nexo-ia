@@ -16,9 +16,12 @@ import {
   DataGrid,
   DataItem,
   Description,
+  Content,
+  Layout,
   NavButton,
   Navigation,
   Page,
+  PageHeader,
   PreferenceField,
   PreferenceGrid,
   ProfileContent,
@@ -49,20 +52,27 @@ export function SettingsPage({ user, section, onSectionChange }: SettingsPagePro
 
   return (
     <Page>
-      <Description>Manage your identity, security, model providers, and AI usage in one place.</Description>
+      <PageHeader>
+        <span>Workspace configuration</span>
+        <h1>Settings</h1>
+        <Description>Manage your identity, security, model providers, and AI usage in one place.</Description>
+      </PageHeader>
 
-      <Navigation aria-label="Settings sections">
-        {settingsNavigation.map((item: { id: SettingsSection; label: string }) => (
-          <NavButton
-            key={item.id}
-            type="button"
-            $active={section === item.id}
-            onClick={(): void => onSectionChange(item.id)}
-          >
-            {item.label}
-          </NavButton>
-        ))}
-      </Navigation>
+      <Layout>
+        <Navigation aria-label="Settings sections">
+          {settingsNavigation.map((item: { id: SettingsSection; label: string }) => (
+            <NavButton
+              key={item.id}
+              type="button"
+              $active={section === item.id}
+              onClick={(): void => onSectionChange(item.id)}
+            >
+              {item.label}
+            </NavButton>
+          ))}
+        </Navigation>
+
+        <Content>
 
       {section === "profile" && (
         <Section>
@@ -141,6 +151,8 @@ export function SettingsPage({ user, section, onSectionChange }: SettingsPagePro
           <UsageOverview />
         </Section>
       )}
+        </Content>
+      </Layout>
     </Page>
   );
 }
