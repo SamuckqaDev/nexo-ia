@@ -185,7 +185,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   coral identifies the person, model and privacy context stay visible in the conversation header,
   and Chat, Agent, tools, and image capabilities live in the composer without replacing the thread.
   Chat uses the wider application workspace, a compact one-line header, per-message copy actions,
-  and Nexo-branded loading and pre-token thinking states. A minimized resource rail keeps the
+  and Nexo-branded conversation loading. It does not present request setup or time-to-first-token as
+  model Thinking: reasoning will only be shown when a reviewed provider and SSE contract emits real,
+  explicitly classified reasoning content. A minimized resource rail keeps the
   governed implementation plan, Agent tasks, generated artifacts, and media oriented at the right
   edge and expands the selected section on demand. Capabilities without a connected runtime remain
   explicit previews or empty states instead of suggesting work was executed.

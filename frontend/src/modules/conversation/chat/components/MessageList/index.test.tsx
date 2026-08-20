@@ -26,7 +26,7 @@ describe("MessageList", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Opening conversation");
   });
 
-  it("shows an honest thinking state before the first streamed token", () => {
+  it("does not fabricate a Thinking card before the first model token", () => {
     render(
       <ThemeProvider theme={darkTheme}>
         <MessageList
@@ -44,8 +44,9 @@ describe("MessageList", () => {
       </ThemeProvider>
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Thinking");
-    expect(screen.getByText(/preparing the selected model/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Waiting for model output");
+    expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
+    expect(screen.queryByText(/preparing the selected model/i)).not.toBeInTheDocument();
   });
 
   it("offers a path to provider setup when no model is configured yet", () => {

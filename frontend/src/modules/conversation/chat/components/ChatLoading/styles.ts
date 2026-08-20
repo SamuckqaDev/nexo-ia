@@ -1,18 +1,18 @@
 import styled from "styled-components";
 
-export const Loader = styled.div<{ $variant: "page" | "message" }>`
+export const Loader = styled.div`
   display: grid;
-  width: ${({ $variant }) => $variant === "message" ? "min(38rem, 100%)" : "100%"};
-  min-height: ${({ $variant }) => $variant === "message" ? "auto" : "12rem"};
+  width: 100%;
+  min-height: 12rem;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   align-self: center;
   gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ $variant, theme }) => $variant === "message" ? theme.spacing.sm : theme.spacing.lg};
-  margin: ${({ $variant }) => $variant === "message" ? "0 auto" : "auto"};
-  border: ${({ $variant, theme }) => $variant === "message" ? `1px solid ${theme.colors.line}` : "0"};
+  padding: ${({ theme }) => theme.spacing.lg};
+  margin: auto;
+  border: 0;
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ $variant, theme }) => $variant === "message" ? theme.colors.surface : "transparent"};
+  background: transparent;
 `;
 
 export const Pulse = styled.span`

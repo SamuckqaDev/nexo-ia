@@ -11,5 +11,4 @@ export type ConversationContextPanelProps = {
 export type ChatLoadingProps = {
   title: string;
   label: string;
-  variant?: "page" | "message";
 };

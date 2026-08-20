@@ -19,12 +19,11 @@ type MessageListProps = {
   onConfigureProvider: () => void;
 };
 
-/**
- * Concise announcement for the streaming and terminal phases. The thinking loader owns its own live
- * region, so the phases it covers stay empty here to avoid announcing the same transition twice.
- */
+/** Announces the real request lifecycle without presenting provider work as model reasoning. */
 const streamStatus = (phase: StreamPhase): string => {
+  if (phase === "starting") return "Request sent. Waiting for model output.";
   if (phase === "streaming") return "Nexo is responding.";
+  if (phase === "cancelling") return "Stopping the response.";
   if (phase === "cancelled") return "Response stopped.";
   if (phase === "completed") return "Response complete.";
   if (phase === "failed") return "The response failed.";
@@ -66,21 +65,15 @@ export function MessageList({
   const streamingId: string | null = phase === "streaming" || phase === "cancelling"
     ? messages.findLast((message: ConversationMessage) => message.role === "ASSISTANT")?.id ?? null
     : null;
-  const isThinking: boolean = phase === "starting"
-    || ((phase === "streaming" || phase === "cancelling") && !streamingContent);
-  const thinkingLabel: string = phase === "starting"
-    ? "Reading your request and preparing the selected model…"
-    : phase === "cancelling"
-      ? "Stopping the response safely…"
-      : "The model is preparing its first words…";
+  const waitingForFirstToken: boolean = Boolean(streamingId) && !streamingContent;
 
   return (
     <Messages>
-      {!isThinking && streamStatus(phase) && (
+      {streamStatus(phase) && (
         <StatusLive role="status" aria-live="polite">{streamStatus(phase)}</StatusLive>
       )}
 
-      {messages.length === 0 && (
+      {messages.length === 0 && phase === "idle" && (
         <Empty>
           <EmptyIcon $agent={mode === "agent"}>{mode === "agent" ? <Brain size={28} weight="duotone" /> : <Sparkle size={28} weight="duotone" />}</EmptyIcon>
           <EmptyKicker>{mode === "agent" ? "Agent workspace" : "Nexo intelligence"}</EmptyKicker>
@@ -105,7 +98,7 @@ export function MessageList({
         </Empty>
       )}
 
-      {messages.map((message: ConversationMessage) => message.id === streamingId && isThinking
+      {messages.map((message: ConversationMessage) => message.id === streamingId && waitingForFirstToken
         ? null
         : (
           <MessageItem
@@ -115,8 +108,6 @@ export function MessageList({
             isStreaming={message.id === streamingId}
           />
         ))}
-
-      {isThinking && <ChatLoading title="Thinking" label={thinkingLabel} variant="message" />}
 
       {errorMessage && <StreamError role="alert">{errorMessage}</StreamError>}
       {phase === "disconnected" && (
