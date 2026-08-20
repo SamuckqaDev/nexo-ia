@@ -57,21 +57,26 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Self-service revocation of every other active session while preserving the current session.
 - Owner-authorized inspection and individual revocation of Member sessions with target ownership
   validation and administrative audit events.
-- Responsive application shell with a collapsible, feature-only branded sidebar, contextual header,
-  product dashboard, and mapped navigation for Chat, Cowork, tasks, Vaults, and Skills. Account
-  actions, profile photo, Settings, and Administration live exclusively in the header account menu.
+- Responsive application shell with a collapsible branded sidebar and mapped navigation for Chat,
+  Projects, Cowork, tasks, Vaults, and Skills. The separate workspace header has been removed;
+  account actions, profile photo, Settings, and Administration live in the sidebar account menu.
 - Persistent light and dark visual themes derived from the Nexo IA color system, with system-theme
-  preference as the initial default and an accessible header toggle.
-- Responsive navigation moves into an accessible hamburger menu in the header on compact screens.
-  Desktop navigation uses a branded workspace panel, an emphasized active-item rail, and a dedicated
-  panel control at the bottom instead of a floating arrow. Header controls, account trigger, avatar
-  frame, menus, and navigation items share the same border and control-radius tokens.
+  preference as the initial default and an accessible control in Settings preferences.
+- On compact screens the same sidebar becomes an accessible off-canvas panel opened by a floating
+  menu control, preserving navigation and account actions without restoring a page header. Desktop
+  navigation uses an emphasized active-item rail and a dedicated edge collapse control.
 - Brand color semantics are reflected in the interface: cyan identifies Nexo capabilities and
   processing, while coral highlights the authenticated person, decisions, notifications, planned
   states, and secondary navigation accents.
-- The Home surface is now an operational dashboard with real backend availability, functional Chat
-  and Cowork shortcuts, and honest empty states prepared for provider health, token usage,
-  conversations, scheduled Cowork/automation runs, failures, and pending approvals.
+- The borderless, full-width Home surface is now the workspace entry point. It reads real provider,
+  conversation, and seven-day usage state, links to recent conversations, exposes Chat as available,
+  and presents Projects, Project Agent, Vaults, Skills, Cowork, and tasks/calendar against their
+  documented future releases without implying that those runtimes already exist. Its primary copy
+  frames Nexo as an objective-driven workspace that will analyze, plan, implement, validate, and
+  report work under visible permissions and evidence. A request entered in the Home command surface
+  is transferred through short-lived client state into the Chat composer without putting private
+  prompt content in the URL or persistent browser storage. Plan, Build, and Cowork remain visibly
+  unavailable until their documented runtimes exist.
 - Settings now has direct Profile, Security, Providers, and Usage navigation. Home provider and usage
   actions open their exact subsection, and Usage exposes a detailed, honest empty-state surface for
   token, request, latency, cost, provider, model, capability, and processing-location breakdowns.
@@ -101,7 +106,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   the frontend derives and displays age from that date instead of persisting a manually entered age.
   Username uniqueness is checked by the service and enforced case-insensitively by PostgreSQL;
   profile updates immediately refresh the authenticated frontend session data. Profile fields open
-  in a protected read mode and require an explicit edit action. The header account trigger and menu
+  in a protected read mode and require an explicit edit action. The sidebar account trigger and menu
   use the person's name and email.
 - Conversations are private, ordered, renameable, and archivable. Message ordering is serialized by
   a pessimistic lock on the conversation row, so concurrent submissions queue instead of colliding

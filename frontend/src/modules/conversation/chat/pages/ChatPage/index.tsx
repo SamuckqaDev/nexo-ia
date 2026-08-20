@@ -21,7 +21,9 @@ import {
   useSelectConversationModel
 } from "../../hooks/useChat";
 import { useChatStream } from "../../hooks/useChatStream";
+import { useChatDraftStore } from "../../stores/useChatDraftStore";
 import type { Conversation, ConversationMode } from "../../types/chatTypes";
+import type { ChatDraftState } from "../../types/chatDraftTypes";
 import {
   Chat,
   ConversationBody,
@@ -47,6 +49,8 @@ export function ChatPage(): ReactElement {
   const [mode, setMode] = useState<ConversationMode>("chat");
   const [isContextOpen, setIsContextOpen] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
+  const clearDraft: ChatDraftState["clear"] = useChatDraftStore((state: ChatDraftState) => state.clear);
 
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
@@ -56,6 +60,10 @@ export function ChatPage(): ReactElement {
   useEffect((): void => {
     if (!selectedId && conversations.data?.[0]) setSelectedId(conversations.data[0].id);
   }, [conversations.data, selectedId]);
+
+  useEffect((): void => {
+    if (initialDraft) clearDraft();
+  }, [clearDraft, initialDraft]);
 
   const selected: Conversation | undefined = conversations.data
     ?.find((item: Conversation) => item.id === selectedId);
@@ -150,6 +158,7 @@ export function ChatPage(): ReactElement {
             />
 
             <ChatComposer
+              initialContent={initialDraft}
               disabled={!selectedId}
               hasModel={hasModel}
               phase={stream.phase}

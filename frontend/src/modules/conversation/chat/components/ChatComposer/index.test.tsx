@@ -4,10 +4,15 @@ import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
 import { ChatComposer } from "./index";
 
-const renderComposer = (mode: "chat" | "agent", onModeChange = vi.fn()) => render(
+const renderComposer = (
+  mode: "chat" | "agent",
+  onModeChange = vi.fn(),
+  initialContent = ""
+) => render(
   <ThemeProvider theme={darkTheme}>
     <ChatComposer
       disabled={false}
+      initialContent={initialContent}
       hasModel
       phase="idle"
       isBusy={false}
@@ -35,6 +40,13 @@ describe("ChatComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agent" }));
 
     expect(onModeChange).toHaveBeenCalledWith("agent");
+  });
+
+  it("opens with a request drafted from the workspace Home", () => {
+    renderComposer("chat", vi.fn(), "Review the authentication flow");
+
+    expect(screen.getByRole("textbox", { name: "Message" }))
+      .toHaveValue("Review the authentication flow");
   });
 
   it("explains the unavailable Agent runtime inside the composer", () => {

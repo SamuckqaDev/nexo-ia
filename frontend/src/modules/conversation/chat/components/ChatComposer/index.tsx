@@ -16,6 +16,7 @@ import {
 } from "./styles";
 
 type ChatComposerProps = {
+  initialContent?: string;
   disabled: boolean;
   hasModel: boolean;
   phase: StreamPhase;
@@ -27,6 +28,7 @@ type ChatComposerProps = {
 };
 
 export function ChatComposer({
+  initialContent = "",
   disabled,
   hasModel,
   phase,
@@ -36,7 +38,7 @@ export function ChatComposer({
   onSend,
   onCancel
 }: ChatComposerProps): ReactElement {
-  const [content, setContent] = useState<string>("");
+  const [content, setContent] = useState<string>(initialContent);
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();

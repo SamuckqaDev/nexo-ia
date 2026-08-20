@@ -12,7 +12,7 @@ export const Shell = styled.div<{ $collapsed: boolean }>`
   }
 `;
 
-export const Sidebar = styled.aside<{ $collapsed: boolean }>`
+export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean }>`
   position: sticky;
   top: 0;
   display: flex;
@@ -27,7 +27,13 @@ export const Sidebar = styled.aside<{ $collapsed: boolean }>`
   transition: padding 0.2s ease;
 
   @media (max-width: 56rem) {
-    display: none;
+    position: fixed;
+    z-index: 40;
+    inset: 0 auto 0 0;
+    width: min(18rem, calc(100vw - 3.5rem));
+    padding: ${({ theme }) => theme.spacing.lg};
+    transform: translateX(${({ $mobileOpen }) => ($mobileOpen ? "0" : "-105%")});
+    transition: transform 0.2s ease;
   }
 `;
 
@@ -62,33 +68,6 @@ export const Logo = styled.img`
   width: 2.4rem;
   height: 2.4rem;
   object-fit: contain;
-`;
-
-export const SidebarToggle = styled.button<{ $collapsed?: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: ${({ $collapsed }) => ($collapsed ? "center" : "flex-start")};
-  gap: ${({ theme }) => theme.spacing.sm};
-  width: 100%;
-  margin-top: auto;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.control};
-  padding: 0.75rem;
-  background: ${({ theme }) => theme.colors.surfaceStrong};
-  color: ${({ theme }) => theme.colors.textMuted};
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.lineStrong};
-    color: ${({ theme }) => theme.colors.primary};
-  }
-
-  @media (max-width: 56rem) {
-    display: none;
-  }
 `;
 
 export const EdgeToggle = styled.button<{ $collapsed?: boolean }>`
@@ -182,127 +161,52 @@ export const NavLabel = styled.span<{ $hidden: boolean }>`
 
 export const Workspace = styled.div`
   min-width: 0;
+  min-height: 100vh;
 `;
 
-export const Header = styled.header`
-  position: relative;
-  z-index: 10;
-  display: flex;
-  min-height: 3.5rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.xl};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-  background: ${({ theme }) => theme.colors.surface};
-  backdrop-filter: blur(18px);
-
-  @media (max-width: 40rem) {
-    padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
-  }
-`;
-
-export const MobileMenuButton = styled(SidebarToggle)`
-  position: static;
-  transform: none;
+export const MobileMenuButton = styled.button`
+  position: fixed;
+  z-index: 50;
+  top: ${({ theme }) => theme.spacing.md};
+  left: ${({ theme }) => theme.spacing.md};
   display: none;
   width: 2.7rem;
   height: 2.7rem;
-  align-items: center;
-  justify-content: center;
-  margin-left: 0;
-  margin-top: 0;
+  place-items: center;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.control};
   padding: 0;
+  background: ${({ theme }) => theme.colors.surfaceStrong};
+  box-shadow: ${({ theme }) => theme.shadow};
+  color: ${({ theme }) => theme.colors.primarySoft};
+  cursor: pointer;
 
   @media (max-width: 56rem) {
     display: grid;
   }
 `;
 
-export const MobileNavigation = styled.nav<{ $open: boolean }>`
-  position: absolute;
-  top: calc(100% + 1px);
-  left: ${({ theme }) => theme.spacing.md};
-  display: ${({ $open }) => ($open ? "grid" : "none")};
-  width: min(20rem, calc(100vw - 2rem));
-  gap: 0.35rem;
-  padding: ${({ theme }) => theme.spacing.sm};
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.control};
-  background: ${({ theme }) => theme.colors.surfaceStrong};
-  box-shadow: ${({ theme }) => theme.shadow};
+export const MobileScrim = styled.button`
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: none;
+  border: 0;
+  padding: 0;
+  background: rgba(3, 11, 33, 0.7);
+  backdrop-filter: blur(4px);
 
-  @media (min-width: 56.01rem) {
-    display: none;
-  }
-`;
-
-export const HeaderIdentity = styled.div`
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-export const HeaderTitle = styled.div`
-  min-width: 0;
-
-  strong {
+  @media (max-width: 56rem) {
     display: block;
   }
-
-  span {
-    color: ${({ theme }) => theme.colors.textMuted};
-    font-size: 0.75rem;
-  }
-
-  @media (max-width: 32rem) {
-    span {
-      display: none;
-    }
-  }
 `;
 
-export const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-
-  @media (max-width: 32rem) {
-    gap: ${({ theme }) => theme.spacing.xs};
-  }
-`;
-
-export const IconButton = styled.button`
-  display: grid;
-  width: 2.3rem;
-  height: 2.3rem;
-  place-items: center;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.control};
-  background: ${({ theme }) => theme.colors.surfaceStrong};
-  color: ${({ theme }) => theme.colors.textMuted};
-  cursor: pointer;
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.lineStrong};
-    color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
-export const NotificationButton = styled(IconButton)`
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.accent};
-    color: ${({ theme }) => theme.colors.accentSoft};
-  }
-`;
-
-export const Main = styled.main<{ $wide?: boolean }>`
-  width: ${({ $wide }) => $wide ? "100%" : "min(78rem, 100%)"};
-  margin: 0 auto;
-  padding: ${({ $wide, theme }) => $wide ? theme.spacing.lg : theme.spacing.xl};
+export const Main = styled.main`
+  width: 100%;
+  min-height: 100vh;
+  padding: ${({ theme }) => theme.spacing.lg};
 
   @media (max-width: 40rem) {
-    padding: ${({ theme }) => theme.spacing.lg};
+    padding: 5rem ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.lg};
   }
 `;

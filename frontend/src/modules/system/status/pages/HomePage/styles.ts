@@ -2,7 +2,10 @@ import styled from "styled-components";
 
 export const Page = styled.section`
   display: grid;
+  width: 100%;
+  min-height: calc(100vh - ${({ theme }) => theme.spacing.xl});
   gap: ${({ theme }) => theme.spacing.lg};
+  align-content: start;
 `;
 
 /* ---------- hero ---------- */
@@ -13,7 +16,6 @@ export const Hero = styled.section`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.lg};
   padding: ${({ theme }) => theme.spacing.lg};
-  border: 1px solid ${({ theme }) => theme.colors.line};
   border-radius: ${({ theme }) => theme.radius.md};
   background:
     radial-gradient(circle at 92% 0, ${({ theme }) => theme.colors.surfaceAccent}, transparent 18rem),
@@ -50,6 +52,86 @@ export const Summary = styled.p`
   color: ${({ theme }) => theme.colors.textMuted};
   font-size: 0.86rem;
   line-height: 1.6;
+`;
+
+export const CommandComposer = styled.form`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.sm};
+  max-width: 52rem;
+  margin-top: ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.sm};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.colors.background};
+  box-shadow: inset 0 0 0 1px ${({ theme }) => theme.colors.lineStrong};
+`;
+
+export const WorkModes = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+`;
+
+export const WorkMode = styled.button<{ $active?: boolean }>`
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.round};
+  padding: 0.4rem 0.65rem;
+  background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
+  color: ${({ theme, $active }) => $active ? theme.colors.primarySoft : theme.colors.textSubtle};
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
+
+  &:disabled { opacity: 0.55; }
+`;
+
+export const CommandInput = styled.textarea`
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  padding: ${({ theme }) => theme.spacing.sm};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.text};
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1.6;
+
+  &::placeholder { color: ${({ theme }) => theme.colors.textSubtle}; }
+`;
+
+export const CommandFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+export const CommandHint = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: ${({ theme }) => theme.colors.textSubtle};
+  font-size: 0.66rem;
+`;
+
+export const CommandSubmit = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: 0.55rem 0.8rem;
+  background: ${({ theme }) => theme.colors.primary};
+  color: ${({ theme }) => theme.colors.background};
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled { cursor: not-allowed; opacity: 0.45; }
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.primarySoft}; outline-offset: 2px; }
 `;
 
 export const Actions = styled.div`
@@ -118,7 +200,7 @@ export const StatTile = styled.button`
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
-  border: 1px solid ${({ theme }) => theme.colors.line};
+  border: 0;
   border-radius: ${({ theme }) => theme.radius.md};
   padding: ${({ theme }) => theme.spacing.md};
   background: ${({ theme }) => theme.colors.surface};
@@ -129,7 +211,7 @@ export const StatTile = styled.button`
   transition: border-color 0.2s ease;
 
   &:hover {
-    border-color: ${({ theme }) => theme.colors.lineStrong};
+    background: ${({ theme }) => theme.colors.surfaceAccent};
   }
 
   &:focus-visible {
@@ -198,7 +280,6 @@ export const Panel = styled.section`
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.md};
   padding: ${({ theme }) => theme.spacing.lg};
-  border: 1px solid ${({ theme }) => theme.colors.line};
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.colors.surface};
 `;
@@ -312,7 +393,6 @@ export const Metric = styled.div`
   display: grid;
   gap: 0.2rem;
   padding: ${({ theme }) => theme.spacing.sm};
-  border: 1px solid ${({ theme }) => theme.colors.line};
   border-radius: ${({ theme }) => theme.radius.control};
   background: ${({ theme }) => theme.colors.surfaceStrong};
 
@@ -328,8 +408,8 @@ export const EmptyState = styled.div`
   align-content: center;
   gap: ${({ theme }) => theme.spacing.xs};
   padding: ${({ theme }) => theme.spacing.lg};
-  border: 1px dashed ${({ theme }) => theme.colors.lineStrong};
   border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.surfaceStrong};
   color: ${({ theme }) => theme.colors.textMuted};
   text-align: center;
 
@@ -348,56 +428,95 @@ export const EmptyIcon = styled.span`
   color: ${({ theme }) => theme.colors.primary};
 `;
 
-/* ---------- roadmap ---------- */
-
-export const Roadmap = styled.section`
+export const ConversationList = styled.div`
   display: grid;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.lg};
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.colors.surface};
+  gap: ${({ theme }) => theme.spacing.xs};
 `;
 
-export const RoadmapHead = styled.header`
+export const ConversationRow = styled.button`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.15rem ${({ theme }) => theme.spacing.md};
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: ${({ theme }) => theme.spacing.sm};
+  background: ${({ theme }) => theme.colors.surfaceStrong};
+  color: ${({ theme }) => theme.colors.text};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  span, small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span { font-size: 0.8rem; font-weight: 600; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.66rem; }
+  svg { grid-column: 2; grid-row: 1 / span 2; color: ${({ theme }) => theme.colors.primary}; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceAccent}; }
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.primary}; outline-offset: 2px; }
+`;
+
+export const WorkspaceSection = styled.section`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.lg} 0 0;
+`;
+
+export const SectionHead = styled.header`
   display: flex;
-  align-items: baseline;
+  align-items: end;
   justify-content: space-between;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: ${({ theme }) => theme.spacing.lg};
 
-  h2 { margin: 0; font-size: 0.92rem; }
-  span { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.7rem; }
+  h2 { margin: 0; font-size: 1.2rem; }
+  > span { max-width: 22rem; color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.7rem; text-align: right; }
+
+  @media (max-width: 44rem) {
+    align-items: start;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.xs};
+    > span { text-align: left; }
+  }
 `;
 
-export const RoadmapGrid = styled.div`
+export const CapabilityGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: ${({ theme }) => theme.spacing.md};
 
-  @media (max-width: 52rem) {
+  @media (max-width: 44rem) {
     grid-template-columns: 1fr;
   }
 `;
 
-export const RoadmapItem = styled.div`
+export const CapabilityItem = styled.button<{ $available?: boolean }>`
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.md};
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.control};
-  background: ${({ theme }) => theme.colors.surfaceStrong};
-  color: ${({ theme }) => theme.colors.primary};
+  gap: ${({ theme }) => theme.spacing.md};
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.md};
+  padding: ${({ theme }) => theme.spacing.lg};
+  background: ${({ theme, $available }) => $available ? theme.colors.surfaceAccent : theme.colors.surface};
+  color: ${({ theme, $available }) => $available ? theme.colors.primary : theme.colors.textSubtle};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 
-  strong { display: block; color: ${({ theme }) => theme.colors.text}; font-size: 0.78rem; }
-  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.68rem; line-height: 1.45; }
+  strong { display: block; color: ${({ theme }) => theme.colors.text}; font-size: 0.9rem; }
+  small { display: block; margin-top: 0.25rem; color: ${({ theme }) => theme.colors.textMuted}; font-size: 0.7rem; line-height: 1.5; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceAccent}; }
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.primary}; outline-offset: 2px; }
 `;
 
-export const RoadmapTag = styled.span`
+export const CapabilityTag = styled.span<{ $available?: boolean }>`
   display: inline-block;
-  margin-top: 0.3rem;
-  color: ${({ theme }) => theme.colors.textSubtle};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+  color: ${({ theme, $available }) => $available ? theme.colors.primarySoft : theme.colors.textSubtle};
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.08em;

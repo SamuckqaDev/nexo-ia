@@ -1,5 +1,4 @@
 import {
-  Bell,
   Brain,
   CalendarCheck,
   CaretLeft,
@@ -7,6 +6,7 @@ import {
   ChatCircleDots,
   Gear,
   House,
+  FolderOpen,
   List,
   Sparkle,
   Users,
@@ -27,19 +27,14 @@ import {
   Brand,
   BrandName,
   EdgeToggle,
-  Header,
-  HeaderActions,
-  HeaderIdentity,
-  HeaderTitle,
   Logo,
   Main,
   MobileMenuButton,
-  MobileNavigation,
+  MobileScrim,
   NavButton,
   NavLabel,
   Navigation,
   NavigationLabel,
-  NotificationButton,
   Shell,
   Sidebar,
   Workspace
@@ -48,6 +43,7 @@ import {
 const featureNavigation: NavigationItem[] = [
   { id: "home", label: "Home", icon: House },
   { id: "chat", label: "Chat", icon: ChatCircleDots },
+  { id: "projects", label: "Projects", icon: FolderOpen },
   { id: "cowork", label: "Cowork", icon: Brain },
   { id: "tasks", label: "Tasks & calendar", icon: CalendarCheck },
   { id: "vaults", label: "Vaults", icon: Vault },
@@ -62,6 +58,7 @@ const accountSections: NavigationItem[] = [
 const sectionPaths: Record<AppSection, string> = {
   home: "/",
   chat: "/chat",
+  projects: "/projects",
   cowork: "/cowork",
   tasks: "/tasks",
   vaults: "/vaults",
@@ -88,8 +85,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
   const routerNavigate: NavigateFunction = useNavigate();
   const section: AppSection = sectionFromPath(location.pathname);
   const settingsSection: SettingsSection = settingsFromPath(location.pathname);
-  const currentItem: NavigationItem = [...featureNavigation, ...accountSections]
-    .find((item: NavigationItem) => item.id === section) ?? featureNavigation[0];
+  const sidebarCollapsed: boolean = collapsed && !mobileMenuOpen;
   const navigate = (targetSection: AppSection): void => {
     routerNavigate(sectionPaths[targetSection]);
     setMobileMenuOpen(false);
@@ -102,7 +98,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
 
   return (
     <Shell $collapsed={collapsed}>
-      <Sidebar $collapsed={collapsed}>
+      <Sidebar $collapsed={sidebarCollapsed} $mobileOpen={mobileMenuOpen}>
         <EdgeToggle
           type="button"
           title={collapsed ? "Expand menu" : "Collapse menu"}
@@ -114,73 +110,53 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
 
         <Brand>
           <Logo src="/assets/logo/nexo-ia-symbol.png" alt="" />
-          <BrandName $hidden={collapsed}>Nexo IA</BrandName>
+          <BrandName $hidden={sidebarCollapsed}>Nexo IA</BrandName>
         </Brand>
 
-        <NavigationLabel $hidden={collapsed}>Workspace</NavigationLabel>
+        <NavigationLabel $hidden={sidebarCollapsed}>Workspace</NavigationLabel>
         <Navigation aria-label="Nexo features">
           {featureNavigation.map((item: NavigationItem) => (
             <NavButton
               key={item.id}
               type="button"
-              title={collapsed ? item.label : undefined}
+              title={sidebarCollapsed ? item.label : undefined}
               $active={section === item.id}
-              $collapsed={collapsed}
+              $collapsed={sidebarCollapsed}
               onClick={(): void => navigate(item.id)}
             >
               <item.icon size={20} weight={section === item.id ? "fill" : "duotone"} />
-              <NavLabel $hidden={collapsed}>{item.label}</NavLabel>
+              <NavLabel $hidden={sidebarCollapsed}>{item.label}</NavLabel>
             </NavButton>
           ))}
         </Navigation>
 
         <SidebarAccount
           user={user}
-          collapsed={collapsed}
+          collapsed={sidebarCollapsed}
           onLogout={onLogout}
           isLoggingOut={isLoggingOut}
           onNavigate={navigate}
         />
       </Sidebar>
 
+      {mobileMenuOpen && (
+        <MobileScrim
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={(): void => setMobileMenuOpen(false)}
+        />
+      )}
+
       <Workspace>
-        <Header>
-          <HeaderIdentity>
-            <MobileMenuButton
-              type="button"
-              $collapsed={false}
-              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={mobileMenuOpen}
-              onClick={(): void => setMobileMenuOpen((value: boolean) => !value)}
-            >
-              {mobileMenuOpen ? <X size={20} /> : <List size={20} />}
-            </MobileMenuButton>
-            <HeaderTitle>
-              <strong>{currentItem.label}</strong>
-              <span>Local intelligence. Governed action.</span>
-            </HeaderTitle>
-          </HeaderIdentity>
-          <HeaderActions>
-            <NotificationButton type="button" aria-label="Notifications">
-              <Bell size={20} />
-            </NotificationButton>
-          </HeaderActions>
-          <MobileNavigation $open={mobileMenuOpen} aria-label="Nexo features">
-            {featureNavigation.map((item: NavigationItem) => (
-              <NavButton
-                key={item.id}
-                type="button"
-                $active={section === item.id}
-                $collapsed={false}
-                onClick={(): void => navigate(item.id)}
-              >
-                <item.icon size={20} weight={section === item.id ? "fill" : "duotone"} />
-                <NavLabel $hidden={false}>{item.label}</NavLabel>
-              </NavButton>
-            ))}
-          </MobileNavigation>
-        </Header>
-        <Main $wide={section === "chat"}>
+        <MobileMenuButton
+          type="button"
+          aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={mobileMenuOpen}
+          onClick={(): void => setMobileMenuOpen((value: boolean) => !value)}
+        >
+          {mobileMenuOpen ? <X size={20} /> : <List size={20} />}
+        </MobileMenuButton>
+        <Main>
           <Routes>
             <Route path="/" element={<HomePage user={user} onNavigate={navigate} onOpenSettings={openSettings} />} />
             <Route path="/chat" element={<ChatPage />} />

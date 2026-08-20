@@ -6,9 +6,6 @@ export const Account = styled.div`
   padding-top: ${({ theme }) => theme.spacing.md};
   border-top: 1px solid ${({ theme }) => theme.colors.line};
 
-  @media (max-width: 56rem) {
-    display: none;
-  }
 `;
 
 export const Trigger = styled.button<{ $collapsed: boolean }>`

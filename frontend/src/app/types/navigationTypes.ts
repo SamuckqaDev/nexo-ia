@@ -1,7 +1,7 @@
 import type { Icon } from "@phosphor-icons/react";
 import type { AuthenticatedUser } from "../../modules/auth/types/authTypes";
 
-export type AppSection = "home" | "chat" | "cowork" | "tasks" | "vaults" | "skills" | "settings" | "administration";
+export type AppSection = "home" | "chat" | "projects" | "cowork" | "tasks" | "vaults" | "skills" | "settings" | "administration";
 export type NavigationItem = { id: AppSection; label: string; icon: Icon; ownerOnly?: boolean };
 export type AppShellProps = {
   user: AuthenticatedUser;
