@@ -1,13 +1,20 @@
 import styled from "styled-components";
 
 export const ComposerCard = styled.div`
+  position: relative;
+  z-index: 1;
   width: min(60rem, calc(100% - 2rem));
   margin: 0 auto ${({ theme }) => theme.spacing.lg};
   border: 1px solid ${({ theme }) => theme.colors.lineStrong};
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.colors.surfaceStrong};
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.16);
+  overflow: visible;
+`;
+
+export const ComposerSurface = styled.div`
   overflow: hidden;
+  border-radius: inherit;
 `;
 
 export const Composer = styled.form`

@@ -84,4 +84,19 @@ describe("ChatComposer", () => {
     expect(onSend.mock.calls[0][0]).toContain("Review this module");
     expect(onSend.mock.calls[0][0]).toContain("verify each finding");
   });
+
+  it("keeps the Skill palette visible above the conversation", () => {
+    renderComposer("chat");
+    const message = screen.getByRole("textbox", { name: "Message" });
+
+    fireEvent.change(message, { target: { value: "/" } });
+
+    expect(screen.getByRole("listbox", { name: "Available Skills" })).toBeVisible();
+    expect(message.closest("form")?.parentElement).toHaveStyle({ overflow: "hidden" });
+    expect(message.closest("form")?.parentElement?.parentElement).toHaveStyle({
+      overflow: "visible",
+      position: "relative",
+      zIndex: "1"
+    });
+  });
 });

@@ -14,6 +14,7 @@ import {
   Composer,
   ComposerCard,
   ComposerFooter,
+  ComposerSurface,
   Field,
   Hint,
   ModeButton,
@@ -120,91 +121,92 @@ export function ChatComposer({
 
   return (
     <ComposerCard>
-      {!hasModel && !disabled && <Hint>Select a model to enable this conversation.</Hint>}
-      {phase === "cancelling" && <Hint>Stopping the answer…</Hint>}
-      {mode === "agent" && (
-        <ModeHint>
-          Agent keeps this conversation, but adds a visible plan, permissions and verified steps.
-          Its execution runtime is not enabled yet.
-        </ModeHint>
-      )}
-
-      <Composer onSubmit={submit}>
-        {activeSkill && (
-          <ActiveContext>
-            <Sparkle size={17} weight="fill" />
-            <ActiveContextCopy><strong>/{activeSkill.command}</strong><span>Skill instructions will be included in this message. Dependencies remain permission-gated.</span></ActiveContextCopy>
-            <RemoveContext type="button" aria-label={`Remove ${activeSkill.name} Skill`} onClick={(): void => setActiveSkill(null)}><X size={14} /></RemoveContext>
-          </ActiveContext>
+      <ComposerSurface>
+        {!hasModel && !disabled && <Hint>Select a model to enable this conversation.</Hint>}
+        {phase === "cancelling" && <Hint>Stopping the answer…</Hint>}
+        {mode === "agent" && (
+          <ModeHint>
+            Agent keeps this conversation, but adds a visible plan, permissions and verified steps.
+            Its execution runtime is not enabled yet.
+          </ModeHint>
         )}
-        {vaultSources.length > 0 && (
-          <ActiveContext>
-            <Paperclip size={17} weight="fill" />
-            <ActiveContextCopy><strong>{vaultSources.length} Vault source{vaultSources.length === 1 ? "" : "s"}</strong><span>Bounded text excerpts will be included as untrusted reference context.</span></ActiveContextCopy>
-          </ActiveContext>
-        )}
-        {skillMenuOpen && (
-          <SkillMenu role="listbox" aria-label="Available Skills">
-            <SkillPaletteHint><span>Skills</span><small>Type to filter · Enter to select · Esc to close</small></SkillPaletteHint>
-            {visibleSkills.length ? visibleSkills.map((skill: SkillDefinition, index: number) => (
-              <SkillOption
-                key={skill.id}
-                type="button"
-                role="option"
-                aria-selected={index === skillIndex}
-                $active={index === skillIndex}
-                onMouseEnter={(): void => setSkillIndex(index)}
-                onClick={(): void => selectSkill(skill)}
-              >
-                <Sparkle size={17} weight="duotone" />
-                <SkillCopy><strong>{skill.name}</strong><span>{skill.description}</span></SkillCopy>
-                <SkillCommand>/{skill.command}</SkillCommand>
-              </SkillOption>
-            )) : <SkillPaletteHint><span>No matching Skill</span><small>Open Skills from the sidebar to create one.</small></SkillPaletteHint>}
-          </SkillMenu>
-        )}
-        <Field
-          ref={field}
-          aria-label="Message"
-          placeholder={hasModel
-            ? mode === "agent" ? "Describe an objective for Nexo Agent…" : "Message Nexo IA…"
-            : "Choose a model first"}
-          value={content}
-          maxLength={8000}
-          disabled={disabled || !hasModel || isBusy || mode === "agent"}
-          onChange={updateContent}
-          onKeyDown={submitOnEnter}
-        />
-
-        <ComposerFooter>
-          <ModeControl aria-label="Conversation mode">
-            <ModeButton type="button" $active={mode === "chat"} onClick={(): void => onModeChange("chat")}>
-              <ChatCircleDots size={15} weight="duotone" /> Chat
-            </ModeButton>
-            <ModeButton type="button" $active={mode === "agent"} $agent onClick={(): void => onModeChange("agent")}>
-              <Robot size={15} weight="duotone" /> Agent
-            </ModeButton>
-          </ModeControl>
-          <CapabilityButton type="button" disabled title="Tools will appear here when enabled">
-            <Wrench size={16} weight="duotone" /> Tools
-          </CapabilityButton>
-          <CapabilityButton type="button" title="Choose a Skill or type /" onClick={openSkills}>
-            <Sparkle size={16} weight="duotone" /> Skills
-          </CapabilityButton>
-          <CapabilityButton type="button" disabled title="Image generation requires the ComfyUI runtime">
-            <ImageSquare size={16} weight="duotone" /> Image
-          </CapabilityButton>
-          {isBusy ? (
-            <Button type="button" variant="outline" icon={Stop} disabled={phase === "cancelling"} onClick={onCancel}>
-              Stop
-            </Button>
-          ) : (
-            <SendButton type="submit" aria-label="Send message" disabled={disabled || !hasModel || !content.trim() || mode === "agent"}>
-              <PaperPlaneRight size={19} weight="fill" />
-            </SendButton>
+        <Composer onSubmit={submit}>
+          {activeSkill && (
+            <ActiveContext>
+              <Sparkle size={17} weight="fill" />
+              <ActiveContextCopy><strong>/{activeSkill.command}</strong><span>Skill instructions will be included in this message. Dependencies remain permission-gated.</span></ActiveContextCopy>
+              <RemoveContext type="button" aria-label={`Remove ${activeSkill.name} Skill`} onClick={(): void => setActiveSkill(null)}><X size={14} /></RemoveContext>
+            </ActiveContext>
           )}
-        </ComposerFooter>
-      </Composer>
+          {vaultSources.length > 0 && (
+            <ActiveContext>
+              <Paperclip size={17} weight="fill" />
+              <ActiveContextCopy><strong>{vaultSources.length} Vault source{vaultSources.length === 1 ? "" : "s"}</strong><span>Bounded text excerpts will be included as untrusted reference context.</span></ActiveContextCopy>
+            </ActiveContext>
+          )}
+          <Field
+            ref={field}
+            aria-label="Message"
+            placeholder={hasModel
+              ? mode === "agent" ? "Describe an objective for Nexo Agent…" : "Message Nexo IA…"
+              : "Choose a model first"}
+            value={content}
+            maxLength={8000}
+            disabled={disabled || !hasModel || isBusy || mode === "agent"}
+            onChange={updateContent}
+            onKeyDown={submitOnEnter}
+          />
+
+          <ComposerFooter>
+            <ModeControl aria-label="Conversation mode">
+              <ModeButton type="button" $active={mode === "chat"} onClick={(): void => onModeChange("chat")}>
+                <ChatCircleDots size={15} weight="duotone" /> Chat
+              </ModeButton>
+              <ModeButton type="button" $active={mode === "agent"} $agent onClick={(): void => onModeChange("agent")}>
+                <Robot size={15} weight="duotone" /> Agent
+              </ModeButton>
+            </ModeControl>
+            <CapabilityButton type="button" disabled title="Tools will appear here when enabled">
+              <Wrench size={16} weight="duotone" /> Tools
+            </CapabilityButton>
+            <CapabilityButton type="button" title="Choose a Skill or type /" onClick={openSkills}>
+              <Sparkle size={16} weight="duotone" /> Skills
+            </CapabilityButton>
+            <CapabilityButton type="button" disabled title="Image generation requires the ComfyUI runtime">
+              <ImageSquare size={16} weight="duotone" /> Image
+            </CapabilityButton>
+            {isBusy ? (
+              <Button type="button" variant="outline" icon={Stop} disabled={phase === "cancelling"} onClick={onCancel}>
+                Stop
+              </Button>
+            ) : (
+              <SendButton type="submit" aria-label="Send message" disabled={disabled || !hasModel || !content.trim() || mode === "agent"}>
+                <PaperPlaneRight size={19} weight="fill" />
+              </SendButton>
+            )}
+          </ComposerFooter>
+        </Composer>
+      </ComposerSurface>
+      {skillMenuOpen && (
+        <SkillMenu role="listbox" aria-label="Available Skills">
+          <SkillPaletteHint><span>Skills</span><small>Type to filter · Enter to select · Esc to close</small></SkillPaletteHint>
+          {visibleSkills.length ? visibleSkills.map((skill: SkillDefinition, index: number) => (
+            <SkillOption
+              key={skill.id}
+              type="button"
+              role="option"
+              aria-selected={index === skillIndex}
+              $active={index === skillIndex}
+              onMouseEnter={(): void => setSkillIndex(index)}
+              onClick={(): void => selectSkill(skill)}
+            >
+              <Sparkle size={17} weight="duotone" />
+              <SkillCopy><strong>{skill.name}</strong><span>{skill.description}</span></SkillCopy>
+              <SkillCommand>/{skill.command}</SkillCommand>
+            </SkillOption>
+          )) : <SkillPaletteHint><span>No matching Skill</span><small>Open Skills from the sidebar to create one.</small></SkillPaletteHint>}
+        </SkillMenu>
+      )}
     </ComposerCard>
   );
 }

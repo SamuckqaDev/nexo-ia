@@ -83,8 +83,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   explicitly to Chat; PDF and Office sources remain metadata-only until document ingestion exists.
   Skills provides a shared session catalog and complete editor for ownership, activation,
   instructions, output contracts, and declared dependencies. Typing `/` in Chat opens the enabled
-  Skill catalog with keyboard navigation. The selected method is included explicitly in that
-  message without granting its declared dependencies. Projects now owns a searchable project folder
+  Skill catalog with keyboard navigation. The palette opens above the composer without being clipped
+  by the conversation surface. The selected method is included explicitly in that message without
+  granting its declared dependencies. Projects now owns a searchable project folder
   list, active-workspace detail, add/select flow, and an expandable view of the saved folder
   snapshot; Cowork exposes objective, milestone, activity, and decision surfaces.
 - The selected project workspace is shared through the project module's Zustand store and persisted
