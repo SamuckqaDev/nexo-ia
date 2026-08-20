@@ -35,50 +35,6 @@ export const DrawerScrim = styled.button`
   @media (max-width: 48rem) { display: block; }
 `;
 
-export const Rail = styled.aside`
-  z-index: 5;
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  padding: ${({ theme }) => `${theme.spacing.sm} 0.42rem`};
-  border-right: 1px solid ${({ theme }) => theme.colors.line};
-  background: ${({ theme }) => theme.colors.surfaceAccent};
-
-  @media (max-width: 48rem) {
-    position: absolute;
-    z-index: 3;
-    top: 0;
-    left: 0;
-    min-height: auto;
-    flex-direction: row;
-    border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-    border-bottom-right-radius: ${({ theme }) => theme.radius.control};
-    > span { display: none; }
-  }
-`;
-
-export const RailButton = styled.button`
-  display: grid;
-  width: 2.45rem;
-  height: 2.45rem;
-  place-items: center;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.control};
-  background: ${({ theme }) => theme.colors.surfaceStrong};
-  color: ${({ theme }) => theme.colors.textSubtle};
-  cursor: pointer;
-
-  &:hover:not(:disabled), &:focus-visible {
-    border-color: ${({ theme }) => theme.colors.lineStrong};
-    color: ${({ theme }) => theme.colors.primary};
-  }
-
-  &:disabled { cursor: wait; opacity: 0.55; }
-`;
-
 export const Header = styled.header`
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

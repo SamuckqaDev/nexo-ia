@@ -11,7 +11,97 @@ export const ComposerCard = styled.div`
 `;
 
 export const Composer = styled.form`
+  position: relative;
   display: grid;
+`;
+
+export const ActiveContext = styled.div`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.primary};
+`;
+
+export const ActiveContextCopy = styled.span`
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+  strong { color: ${({ theme }) => theme.colors.primarySoft}; font-size: 0.72rem; }
+  span { overflow: hidden; color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.6rem; text-overflow: ellipsis; white-space: nowrap; }
+`;
+
+export const RemoveContext = styled.button`
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSubtle};
+  cursor: pointer;
+  &:hover, &:focus-visible { background: ${({ theme }) => theme.colors.surfaceStrong}; color: ${({ theme }) => theme.colors.primary}; }
+`;
+
+export const SkillMenu = styled.div`
+  position: absolute;
+  z-index: 8;
+  right: ${({ theme }) => theme.spacing.sm};
+  bottom: calc(100% - 0.35rem);
+  left: ${({ theme }) => theme.spacing.sm};
+  display: grid;
+  max-height: min(25rem, 55vh);
+  overflow-y: auto;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 0.35rem;
+  background: ${({ theme }) => theme.colors.backgroundElevated};
+  box-shadow: ${({ theme }) => theme.shadow};
+`;
+
+export const SkillPaletteHint = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm};
+  color: ${({ theme }) => theme.colors.textSubtle};
+  span { color: ${({ theme }) => theme.colors.text}; font-size: 0.7rem; font-weight: 700; }
+  small { font-size: 0.58rem; }
+`;
+
+export const SkillOption = styled.button<{ $active: boolean }>`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  width: 100%;
+  border: 1px solid ${({ theme, $active }) => $active ? theme.colors.lineStrong : "transparent"};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: ${({ theme }) => theme.spacing.sm};
+  background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
+  color: ${({ theme }) => theme.colors.primary};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+`;
+
+export const SkillCopy = styled.span`
+  display: grid;
+  min-width: 0;
+  gap: 0.16rem;
+  strong, span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  strong { color: ${({ theme }) => theme.colors.text}; font-size: 0.7rem; }
+  span { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.6rem; }
+`;
+
+export const SkillCommand = styled.code`
+  color: ${({ theme }) => theme.colors.primarySoft};
+  font-size: 0.62rem;
 `;
 
 export const Field = styled.textarea`

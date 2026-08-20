@@ -1,30 +1,41 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
+import { previewVaults, useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
+import { builtInSkills, useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
 import { ChatComposer } from "./index";
 
 const renderComposer = (
   mode: "chat" | "agent",
   onModeChange = vi.fn(),
-  initialContent = ""
-) => render(
-  <ThemeProvider theme={darkTheme}>
-    <ChatComposer
-      disabled={false}
-      initialContent={initialContent}
-      hasModel
-      phase="idle"
-      isBusy={false}
-      mode={mode}
-      onModeChange={onModeChange}
-      onSend={vi.fn()}
-      onCancel={vi.fn()}
-    />
-  </ThemeProvider>
-);
+  initialContent = "",
+  onSend = vi.fn()
+) => {
+  render(
+    <ThemeProvider theme={darkTheme}>
+      <ChatComposer
+        disabled={false}
+        initialContent={initialContent}
+        hasModel
+        phase="idle"
+        isBusy={false}
+        mode={mode}
+        onModeChange={onModeChange}
+        onSend={onSend}
+        onCancel={vi.fn()}
+      />
+    </ThemeProvider>
+  );
+  return { onSend };
+};
 
 describe("ChatComposer", () => {
+  beforeEach(() => {
+    useSkillCatalogStore.setState({ skills: builtInSkills });
+    useVaultCatalogStore.setState({ vaults: previewVaults, attachedSourceIds: [] });
+  });
+
   it("keeps Chat as the active conversational surface and exposes capabilities in the composer", () => {
     renderComposer("chat");
 
@@ -54,5 +65,23 @@ describe("ChatComposer", () => {
 
     expect(screen.getByText(/adds a visible plan, permissions and verified steps/i)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+  });
+
+  it("opens the Skill palette with slash and includes the chosen method in the message context", () => {
+    const onSend = vi.fn();
+    renderComposer("chat", vi.fn(), "", onSend);
+    const message = screen.getByRole("textbox", { name: "Message" });
+
+    fireEvent.change(message, { target: { value: "/pro" } });
+    fireEvent.click(screen.getByRole("option", { name: /Project review/i }));
+
+    expect(screen.getByText("/project-review")).toBeInTheDocument();
+    fireEvent.change(message, { target: { value: "Review this module" } });
+    fireEvent.keyDown(message, { key: "Enter" });
+
+    expect(onSend).toHaveBeenCalledOnce();
+    expect(onSend.mock.calls[0][0]).toContain("NEXO_EXPLICIT_CONTEXT");
+    expect(onSend.mock.calls[0][0]).toContain("Review this module");
+    expect(onSend.mock.calls[0][0]).toContain("verify each finding");
   });
 });

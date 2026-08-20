@@ -1,7 +1,6 @@
 import {
   Archive as ArchiveIcon,
   CaretDoubleLeft,
-  CaretDoubleRight,
   ChatCircleDots,
   Plus,
   ShieldCheck
@@ -22,8 +21,6 @@ import {
   NewButton,
   Open,
   Privacy,
-  Rail,
-  RailButton,
   SectionLabel,
   Sidebar,
   Title
@@ -33,11 +30,10 @@ type ConversationSidebarProps = {
   conversations: Conversation[];
   selectedId: string | null;
   isCreating: boolean;
-  open: boolean;
   onSelect: (conversationId: string) => void;
   onNew: () => void;
   onArchive: (conversation: Conversation) => void;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
 };
 
 const isCompactViewport = (): boolean => typeof window !== "undefined"
@@ -48,43 +44,17 @@ export function ConversationSidebar({
   conversations,
   selectedId,
   isCreating,
-  open,
   onSelect,
   onNew,
   onArchive,
-  onOpenChange
+  onClose
 }: ConversationSidebarProps): ReactElement {
-  if (!open) {
-    return (
-      <Rail aria-label="Conversation menu">
-        <RailButton
-          type="button"
-          aria-label="Expand conversation menu"
-          title="Expand conversations"
-          onClick={(): void => onOpenChange(true)}
-        >
-          <CaretDoubleRight size={17} />
-        </RailButton>
-        <RailButton
-          type="button"
-          aria-label="New conversation"
-          title="New conversation"
-          disabled={isCreating}
-          onClick={onNew}
-        >
-          <Plus size={18} weight="bold" />
-        </RailButton>
-        <Count title={`${conversations.length} conversations`}>{conversations.length}</Count>
-      </Rail>
-    );
-  }
-
   return (
     <Fragment>
       <DrawerScrim
         type="button"
         aria-label="Close conversation menu"
-        onClick={(): void => onOpenChange(false)}
+        onClick={onClose}
       />
       <Sidebar aria-label="Conversations">
         <Header>
@@ -97,7 +67,7 @@ export function ConversationSidebar({
             type="button"
             aria-label="Minimize conversation menu"
             title="Minimize conversations"
-            onClick={(): void => onOpenChange(false)}
+            onClick={onClose}
           >
             <CaretDoubleLeft size={16} />
           </CollapseButton>
@@ -126,7 +96,7 @@ export function ConversationSidebar({
                   aria-label={`Open ${conversation.title}`}
                   onClick={(): void => {
                     onSelect(conversation.id);
-                    if (isCompactViewport()) onOpenChange(false);
+                    if (isCompactViewport()) onClose();
                   }}
                 >
                   <span>{conversation.title}</span>

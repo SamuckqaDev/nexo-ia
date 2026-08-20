@@ -17,7 +17,9 @@ import { WorkspaceBadge, WorkspaceEmptyState, WorkspacePage, WorkspacePanel } fr
 import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { WorkspaceForm } from "../../components/WorkspaceForm";
+import { WorkspaceTree } from "../../components/WorkspaceTree";
 import { useActiveWorkspace } from "../../hooks/useActiveWorkspace";
+import { useWorkspaceSnapshot } from "../../hooks/useWorkspaceSnapshot";
 import { workspacePlatformLabel } from "../../services/workspacePlatformService";
 import { useWorkspaceStore } from "../../stores/useWorkspaceStore";
 import type { ProjectWorkspace, ProjectsPageProps, WorkspaceState } from "../../types/workspaceTypes";
@@ -31,6 +33,8 @@ import {
   Path,
   ProjectsGrid,
   StorageWarning,
+  Structure,
+  StructureStatus,
   WorkspaceButton,
   WorkspaceCopy,
   WorkspaceList
@@ -47,6 +51,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
   const [query, setQuery] = useState<string>("");
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
   const selected: ProjectWorkspace | undefined = workspaces.find((workspace: ProjectWorkspace) => workspace.id === selectedId) ?? active;
+  const workspaceSnapshot = useWorkspaceSnapshot(selected?.id ?? null);
   const visibleWorkspaces = useMemo<ProjectWorkspace[]>(() => workspaces.filter((workspace: ProjectWorkspace) =>
     `${workspace.name} ${workspace.directoryName}`.toLowerCase().includes(query.toLowerCase())
   ), [query, workspaces]);
@@ -141,6 +146,13 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
                 <div><GitBranch size={18} /><span>Git context<strong>{selected.branch ?? "Detect on connect"}</strong></span></div>
                 <div><ShieldCheck size={18} /><span>Local access<strong>Browser managed · {workspacePlatformLabel(selected.platform)}</strong></span></div>
               </DetailMeta>
+              <Structure>
+                <div><strong>Workspace structure</strong><span>Saved metadata only; click a folder to expand it.</span></div>
+                {workspaceSnapshot.status === "loading" && <StructureStatus role="status">Loading saved folder structure…</StructureStatus>}
+                {workspaceSnapshot.status === "error" && <StructureStatus role="alert">Nexo could not read the saved structure from this browser.</StructureStatus>}
+                {workspaceSnapshot.status === "ready" && workspaceSnapshot.snapshot && <WorkspaceTree snapshot={workspaceSnapshot.snapshot} />}
+                {workspaceSnapshot.status === "ready" && !workspaceSnapshot.snapshot && <StructureStatus>No structure snapshot is available for this workspace.</StructureStatus>}
+              </Structure>
               <DetailActions>
                 <Button type="button" variant="outline" icon={Trash} onClick={(): void => forgetSelectedWorkspace(selected)}>Forget</Button>
                 {active?.id !== selected.id && <Button type="button" onClick={(): void => selectWorkspace(selected.id)}>Use this workspace</Button>}

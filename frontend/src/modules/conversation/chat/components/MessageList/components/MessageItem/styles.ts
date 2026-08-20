@@ -111,6 +111,26 @@ export const Badge = styled.p<{ $tone: "warning" | "danger" }>`
   font-weight: 700;
 `;
 
+export const ContextBadges = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
+export const ContextBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.round};
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.primarySoft};
+  font-size: 0.6rem;
+  font-weight: 700;
+`;
+
 export const Meta = styled.p`
   display: flex;
   flex-wrap: wrap;

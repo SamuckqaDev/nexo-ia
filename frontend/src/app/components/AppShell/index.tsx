@@ -13,13 +13,10 @@ import {
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
-import { useWorkspaceCheck } from "../../../modules/project/workspace/hooks/useWorkspaceCheck";
 import { useWorkspaceStore } from "../../../modules/project/workspace/stores/useWorkspaceStore";
-import type { WorkspaceCheck, WorkspaceState } from "../../../modules/project/workspace/types/workspaceTypes";
+import type { WorkspaceState } from "../../../modules/project/workspace/types/workspaceTypes";
 import type { SettingsSection } from "../../../modules/settings/types/settingsTypes";
 import { Loading } from "../../../shared/components/Loading";
-import { useSnackbarStore } from "../../../shared/feedback/stores/useSnackbarStore";
-import type { SnackbarState } from "../../../shared/feedback/types/snackbarTypes";
 import type { AppSection, AppShellProps, NavigationItem } from "../../types/navigationTypes";
 import { SidebarAccount } from "../SidebarAccount";
 import {
@@ -102,8 +99,6 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
   const settingsSection: SettingsSection = settingsFromPath(location.pathname);
   const sidebarCollapsed: boolean = collapsed && !mobileMenuOpen;
   const initializeWorkspaces: WorkspaceState["initialize"] = useWorkspaceStore((state: WorkspaceState) => state.initialize);
-  const show: SnackbarState["show"] = useSnackbarStore((state: SnackbarState) => state.show);
-  const workspaceCheck = useWorkspaceCheck();
 
   useEffect((): void => {
     initializeWorkspaces(user.id);
@@ -112,13 +107,6 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
   const navigate = (targetSection: AppSection): void => {
     routerNavigate(sectionPaths[targetSection]);
     setMobileMenuOpen(false);
-    if (targetSection === "chat") {
-      workspaceCheck.checkActiveWorkspace(false).then((result: WorkspaceCheck): void => {
-        if (result.status === "changed") {
-          show("The active project changed. Review the workspace notice before relying on previous Chat context.", { variant: "warning", duration: 9000 });
-        }
-      });
-    }
   };
   const openSettings = (targetSection: SettingsSection): void => {
     routerNavigate(`/settings/${targetSection}`);

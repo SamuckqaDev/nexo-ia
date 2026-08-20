@@ -76,7 +76,7 @@ export const CloseButton = styled.button`
 
 export const Tabs = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.2rem;
   padding: 0.2rem;
   margin-bottom: ${({ theme }) => theme.spacing.lg};
@@ -173,4 +173,56 @@ export const PlanMarker = styled.span`
   color: ${({ theme }) => theme.colors.primary};
   font-size: 0.64rem;
   font-weight: 800;
+`;
+
+export const ResourceList = styled.div`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+export const ResourceCard = styled.section`
+  display: grid;
+  gap: 0.35rem;
+  padding: ${({ theme }) => theme.spacing.sm};
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.background};
+  > header { display: flex; align-items: center; justify-content: space-between; gap: ${({ theme }) => theme.spacing.sm}; }
+  > header > span { display: flex; min-width: 0; align-items: center; gap: 0.4rem; overflow: hidden; color: ${({ theme }) => theme.colors.text}; font-size: 0.68rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  > header > small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.55rem; white-space: nowrap; }
+`;
+
+export const SourceButton = styled.button<{ $active: boolean }>`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  border: 1px solid ${({ theme, $active }) => $active ? theme.colors.lineStrong : "transparent"};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: 0.48rem;
+  background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
+  color: ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.textSubtle};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  > span { display: grid; min-width: 0; gap: 0.1rem; }
+  strong, small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  strong { color: ${({ theme }) => theme.colors.textMuted}; font-size: 0.62rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.54rem; }
+  &:hover:not(:disabled), &:focus-visible { border-color: ${({ theme }) => theme.colors.lineStrong}; background: ${({ theme }) => theme.colors.surfaceAccent}; }
+  &:disabled { cursor: not-allowed; opacity: 0.55; }
+`;
+
+export const StatusCopy = styled.p`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.textSubtle};
+  font-size: 0.62rem;
+  line-height: 1.55;
+`;
+
+export const SectionAction = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding-top: ${({ theme }) => theme.spacing.xs};
 `;

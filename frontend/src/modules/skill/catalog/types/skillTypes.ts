@@ -7,6 +7,7 @@ export type SkillFilter = "all" | "built_in" | "personal" | "project";
 
 export type SkillDefinition = {
   id: string;
+  command: string;
   name: string;
   description: string;
   scope: SkillScope;
@@ -23,4 +24,9 @@ export type SkillEditorValues = z.infer<typeof skillEditorSchema>;
 export type SkillEditorProps = {
   initialSkill?: SkillDefinition;
   onSave: (values: SkillEditorValues, skillId?: string) => void;
+};
+
+export type SkillCatalogState = {
+  skills: SkillDefinition[];
+  saveSkill: (values: SkillEditorValues, skillId?: string) => SkillDefinition;
 };

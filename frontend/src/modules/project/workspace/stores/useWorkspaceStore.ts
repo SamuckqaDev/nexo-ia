@@ -26,6 +26,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   hydrationStatus: "idle",
   persistenceError: null,
   workspaceCheck: idleWorkspaceCheck,
+  skipNextWorkspaceCheck: false,
   initialize: (ownerId: string): Promise<void> => {
     const current: WorkspaceState = get();
     if (current.ownerId === ownerId && (current.hydrationStatus === "loading" || current.hydrationStatus === "ready")) {
@@ -38,7 +39,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activeWorkspaceId: null,
       hydrationStatus: "loading",
       persistenceError: null,
-      workspaceCheck: idleWorkspaceCheck
+      workspaceCheck: idleWorkspaceCheck,
+      skipNextWorkspaceCheck: false
     });
 
     return loadWorkspaceRegistry(ownerId)
@@ -51,11 +53,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         set({ hydrationStatus: "error", persistenceError: persistenceMessage() });
       });
   },
-  registerWorkspace: (workspace: ProjectWorkspace): void => set((state: WorkspaceState) => ({
+  registerWorkspace: (workspace: ProjectWorkspace, snapshotCapturedAt?: string): void => set((state: WorkspaceState) => ({
     workspaces: [workspace, ...state.workspaces.filter((item: ProjectWorkspace): boolean => item.id !== workspace.id)],
     activeWorkspaceId: workspace.id,
     persistenceError: null,
-    workspaceCheck: idleWorkspaceCheck
+    skipNextWorkspaceCheck: Boolean(snapshotCapturedAt),
+    workspaceCheck: snapshotCapturedAt ? {
+      workspaceId: workspace.id,
+      status: "unchanged",
+      checkedAt: snapshotCapturedAt,
+      message: null,
+      changes: null
+    } : idleWorkspaceCheck
   })),
   selectWorkspace: (workspaceId: string | null): void => {
     const state: WorkspaceState = get();
@@ -63,7 +72,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       && state.workspaces.some((workspace: ProjectWorkspace): boolean => workspace.id === workspaceId)
       ? workspaceId
       : null;
-    set({ activeWorkspaceId, workspaceCheck: idleWorkspaceCheck });
+    set({
+      activeWorkspaceId,
+      skipNextWorkspaceCheck: activeWorkspaceId === state.activeWorkspaceId ? state.skipNextWorkspaceCheck : false,
+      workspaceCheck: activeWorkspaceId === state.activeWorkspaceId ? state.workspaceCheck : idleWorkspaceCheck
+    });
     if (state.ownerId) {
       saveActiveWorkspaceId(state.ownerId, activeWorkspaceId)
         .catch((): void => set({ persistenceError: persistenceMessage() }));
@@ -81,7 +94,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const activeWorkspaceId: string | null = current.activeWorkspaceId === workspaceId
         ? workspaces[0]?.id ?? null
         : current.activeWorkspaceId;
-      set({ workspaces, activeWorkspaceId, persistenceError: null, workspaceCheck: idleWorkspaceCheck });
+      set({ workspaces, activeWorkspaceId, persistenceError: null, workspaceCheck: idleWorkspaceCheck, skipNextWorkspaceCheck: false });
       saveActiveWorkspaceId(ownerId, activeWorkspaceId)
         .catch((): void => set({ persistenceError: persistenceMessage() }));
     }).catch((error: unknown): Promise<never> => {
@@ -89,5 +102,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       return Promise.reject(error);
     });
   },
-  setWorkspaceCheck: (workspaceCheck: WorkspaceCheck): void => set({ workspaceCheck })
+  setWorkspaceCheck: (workspaceCheck: WorkspaceCheck): void => set({ workspaceCheck }),
+  consumeWorkspaceCheckSkip: (): void => set({ skipNextWorkspaceCheck: false })
 }));

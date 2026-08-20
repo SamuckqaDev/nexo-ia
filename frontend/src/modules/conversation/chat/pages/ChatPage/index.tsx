@@ -1,5 +1,5 @@
-import { Cpu, FolderOpen, LockKey } from "@phosphor-icons/react";
-import { useEffect, useState, type ReactElement } from "react";
+import { ChatCircleDots, Cpu, FolderOpen, LockKey } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
@@ -37,11 +37,14 @@ import {
   ConversationColumn,
   Header,
   HeaderCopy,
+  HeaderLeading,
   HeaderMeta,
   HeaderTitle,
   Layout,
   LoadFailure,
   ModelArea,
+  OpenConversations,
+  OpenConversationsCount,
   PrivacyBadge,
   WorkspaceContext
 } from "./styles";
@@ -55,7 +58,10 @@ export function ChatPage(): ReactElement {
   const activeWorkspace = useActiveWorkspace();
   const workspaceCheck: WorkspaceCheck = useWorkspaceStore((state: WorkspaceState) => state.workspaceCheck);
   const workspaceHydration: WorkspaceState["hydrationStatus"] = useWorkspaceStore((state: WorkspaceState) => state.hydrationStatus);
+  const skipNextWorkspaceCheck: boolean = useWorkspaceStore((state: WorkspaceState) => state.skipNextWorkspaceCheck);
+  const consumeWorkspaceCheckSkip: WorkspaceState["consumeWorkspaceCheckSkip"] = useWorkspaceStore((state: WorkspaceState) => state.consumeWorkspaceCheckSkip);
   const workspaceInspection = useWorkspaceCheck();
+  const inspectedWorkspaceId = useRef<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<ConversationMode>("chat");
@@ -86,11 +92,16 @@ export function ChatPage(): ReactElement {
     if (
       workspaceHydration === "ready"
       && activeWorkspace
-      && workspaceCheck.status === "idle"
+      && inspectedWorkspaceId.current !== activeWorkspace.id
     ) {
+      inspectedWorkspaceId.current = activeWorkspace.id;
+      if (skipNextWorkspaceCheck) {
+        consumeWorkspaceCheckSkip();
+        return;
+      }
       workspaceInspection.checkActiveWorkspace(false);
     }
-  }, [activeWorkspace, workspaceCheck.status, workspaceHydration, workspaceInspection]);
+  }, [activeWorkspace, consumeWorkspaceCheckSkip, skipNextWorkspaceCheck, workspaceHydration, workspaceInspection]);
 
   const selected: Conversation | undefined = conversations.data
     ?.find((item: Conversation) => item.id === selectedId);
@@ -144,35 +155,50 @@ export function ChatPage(): ReactElement {
 
   return (
     <Layout $sidebarOpen={isConversationMenuOpen}>
-      <ConversationSidebar
-        conversations={conversations.data ?? []}
-        selectedId={selectedId}
-        isCreating={create.isPending}
-        open={isConversationMenuOpen}
-        onSelect={setSelectedId}
-        onNew={(): void => setIsDialogOpen(true)}
-        onArchive={archiveConversation}
-        onOpenChange={setIsConversationMenuOpen}
-      />
+      {isConversationMenuOpen && (
+        <ConversationSidebar
+          conversations={conversations.data ?? []}
+          selectedId={selectedId}
+          isCreating={create.isPending}
+          onSelect={setSelectedId}
+          onNew={(): void => setIsDialogOpen(true)}
+          onArchive={archiveConversation}
+          onClose={(): void => setIsConversationMenuOpen(false)}
+        />
+      )}
 
       <Chat>
         <Header>
-          <HeaderCopy>
-            <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>
-            <HeaderMeta>
-              <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
-              <WorkspaceContext
+          <HeaderLeading>
+            {!isConversationMenuOpen && (
+              <OpenConversations
                 type="button"
-                $active={Boolean(activeWorkspace)}
-                title={activeWorkspace ? `Local workspace: ${activeWorkspace.directoryName}` : "Choose a workspace"}
-                onClick={(): void => { navigate("/projects"); }}
+                aria-label="Open conversation menu"
+                title="Open conversations"
+                onClick={(): void => setIsConversationMenuOpen(true)}
               >
-                <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
-                Workspace: {activeWorkspace?.name ?? "Choose workspace"}
-              </WorkspaceContext>
-              {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
-            </HeaderMeta>
-          </HeaderCopy>
+                <ChatCircleDots size={18} weight="duotone" />
+                <span>Conversations</span>
+                <OpenConversationsCount>{conversations.data?.length ?? 0}</OpenConversationsCount>
+              </OpenConversations>
+            )}
+            <HeaderCopy>
+              <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>
+              <HeaderMeta>
+                <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
+                <WorkspaceContext
+                  type="button"
+                  $active={Boolean(activeWorkspace)}
+                  title={activeWorkspace ? `Local workspace: ${activeWorkspace.directoryName}` : "Choose a workspace"}
+                  onClick={(): void => { navigate("/projects"); }}
+                >
+                  <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
+                  Workspace: {activeWorkspace?.name ?? "Choose workspace"}
+                </WorkspaceContext>
+                {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
+              </HeaderMeta>
+            </HeaderCopy>
+          </HeaderLeading>
           <ModelArea>
             <ModelPicker
               catalogs={modelCatalogs}
@@ -223,7 +249,13 @@ export function ChatPage(): ReactElement {
                 onCancel={stream.cancel}
               />
             </ConversationColumn>
-            <ConversationContextPanel mode={mode} open={isContextOpen} onOpenChange={setIsContextOpen} />
+            <ConversationContextPanel
+              mode={mode}
+              open={isContextOpen}
+              onOpenChange={setIsContextOpen}
+              onManageVaults={(): void => { navigate("/vaults"); }}
+              onManageWorkspace={(): void => { navigate("/projects"); }}
+            />
           </ConversationBody>
         </ChatContent>
       </Chat>

@@ -1,7 +1,8 @@
 import { Check, Copy, Prohibit, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
+import { parseContextualChatMessage } from "../../../../services/chatContextService";
 import type { ConversationMessage } from "../../../../types/chatTypes";
-import { Avatar, Badge, Body, Caret, Column, CopyButton, Head, Meta, Name, Row } from "./styles";
+import { Avatar, Badge, Body, Caret, Column, ContextBadge, ContextBadges, CopyButton, Head, Meta, Name, Row } from "./styles";
 
 type MessageItemProps = {
   message: ConversationMessage;
@@ -19,7 +20,9 @@ export function MessageItem({
   isStreaming = false
 }: MessageItemProps): ReactElement {
   const isUser: boolean = message.role === "USER";
-  const content: string = isStreaming ? streamingContent ?? "" : message.content;
+  const rawContent: string = isStreaming ? streamingContent ?? "" : message.content;
+  const contextualMessage = isUser ? parseContextualChatMessage(rawContent) : { content: rawContent, skillName: null, vaultSourceNames: [] };
+  const content: string = contextualMessage.content;
   const [copied, setCopied] = useState<boolean>(false);
 
   useEffect((): void => setCopied(false), [content]);
@@ -51,6 +54,13 @@ export function MessageItem({
         </Head>
 
         <Body $user={isUser}>{content}{isStreaming && <Caret aria-hidden>▌</Caret>}</Body>
+
+        {isUser && (contextualMessage.skillName || contextualMessage.vaultSourceNames.length > 0) && (
+          <ContextBadges>
+            {contextualMessage.skillName && <ContextBadge><Sparkle size={13} weight="fill" /> Skill: {contextualMessage.skillName}</ContextBadge>}
+            {contextualMessage.vaultSourceNames.map((sourceName: string) => <ContextBadge key={sourceName}>Vault: {sourceName}</ContextBadge>)}
+          </ContextBadges>
+        )}
 
         {message.status === "CANCELLED" && (
           <Badge $tone="warning">

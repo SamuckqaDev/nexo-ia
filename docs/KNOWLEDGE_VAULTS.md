@@ -69,7 +69,13 @@ delete permissions remain independent.
 
 ## Initial implementation
 
-The first implementation supports a local root containing Markdown, YAML frontmatter, standard
+The planned authoritative implementation supports a local root containing Markdown, YAML frontmatter, standard
 Markdown links, `[[wikilinks]]`, tags, and attachments referenced by notes. It provides visible
 ingestion status, incremental reindexing, citations that open the original file, and a relationship
 graph. Obsidian Canvas and a dedicated Obsidian plugin remain later compatibility features.
+
+The current frontend bridge is deliberately narrower. It keeps Vault drafts in the browser session,
+shows bounded previews for explicitly selected Markdown, text, JSON, and CSV files, and lets the user
+attach readable excerpts to Chat. Attached excerpts are sent inside the message to the selected
+provider as untrusted reference data; they are not an index, retrieval result, citation, or durable
+Vault ingestion. PDF and Office selections keep metadata only until supported parsers exist.

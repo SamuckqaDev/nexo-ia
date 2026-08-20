@@ -110,6 +110,12 @@ export function getWorkspaceRecord(ownerId: string, workspaceId: string): Promis
   });
 }
 
+export function getWorkspaceSnapshot(ownerId: string, workspaceId: string): Promise<WorkspaceSnapshot | null> {
+  return getWorkspaceRecord(ownerId, workspaceId)
+    .then((record: StoredWorkspaceRecord | null): WorkspaceSnapshot | null =>
+      record?.pendingSnapshot ?? record?.snapshot ?? null);
+}
+
 export function saveWorkspaceRecord(record: StoredWorkspaceRecord): Promise<void> {
   const safeRecord: StoredWorkspaceRecord = storedWorkspaceRecordSchema.parse(record);
   return openWorkspaceDatabase().then((database: IDBDatabase): Promise<void> => {

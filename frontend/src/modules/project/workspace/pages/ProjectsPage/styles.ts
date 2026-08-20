@@ -95,3 +95,20 @@ export const DetailMeta = styled.div`
 `;
 
 export const DetailActions = styled.div`display: flex; flex-wrap: wrap; justify-content: flex-end; gap: ${({ theme }) => theme.spacing.sm};`;
+
+export const Structure = styled.section`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.sm};
+  > div:first-child { display: grid; gap: 0.15rem; }
+  > div:first-child strong { color: ${({ theme }) => theme.colors.text}; font-size: 0.72rem; }
+  > div:first-child span { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.6rem; }
+`;
+
+export const StructureStatus = styled.p`
+  margin: 0;
+  padding: ${({ theme }) => theme.spacing.md};
+  border: 1px dashed ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.control};
+  color: ${({ theme }) => theme.colors.textSubtle};
+  font-size: 0.66rem;
+`;

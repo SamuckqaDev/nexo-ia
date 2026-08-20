@@ -78,11 +78,15 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Projects, Knowledge Vaults, Skills, Cowork, and Tasks/calendar now have dedicated product
   workspaces instead of a shared placeholder. Tasks/calendar provides navigable month and agenda
   views, occurrence inspection, and session-only schedule drafts. Knowledge Vaults provides a
-  searchable collection list, source explorer, governed scope creation, and local file selection.
-  Skills provides a filterable library and a complete editor for ownership, activation,
-  instructions, output contracts, and declared dependencies. Projects now owns a searchable project
-  folder list, active-workspace detail, and add/select flow; Cowork exposes objective, milestone,
-  activity, and decision surfaces.
+  searchable collection list, source explorer, governed scope creation, local file selection, and a
+  bounded content preview for Markdown, text, JSON, and CSV files. A readable source can be attached
+  explicitly to Chat; PDF and Office sources remain metadata-only until document ingestion exists.
+  Skills provides a shared session catalog and complete editor for ownership, activation,
+  instructions, output contracts, and declared dependencies. Typing `/` in Chat opens the enabled
+  Skill catalog with keyboard navigation. The selected method is included explicitly in that
+  message without granting its declared dependencies. Projects now owns a searchable project folder
+  list, active-workspace detail, add/select flow, and an expandable view of the saved folder
+  snapshot; Cowork exposes objective, milestone, activity, and decision surfaces.
 - The selected project workspace is shared through the project module's Zustand store and persisted
   in origin-scoped IndexedDB under the authenticated user's identifier. On supported desktop
   Chromium browsers, Projects opens the operating system's folder chooser through the File System
@@ -95,15 +99,20 @@ minimal vertical connection plus the first release `0.1` identity slice.
   timestamps. Added, removed, or modified entries produce a prominent Chat warning with review and
   accept-current-structure actions. Generated or dependency-heavy directories such as `.git`,
   `node_modules`, `dist`, and `target` are not traversed, and no file content is copied into the
-  snapshot.
+  snapshot. The same expandable snapshot is available from Chat's Project context panel. A folder
+  captured for the first time is treated as the accepted baseline, so entering Chat does not report
+  a change immediately; an existing or restored workspace is still checked before reuse.
 - Preview records and newly created client drafts are labeled explicitly. Calendar drafts never
-  execute, selected Vault files are not uploaded or indexed, Skill drafts are not published, and
-  Project/Cowork execution controls remain inactive until their authoritative backend and Companion
-  APIs are implemented. The browser workspace bridge can enumerate metadata only after an explicit
-  folder selection; it does not grant the model, backend, Cowork, commands, or editing tools access
-  to file contents. Persistent folder handles require Chrome or Edge on HTTPS or localhost. Firefox
-  and Safari remain unsupported until their platform contracts or the native Companion provide an
-  equivalent reusable directory capability.
+  execute, Vault files are not indexed, Skill drafts are not published, and Project/Cowork execution
+  controls remain inactive until their authoritative backend and Companion APIs are implemented.
+  Local Vault source content is read only for supported text formats and only in current memory; if
+  the user attaches it to Chat, a bounded excerpt is deliberately sent inside each new message to the
+  selected provider and displayed as message provenance. Detaching stops new inclusion; already sent
+  excerpts remain in that conversation's history. The browser workspace bridge can enumerate
+  metadata only after an explicit folder selection; it does not grant the model, backend, Cowork,
+  commands, or editing tools access to workspace file contents. Persistent folder handles require
+  Chrome or Edge on HTTPS or localhost. Firefox and Safari remain unsupported until their platform
+  contracts or the native Companion provide an equivalent reusable directory capability.
 - Settings now uses a responsive two-column workspace layout with sticky section navigation on
   desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
   preferences, provider, and usage components remain the owners of their implemented behavior.
@@ -205,10 +214,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   is shown in a subtle live trace labelled as not saved; the trace is cleared at the terminal event
   and excluded from persistence and future context. When disabled, Nexo asks the provider not to
   generate it and discards any reasoning a model still emits. A minimized resource rail keeps the
-  governed implementation plan, Agent tasks, generated artifacts, and media oriented at the right
-  edge and expands the selected section on demand. The conversation list has the matching behavior:
-  it minimizes to a compact left rail with expand and new-conversation actions, preserves the active
-  conversation, and becomes an overlay drawer on compact screens so it never consumes message space.
+  selected Project tree, attached Vault sources, governed implementation plan, Agent tasks,
+  generated artifacts, and media oriented at the right edge and expands the selected section on
+  demand. The expanded conversation list remains a scroll-owning left panel and becomes an overlay
+  drawer on compact screens. When minimized it disappears completely, preserves the active
+  conversation, and is reopened from a compact header control instead of consuming width as a rail.
   Capabilities without a connected runtime remain explicit previews or empty states instead of
   suggesting work was executed.
 - A unified security audit trail is recorded in `audit_event` and inspectable only by an Owner at

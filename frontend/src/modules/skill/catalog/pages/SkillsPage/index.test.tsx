@@ -1,10 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
+import { builtInSkills, useSkillCatalogStore } from "../../stores/useSkillCatalogStore";
 import { SkillsPage } from "./index";
 
 describe("SkillsPage", () => {
+  beforeEach(() => useSkillCatalogStore.setState({ skills: builtInSkills }));
+
   it("creates a governed session Skill draft", async () => {
     render(<ThemeProvider theme={darkTheme}><SkillsPage /></ThemeProvider>);
 
@@ -16,5 +19,6 @@ describe("SkillsPage", () => {
 
     expect(await screen.findByText("Architecture review")).toBeInTheDocument();
     expect(screen.getByText("Session draft")).toBeInTheDocument();
+    expect(useSkillCatalogStore.getState().skills[0].command).toBe("architecture-review");
   });
 });

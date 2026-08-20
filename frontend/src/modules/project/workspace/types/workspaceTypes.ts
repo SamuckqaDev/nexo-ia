@@ -41,11 +41,13 @@ export type WorkspaceState = {
   hydrationStatus: WorkspaceHydrationStatus;
   persistenceError: string | null;
   workspaceCheck: WorkspaceCheck;
+  skipNextWorkspaceCheck: boolean;
   initialize: (ownerId: string) => Promise<void>;
-  registerWorkspace: (workspace: ProjectWorkspace) => void;
+  registerWorkspace: (workspace: ProjectWorkspace, snapshotCapturedAt?: string) => void;
   selectWorkspace: (workspaceId: string | null) => void;
   forgetWorkspace: (workspaceId: string) => Promise<void>;
   setWorkspaceCheck: (check: WorkspaceCheck) => void;
+  consumeWorkspaceCheckSkip: () => void;
 };
 
 export type WorkspaceSwitcherProps = {

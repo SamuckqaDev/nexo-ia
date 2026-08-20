@@ -84,6 +84,12 @@ publishing a Skill never shares its author's Vaults, Workspaces, memories, secre
 devices, or previous outputs. Required resources are resolved again for the current principal and run
 through access control, the Privacy Gateway, and the Permission Engine.
 
+The current frontend preview supports explicit activation by typing `/` in Chat. Selecting a Skill
+adds its bounded method and expected output to that message and records a visible Skill badge on the
+rendered user turn. This makes the method usable with the current provider without pretending that
+publication, trust evaluation, dependency authorization, automatic discovery, or the governed Skill
+runtime is already implemented.
+
 ## Context minimization and audit
 
 The Context Assembler selects only relevant authorized content within explicit token and privacy

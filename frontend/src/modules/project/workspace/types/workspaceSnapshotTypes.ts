@@ -40,3 +40,16 @@ export type WorkspaceSnapshotDifference = {
   modified: string[];
   truncated: boolean;
 };
+
+export type WorkspaceTreeNode = {
+  path: string;
+  name: string;
+  kind: WorkspaceEntryKind;
+  size: number | null;
+  children: WorkspaceTreeNode[];
+};
+
+export type WorkspaceTreeProps = {
+  snapshot: WorkspaceSnapshot;
+  compact?: boolean;
+};

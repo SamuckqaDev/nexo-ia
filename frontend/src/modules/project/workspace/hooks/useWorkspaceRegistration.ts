@@ -58,14 +58,15 @@ export function useWorkspaceRegistration(): WorkspaceRegistrationResult {
     setIsPicking(true);
     setError(null);
     return chooseLocalWorkspaceDirectory()
-      .then((directoryHandle: FileSystemDirectoryHandle): Promise<ProjectWorkspace> =>
-        listWorkspaceRecords(ownerId).then((records: StoredWorkspaceRecord[]): Promise<ProjectWorkspace> =>
-          matchingWorkspace(records, directoryHandle).then((existing: StoredWorkspaceRecord | null): Promise<ProjectWorkspace> => {
+      .then((directoryHandle: FileSystemDirectoryHandle): Promise<{ workspace: ProjectWorkspace; snapshotCapturedAt?: string }> =>
+        listWorkspaceRecords(ownerId).then((records: StoredWorkspaceRecord[]): Promise<{ workspace: ProjectWorkspace; snapshotCapturedAt?: string }> =>
+          matchingWorkspace(records, directoryHandle).then((existing: StoredWorkspaceRecord | null): Promise<{ workspace: ProjectWorkspace; snapshotCapturedAt?: string }> => {
             if (existing) {
-              return saveActiveWorkspaceId(ownerId, existing.workspace.id).then((): ProjectWorkspace => existing.workspace);
+              return saveActiveWorkspaceId(ownerId, existing.workspace.id)
+                .then(() => ({ workspace: existing.workspace }));
             }
 
-            return captureWorkspaceSnapshot(directoryHandle).then((snapshot: WorkspaceSnapshot): Promise<ProjectWorkspace> => {
+            return captureWorkspaceSnapshot(directoryHandle).then((snapshot: WorkspaceSnapshot): Promise<{ workspace: ProjectWorkspace; snapshotCapturedAt: string }> => {
               const workspace: ProjectWorkspace = {
                 id: crypto.randomUUID(),
                 ownerId,
@@ -85,13 +86,13 @@ export function useWorkspaceRegistration(): WorkspaceRegistrationResult {
                 pendingSnapshot: null
               };
               return Promise.all([saveWorkspaceRecord(record), saveActiveWorkspaceId(ownerId, workspace.id)])
-                .then((): ProjectWorkspace => workspace);
+                .then(() => ({ workspace, snapshotCapturedAt: snapshot.capturedAt }));
             });
           })
         )
       )
-      .then((workspace: ProjectWorkspace): ProjectWorkspace => {
-        registerWorkspace(workspace);
+      .then(({ workspace, snapshotCapturedAt }): ProjectWorkspace => {
+        registerWorkspace(workspace, snapshotCapturedAt);
         show(`${workspace.name} is now the active workspace.`, { variant: "success" });
         return workspace;
       })

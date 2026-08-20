@@ -3,7 +3,7 @@ import styled from "styled-components";
 export const Layout = styled.section<{ $sidebarOpen: boolean }>`
   position: relative;
   display: grid;
-  grid-template-columns: ${({ $sidebarOpen }) => $sidebarOpen ? "15rem minmax(0, 1fr)" : "3.5rem minmax(0, 1fr)"};
+  grid-template-columns: ${({ $sidebarOpen }) => $sidebarOpen ? "15rem minmax(0, 1fr)" : "minmax(0, 1fr)"};
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -36,13 +36,13 @@ export const ChatContent = styled.div`
 export const ConversationBody = styled.div<{ $contextOpen: boolean }>`
   position: relative;
   display: grid;
-  grid-template-columns: ${({ $contextOpen }) => $contextOpen ? "minmax(0, 1fr) 17rem" : "minmax(0, 1fr) 3.5rem"};
+  grid-template-columns: ${({ $contextOpen }) => $contextOpen ? "minmax(0, 1fr) 20rem" : "minmax(0, 1fr) 3.5rem"};
   min-width: 0;
   min-height: 0;
   flex: 1;
 
   @media (max-width: 78rem) {
-    grid-template-columns: ${({ $contextOpen }) => $contextOpen ? "minmax(0, 1fr) 14.5rem" : "minmax(0, 1fr) 3.5rem"};
+    grid-template-columns: ${({ $contextOpen }) => $contextOpen ? "minmax(0, 1fr) 18rem" : "minmax(0, 1fr) 3.5rem"};
   }
 
   @media (max-width: 64rem) {
@@ -76,12 +76,47 @@ export const Header = styled.header`
 
   @media (max-width: 48rem) {
     flex-wrap: wrap;
-    padding-left: 7.2rem;
   }
 
   @media (max-width: 28rem) {
     align-items: stretch;
   }
+`;
+
+export const HeaderLeading = styled.div`
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+export const OpenConversations = styled.button`
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.38rem;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: 0.42rem 0.55rem;
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.primarySoft};
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover, &:focus-visible { border-color: ${({ theme }) => theme.colors.primary}; color: ${({ theme }) => theme.colors.primary}; }
+  @media (max-width: 34rem) { > span { display: none; } }
+`;
+
+export const OpenConversationsCount = styled.small`
+  display: grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: ${({ theme }) => theme.radius.round};
+  background: ${({ theme }) => theme.colors.surfaceStrong};
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 0.56rem;
 `;
 
 export const HeaderCopy = styled.div`

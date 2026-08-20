@@ -1,4 +1,5 @@
 import type { ProjectWorkspace, WorkspaceAccess, WorkspaceCheck, WorkspacePlatform } from "./workspaceTypes";
+import type { WorkspaceSnapshot } from "./workspaceSnapshotTypes";
 
 export type WorkspaceRegistrationResult = {
   isSupported: boolean;
@@ -20,4 +21,11 @@ export type WorkspaceChangeNoticeProps = {
   onManage: () => void;
   onRecheck: () => void;
   onAccept: () => void;
+};
+
+export type WorkspaceSnapshotStatus = "idle" | "loading" | "ready" | "error";
+
+export type WorkspaceSnapshotResult = {
+  snapshot: WorkspaceSnapshot | null;
+  status: WorkspaceSnapshotStatus;
 };
