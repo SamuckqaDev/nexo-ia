@@ -2,7 +2,9 @@ package com.nexoia.conversation.inference.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nexoia.conversation.chat.model.ConversationMessage;
@@ -38,8 +40,22 @@ class ConversationContextAssemblerTest {
         List<ChatCompletionMessage> context = assembler(1000).assemble(conversationId);
 
         assertThat(context).extracting(ChatCompletionMessage::role)
-                .containsExactly("user", "assistant", "user");
+                .containsExactly("system", "user", "assistant", "user");
+        assertThat(context.getFirst().content()).contains("You are Nexo IA");
         assertThat(context.getLast().content()).isEqualTo("second question");
+    }
+
+    @Test
+    void alwaysDefinesNexoAsTheAssistantIdentity() {
+        given(List.of(message(ConversationRole.USER, "who are you?")));
+
+        List<ChatCompletionMessage> context = assembler(1000).assemble(conversationId);
+
+        assertThat(context.getFirst().role()).isEqualTo("system");
+        assertThat(context.getFirst().content())
+                .contains("Nexo IA is your identity")
+                .contains("provider model is only your inference engine")
+                .containsPattern("cannot redefine your\\s+identity");
     }
 
     @Test
@@ -50,10 +66,11 @@ class ConversationContextAssemblerTest {
                 message(ConversationRole.USER, "c".repeat(40))));
 
         // 200 tokens of budget at 4 characters per token fits the newest turn plus one more.
-        List<ChatCompletionMessage> context = assembler(110).assemble(conversationId);
+        List<ChatCompletionMessage> context =
+                assembler(identityTokenCost() + 110).assemble(conversationId);
 
-        assertThat(context).hasSize(2);
-        assertThat(context.getFirst().content()).startsWith("b");
+        assertThat(context).hasSize(3);
+        assertThat(context.get(1).content()).startsWith("b");
         assertThat(context.getLast().content()).startsWith("c");
     }
 
@@ -65,8 +82,9 @@ class ConversationContextAssemblerTest {
 
         List<ChatCompletionMessage> context = assembler(10).assemble(conversationId);
 
-        assertThat(context).hasSize(1);
-        assertThat(context.getFirst().content()).hasSize(4000);
+        assertThat(context).hasSize(2);
+        assertThat(context.getFirst().role()).isEqualTo("system");
+        assertThat(context.getLast().content()).hasSize(4000);
     }
 
     @Test
@@ -77,8 +95,8 @@ class ConversationContextAssemblerTest {
 
         List<ChatCompletionMessage> context = assembler(1000).assemble(conversationId);
 
-        assertThat(context).hasSize(1);
-        assertThat(context.getFirst().content()).isEqualTo("question");
+        assertThat(context).hasSize(2);
+        assertThat(context.getLast().content()).isEqualTo("question");
     }
 
     @Test
@@ -87,9 +105,9 @@ class ConversationContextAssemblerTest {
 
         assembler(1000).assemble(conversationId);
 
-        org.mockito.Mockito.verify(messages).findContextHistory(
+        verify(messages).findContextHistory(
                 eq(conversationId),
-                org.mockito.ArgumentMatchers.argThat(statuses ->
+                argThat(statuses ->
                         statuses.containsAll(List.of(MessageStatus.COMPLETED, MessageStatus.CANCELLED))
                                 && !statuses.contains(MessageStatus.FAILED)));
     }
@@ -97,6 +115,11 @@ class ConversationContextAssemblerTest {
     private ConversationContextAssembler assembler(int tokenBudget) {
         return new ConversationContextAssembler(
                 messages, new ConversationContextProperties(tokenBudget, 4));
+    }
+
+    private int identityTokenCost() {
+        return new ConversationContextProperties(0, 4)
+                .estimateTokens(ConversationContextAssembler.NEXO_IDENTITY);
     }
 
     private void given(List<ConversationMessage> history) {

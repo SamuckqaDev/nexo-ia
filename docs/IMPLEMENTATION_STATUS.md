@@ -44,6 +44,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   trusted proxy boundary.
 - SPA CSRF cookie/header flow and standardized JSON responses for unauthenticated and denied
   requests.
+- REST and SSE chat requests share one refresh coordinator. If the short-lived access token expires
+  before a stream starts, Nexo rotates the refresh token once and safely retries the message request;
+  a second `401` opens the in-place re-authentication modal without printing the technical session
+  error below a previous answer.
 - React first-run Owner form, login form, authenticated profile state, and logout flow using Axios,
   TanStack Query, React Hook Form, and Zod.
 - Password recovery and authenticated password change with reset-token expiry, password reuse
@@ -208,9 +212,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Persistence runs in two short transactions with the stream between them, so no database connection
   or conversation lock is held while tokens arrive. Streaming runs on virtual threads.
 - Conversation history is assembled within an explicit, configurable token budget that drops the
-  oldest turns first, always sends the newest message, and excludes failed generations. Provider
-  reasoning is never persisted in conversation messages, so it cannot enter a later request's
-  history even when its temporary display is enabled.
+  oldest turns first, always sends the newest message, and excludes failed generations. Every model
+  request begins with a budgeted `system` message defining the assistant as Nexo IA, treating the
+  provider model only as its inference engine, following the user's language, and forbidding
+  invented access or permissions. Provider reasoning is never persisted in conversation messages,
+  so it cannot enter a later request's history even when its temporary display is enabled.
 - `POST /conversations/{id}/messages/stream` streams typed `started`, `thinking`, `token`, `usage`,
   `completed`, `cancelled`, and `error` events over SSE, with a companion cancel endpoint. A
   `thinking` event is emitted only for a request that opted in. The request is reserved before the
@@ -280,7 +286,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- One hundred and two passing default backend tests and one hundred passing frontend tests, including cross-user
+- One hundred and three passing default backend tests and one hundred and two passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was

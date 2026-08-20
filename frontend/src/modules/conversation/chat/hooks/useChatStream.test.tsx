@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import { ApiError } from "../../../../shared/api/ApiError";
 import type { ChatStreamHandlers } from "../types/chatTypes";
 import { resetChatStreams, useChatStream } from "./useChatStream";
 
@@ -68,5 +69,23 @@ describe("useChatStream", () => {
     expect(result.current.startedAt).toBe(startedAt);
     expect(result.current.streamingContent).toBe("Working");
     expect(requestSignal().aborted).toBe(false);
+  });
+
+  it("leaves session expiry to re-authentication instead of printing it inside the chat", async () => {
+    streamMessageMock.mockRejectedValue(new ApiError(
+      401, "An authenticated session is required", 401));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => useChatStream(firstConversation, []),
+      { wrapper }
+    );
+
+    act((): void => result.current.send("Keep this out of the message list"));
+
+    await waitFor(() => expect(result.current.phase).toBe("failed"));
+    expect(result.current.errorMessage).toBeNull();
   });
 });

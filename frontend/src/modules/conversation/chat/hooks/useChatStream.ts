@@ -175,10 +175,14 @@ export const useChatStream = (
       })
       .catch((error: unknown): void => {
         if (controller.signal.aborted) return;
-        updateStream(conversationId, {
-          errorMessage: error instanceof ApiError
+        const authenticationExpired: boolean = error instanceof ApiError && error.status === 401;
+        const streamErrorMessage: string | null = authenticationExpired
+          ? null
+          : error instanceof ApiError
             ? error.message
-            : "The connection to Nexo IA was lost before the answer finished"
+            : "The connection to Nexo IA was lost before the answer finished";
+        updateStream(conversationId, {
+          errorMessage: streamErrorMessage
         });
         settle(conversationId, error instanceof ApiError ? "failed" : "disconnected");
       });

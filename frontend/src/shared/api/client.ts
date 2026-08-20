@@ -49,6 +49,13 @@ const refreshTokens = (): Promise<void> => {
   return refreshInFlight;
 };
 
+/** Shares one refresh operation across REST calls and long-lived chat stream requests. */
+export const refreshAuthenticatedSession = (): Promise<void> => refreshTokens()
+  .catch((error: unknown) => {
+    useSessionExpiredStore.getState().open();
+    return Promise.reject(error);
+  });
+
 apiClient.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => {
     frontLog(`HTTP ← ${response.status} ${response.config.url ?? ""}`);
@@ -73,12 +80,10 @@ apiClient.interceptors.response.use(
 
     if (status === 401 && isRefreshableRequest(request)) {
       request._nexoRefreshAttempted = true;
-      return refreshTokens()
-        .then(() => apiClient.request(request))
-        .catch(() => {
-          useSessionExpiredStore.getState().open();
-          return Promise.reject(normalizedError);
-        });
+      return refreshAuthenticatedSession().then(
+        () => apiClient.request(request),
+        () => Promise.reject(normalizedError)
+      );
     }
 
     if (status === 401 && request?._nexoRefreshAttempted) {

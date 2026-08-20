@@ -1,4 +1,6 @@
 import { ApiError } from "../../../../shared/api/ApiError";
+import { refreshAuthenticatedSession } from "../../../../shared/api/client";
+import { useSessionExpiredStore } from "../../../../shared/auth/sessionExpiredStore";
 import type { BaseResponse } from "../../../../shared/types/apiTypes";
 import { streamEventSchema } from "../schemas/streamEventSchemas";
 import type { ChatStreamHandlers, StreamEvent } from "../types/chatTypes";
@@ -83,12 +85,13 @@ const rejectWithBackendError = (response: Response): Promise<never> =>
       ? error
       : new ApiError(response.status, "Nexo IA could not start this request", response.status)));
 
-export const streamMessage = (
+const requestStream = (
   conversationId: string,
   content: string,
   thinkingEnabled: boolean,
   handlers: ChatStreamHandlers,
-  signal: AbortSignal
+  signal: AbortSignal,
+  canRefresh: boolean
 ): Promise<void> =>
   fetch(`/api/v1/conversations/${conversationId}/messages/stream`, {
     method: "POST",
@@ -100,6 +103,23 @@ export const streamMessage = (
       "X-XSRF-TOKEN": csrfToken()
     },
     body: JSON.stringify({ content, thinkingEnabled })
-  }).then((response: Response) => response.ok
-    ? readFrames(response, handlers)
-    : rejectWithBackendError(response));
+  }).then((response: Response): Promise<void> => {
+    if (response.status === 401 && canRefresh) {
+      return refreshAuthenticatedSession().then(
+        (): Promise<void> => requestStream(
+          conversationId, content, thinkingEnabled, handlers, signal, false),
+        (): Promise<never> => rejectWithBackendError(response)
+      );
+    }
+    if (response.status === 401) useSessionExpiredStore.getState().open();
+    return response.ok ? readFrames(response, handlers) : rejectWithBackendError(response);
+  });
+
+export const streamMessage = (
+  conversationId: string,
+  content: string,
+  thinkingEnabled: boolean,
+  handlers: ChatStreamHandlers,
+  signal: AbortSignal
+): Promise<void> => requestStream(
+  conversationId, content, thinkingEnabled, handlers, signal, true);

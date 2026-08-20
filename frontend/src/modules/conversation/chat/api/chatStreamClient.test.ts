@@ -2,6 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { streamMessage } from "./chatStreamClient";
 import type { ChatStreamHandlers } from "../types/chatTypes";
 
+const { refreshAuthenticatedSessionMock } = vi.hoisted(() => ({
+  refreshAuthenticatedSessionMock: vi.fn()
+}));
+
+vi.mock("../../../../shared/api/client", () => ({
+  refreshAuthenticatedSession: refreshAuthenticatedSessionMock
+}));
+
 const handlers: ChatStreamHandlers = {
   onStarted: vi.fn(),
   onThinking: vi.fn(),
@@ -53,5 +61,32 @@ describe("streamMessage", () => {
       messageId,
       content: "Ready"
     }));
+  });
+
+  it("refreshes an expired session once before retrying a rejected stream", async () => {
+    const messageId = "23ab2ec1-9fc5-4dd9-a18c-6cc8b62130c5";
+    refreshAuthenticatedSessionMock.mockResolvedValue(undefined);
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        code: 401,
+        message: "An authenticated session is required",
+        data: []
+      }), { status: 401, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(
+        `event: completed\ndata: {"messageId":"${messageId}","content":"Olá","completedAt":"2026-08-20T22:00:51Z"}`,
+        { status: 200, headers: { "Content-Type": "text/event-stream" } }
+      ));
+
+    await streamMessage(
+      "33ab2ec1-9fc5-4dd9-a18c-6cc8b62130c6",
+      "oi",
+      false,
+      handlers,
+      new AbortController().signal
+    );
+
+    expect(refreshAuthenticatedSessionMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(handlers.onCompleted).toHaveBeenCalledWith(expect.objectContaining({ content: "Olá" }));
   });
 });
