@@ -2,13 +2,15 @@ import styled from "styled-components";
 
 export const Panel = styled.section`
   display: grid;
+  align-content: start;
   gap: ${({ theme }) => theme.spacing.lg};
   width: 100%;
-  margin-top: ${({ theme }) => theme.spacing.xl};
+  min-height: 100vh;
   padding: ${({ theme }) => theme.spacing.lg};
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.colors.surfaceStrong};
+
+  @media (max-width: 40rem) {
+    padding: ${({ theme }) => theme.spacing.md};
+  }
 `;
 
 export const Header = styled.header`

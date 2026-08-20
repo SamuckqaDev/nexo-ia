@@ -65,6 +65,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - On compact screens the same sidebar becomes an accessible off-canvas panel opened by a floating
   menu control, preserving navigation and account actions without restoring a page header. Desktop
   navigation uses an emphasized active-item rail and a dedicated edge collapse control.
+- Every routed workspace surface now owns the complete area beside the sidebar. The global shell no
+  longer wraps route content in padding or a centered frame: Chat is edge-to-edge, while Home,
+  Settings, Administration, and planned-capability states apply only their own responsive internal
+  spacing. Outer page borders, rounded shells, and drop shadows no longer frame the central area.
 - Brand color semantics are reflected in the interface: cyan identifies Nexo capabilities and
   processing, while coral highlights the authenticated person, decisions, notifications, planned
   states, and secondary navigation accents.
@@ -75,8 +79,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   frames Nexo as an objective-driven workspace that will analyze, plan, implement, validate, and
   report work under visible permissions and evidence. A request entered in the Home command surface
   is transferred through short-lived client state into the Chat composer without putting private
-  prompt content in the URL or persistent browser storage. Plan, Build, and Cowork remain visibly
-  unavailable until their documented runtimes exist.
+  prompt content in the URL or persistent browser storage. The command surface no longer presents an
+  extra mode strip above the request field; future Plan, Build, and Cowork runtimes remain mapped in
+  the capability area instead of appearing as inactive composer controls.
 - Settings now has direct Profile, Security, Providers, and Usage navigation. Home provider and usage
   actions open their exact subsection, and Usage exposes a detailed, honest empty-state surface for
   token, request, latency, cost, provider, model, capability, and processing-location breakdowns.

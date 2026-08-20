@@ -53,8 +53,6 @@ import {
   ProviderDetails,
   ProviderState,
   SectionHead,
-  WorkMode,
-  WorkModes,
   WorkspaceSection,
   Stack,
   StatBody,
@@ -99,12 +97,6 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
             validate and report with visible permissions and evidence.
           </Summary>
           <CommandComposer onSubmit={startRequest}>
-            <WorkModes aria-label="Work mode">
-              <WorkMode type="button" $active>Ask</WorkMode>
-              <WorkMode type="button" disabled title="Plan mode arrives with the Agent platform">Plan</WorkMode>
-              <WorkMode type="button" disabled title="Build mode requires an authorized Project runtime">Build</WorkMode>
-              <WorkMode type="button" disabled title="Cowork arrives in release 0.6">Cowork</WorkMode>
-            </WorkModes>
             <CommandInput
               aria-label="Describe what you want Nexo to do"
               placeholder="Ask a question, explain a problem, or describe what you want to build…"

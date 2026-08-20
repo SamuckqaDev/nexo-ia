@@ -3,14 +3,16 @@ import styled from "styled-components";
 export const Layout = styled.section`
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr);
-  height: max(38rem, calc(100dvh - 7.5rem));
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.md};
+  width: 100%;
+  height: 100dvh;
   background:
     radial-gradient(circle at 85% 0, ${({ theme }) => theme.colors.surfaceAccent}, transparent 26rem),
     ${({ theme }) => theme.colors.surfaceStrong};
-  box-shadow: ${({ theme }) => theme.shadow};
   overflow: hidden;
+
+  @media (max-width: 56rem) {
+    height: calc(100dvh - 4.5rem);
+  }
 
   @media (max-width: 48rem) {
     grid-template-columns: 1fr;

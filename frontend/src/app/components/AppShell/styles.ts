@@ -204,9 +204,9 @@ export const MobileScrim = styled.button`
 export const Main = styled.main`
   width: 100%;
   min-height: 100vh;
-  padding: ${({ theme }) => theme.spacing.lg};
+  overflow: hidden;
 
   @media (max-width: 40rem) {
-    padding: 5rem ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.lg};
+    padding-top: 4.5rem;
   }
 `;

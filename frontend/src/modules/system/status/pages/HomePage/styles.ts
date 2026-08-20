@@ -6,6 +6,11 @@ export const Page = styled.section`
   min-height: calc(100vh - ${({ theme }) => theme.spacing.xl});
   gap: ${({ theme }) => theme.spacing.lg};
   align-content: start;
+  padding: ${({ theme }) => theme.spacing.lg};
+
+  @media (max-width: 40rem) {
+    padding: ${({ theme }) => theme.spacing.md};
+  }
 `;
 
 /* ---------- hero ---------- */
@@ -63,26 +68,6 @@ export const CommandComposer = styled.form`
   border-radius: ${({ theme }) => theme.radius.md};
   background: ${({ theme }) => theme.colors.background};
   box-shadow: inset 0 0 0 1px ${({ theme }) => theme.colors.lineStrong};
-`;
-
-export const WorkModes = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-`;
-
-export const WorkMode = styled.button<{ $active?: boolean }>`
-  border: 0;
-  border-radius: ${({ theme }) => theme.radius.round};
-  padding: 0.4rem 0.65rem;
-  background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
-  color: ${({ theme, $active }) => $active ? theme.colors.primarySoft : theme.colors.textSubtle};
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
-
-  &:disabled { opacity: 0.55; }
 `;
 
 export const CommandInput = styled.textarea`
