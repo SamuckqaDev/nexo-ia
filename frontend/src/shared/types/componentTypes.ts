@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
 import type { Icon } from "@phosphor-icons/react";
 
 export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
@@ -26,4 +26,41 @@ export type SelectProps<T extends string = string> = SelectHTMLAttributes<HTMLSe
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: Icon;
   variant?: "primary" | "outline";
+};
+
+export type WorkspacePageProps = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: Icon;
+  actions?: ReactNode;
+  children: ReactNode;
+};
+
+export type WorkspacePanelProps = {
+  title?: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  as?: "section" | "aside";
+};
+
+export type WorkspaceBadgeProps = {
+  children: ReactNode;
+  tone?: "default" | "positive" | "attention";
+};
+
+export type SegmentedOption<T extends string> = { label: string; value: T };
+export type WorkspaceSegmentedControlProps<T extends string> = {
+  label: string;
+  value: T;
+  options: Array<SegmentedOption<T>>;
+  onChange: (value: T) => void;
+};
+
+export type WorkspaceEmptyStateProps = {
+  icon: Icon;
+  title: string;
+  description: string;
+  action?: ReactNode;
 };

@@ -69,18 +69,25 @@ minimal vertical connection plus the first release `0.1` identity slice.
   longer wraps route content in padding or a centered frame: Chat is edge-to-edge, while Home,
   Settings, Administration, and planned-capability states apply only their own responsive internal
   spacing. Outer page borders, rounded shells, and drop shadows no longer frame the central area.
-- Projects, Knowledge Vaults, Skills, Cowork, and Tasks/calendar now have distinct planned-workspace
-  surfaces derived from the feature catalog instead of one generic empty placeholder. Each surface
-  explains its purpose, target release, capability groups, authorization/work/verification flow,
-  and the absence of an execution runtime; its only active handoff returns to the implemented Chat.
+- Projects, Knowledge Vaults, Skills, Cowork, and Tasks/calendar now have dedicated product
+  workspaces instead of a shared placeholder. Tasks/calendar provides navigable month and agenda
+  views, occurrence inspection, and session-only schedule drafts. Knowledge Vaults provides a
+  searchable collection list, source explorer, governed scope creation, and local file selection.
+  Skills provides a filterable library and a complete editor for ownership, activation,
+  instructions, output contracts, and declared dependencies. Projects and Cowork expose their own
+  authorization, capability, objective, milestone, activity, and decision surfaces.
+- Preview records and newly created client drafts are labeled explicitly. Calendar drafts never
+  execute, selected Vault files are not uploaded or indexed, Skill drafts are not published, and
+  Project/Cowork controls never access the computer until their authoritative backend and Companion
+  APIs are implemented.
 - Settings now uses a responsive two-column workspace layout with sticky section navigation on
   desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
   preferences, provider, and usage components remain the owners of their implemented behavior.
 - The authentication surface now communicates the product promise through Understand, Build, and
   Stay in control pillars on desktop while preserving a focused, overflow-free form on mobile.
-- Chat, Settings, and Administration are route-split with React lazy loading and the shared Nexo
-  loading state. The production entry bundle was reduced from approximately 803 kB to 457 kB while
-  those larger feature surfaces load only when opened.
+- Home, Chat, Projects, Cowork, Calendar, Vaults, Skills, Settings, and Administration are
+  route-split with React lazy loading and the shared Nexo loading state so each business workspace
+  loads only when opened.
 - Brand color semantics are reflected in the interface: cyan identifies Nexo capabilities and
   processing, while coral highlights the authenticated person, decisions, notifications, planned
   states, and secondary navigation accents.

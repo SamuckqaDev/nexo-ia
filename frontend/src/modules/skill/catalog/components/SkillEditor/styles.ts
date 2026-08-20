@@ -1,0 +1,8 @@
+import styled from "styled-components";
+
+export const EditorForm = styled.form`display:grid;gap:${({ theme }) => theme.spacing.md};padding:${({ theme }) => theme.spacing.md};`;
+export const TwoColumns = styled.div`display:grid;grid-template-columns:1.25fr .75fr;gap:${({ theme }) => theme.spacing.sm};@media(max-width:44rem){grid-template-columns:1fr;}`;
+export const Field = styled.div`display:grid;gap:.4rem;label{font-size:.84rem;font-weight:600;}small{color:${({ theme }) => theme.colors.textSubtle};font-size:.65rem;line-height:1.45;}span{color:${({ theme }) => theme.colors.danger};font-size:.75rem;}`;
+export const Textarea = styled.textarea<{ $large?: boolean }>`min-height:${({ $large }) => ($large ? "12rem" : "6rem")};resize:vertical;border:1px solid ${({ theme }) => theme.colors.lineStrong};border-radius:${({ theme }) => theme.radius.control};padding:${({ theme }) => theme.spacing.md};background:${({ theme }) => theme.colors.background};color:${({ theme }) => theme.colors.text};font:inherit;font-size:.76rem;line-height:1.6;outline:none;&:focus{border-color:${({ theme }) => theme.colors.primary};box-shadow:0 0 0 3px ${({ theme }) => theme.colors.line};}`;
+export const Notice = styled.div`display:flex;align-items:flex-start;gap:${({ theme }) => theme.spacing.sm};padding:${({ theme }) => theme.spacing.sm};border-radius:${({ theme }) => theme.radius.control};background:${({ theme }) => theme.colors.surfaceAccent};color:${({ theme }) => theme.colors.primary};span{color:${({ theme }) => theme.colors.textMuted};font-size:.66rem;line-height:1.55;}`;
+export const FormActions = styled.div`display:flex;justify-content:flex-end;`;
