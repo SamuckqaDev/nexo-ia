@@ -26,7 +26,15 @@ import {
   Title
 } from "./styles";
 
-export function WorkspacePage({ eyebrow, title, description, icon: Icon, actions, children }: WorkspacePageProps): ReactElement {
+export function WorkspacePage({
+  eyebrow,
+  title,
+  description,
+  icon: Icon,
+  contentMode = "scroll",
+  actions,
+  children
+}: WorkspacePageProps): ReactElement {
   return (
     <Page>
       <Header>
@@ -36,7 +44,7 @@ export function WorkspacePage({ eyebrow, title, description, icon: Icon, actions
         </HeaderCopy>
         {actions && <HeaderActions>{actions}</HeaderActions>}
       </Header>
-      <ScrollArea>{children}</ScrollArea>
+      <ScrollArea $contained={contentMode === "contained"}>{children}</ScrollArea>
     </Page>
   );
 }

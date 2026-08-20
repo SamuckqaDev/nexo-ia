@@ -15,13 +15,14 @@ export const Page = styled.section`
     ${({ theme }) => theme.colors.background};
 `;
 
-export const ScrollArea = styled.div`
+export const ScrollArea = styled.div<{ $contained: boolean }>`
   display: grid;
   min-width: 0;
   min-height: 0;
-  align-content: start;
+  grid-template-rows: ${({ $contained }) => $contained ? "auto minmax(0, 1fr)" : "none"};
+  align-content: ${({ $contained }) => $contained ? "stretch" : "start"};
   gap: ${({ theme }) => theme.spacing.lg};
-  overflow: auto;
+  overflow: ${({ $contained }) => $contained ? "hidden" : "auto"};
   overscroll-behavior: contain;
   padding: 0 0.2rem 0.2rem 0;
   scrollbar-gutter: stable;
@@ -61,6 +62,10 @@ export const HeaderIcon = styled.span`
   border-radius: ${({ theme }) => theme.radius.control};
   background: ${({ theme }) => theme.colors.surfaceAccent};
   color: ${({ theme }) => theme.colors.primary};
+
+  @media (max-width: 40rem) {
+    display: none;
+  }
 `;
 
 export const Title = styled.h1`

@@ -5,6 +5,7 @@ import type { ConversationMode, StreamPhase } from "./chatTypes";
 export type ConversationContextSection = "workspace" | "vaults" | "plan" | "artifacts" | "media" | "tasks";
 
 export type ConversationContextPanelProps = {
+  conversationId: string | null;
   mode: ConversationMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;

@@ -33,6 +33,7 @@ export type WorkspacePageProps = {
   title: string;
   description: string;
   icon: Icon;
+  contentMode?: "scroll" | "contained";
   actions?: ReactNode;
   children: ReactNode;
 };

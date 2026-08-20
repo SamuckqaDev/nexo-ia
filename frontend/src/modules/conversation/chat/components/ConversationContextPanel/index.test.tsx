@@ -1,16 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
+import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
 import { ConversationContextPanel } from "./index";
 
 const renderPanel = (mode: "chat" | "agent", open = true, onOpenChange = vi.fn()) => render(
   <ThemeProvider theme={darkTheme}>
-    <ConversationContextPanel mode={mode} open={open} onOpenChange={onOpenChange} onManageVaults={vi.fn()} onManageWorkspace={vi.fn()} />
+    <ConversationContextPanel conversationId="conversation-1" mode={mode} open={open} onOpenChange={onOpenChange} onManageVaults={vi.fn()} onManageWorkspace={vi.fn()} />
   </ThemeProvider>
 );
 
 describe("ConversationContextPanel", () => {
+  beforeEach(() => useImageGenerationStore.getState().reset());
+
   it("keeps the chat plan honest until Agent mode is selected", () => {
     renderPanel("chat");
 
@@ -48,5 +51,25 @@ describe("ConversationContextPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Media" }));
 
     expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  it("shows reported image progress, elapsed time and remaining estimate", () => {
+    useImageGenerationStore.getState().upsertJob({
+      id: "image-1",
+      conversationId: "conversation-1",
+      prompt: "A cyan architecture diagram",
+      status: "GENERATING",
+      progress: 42,
+      etaSeconds: 18,
+      startedAt: new Date().toISOString(),
+      errorMessage: null
+    });
+    renderPanel("chat");
+
+    fireEvent.click(screen.getByRole("tab", { name: /media/i }));
+
+    expect(screen.getByRole("progressbar", { name: /image generation progress/i })).toHaveValue(42);
+    expect(screen.getByText("42%")).toBeVisible();
+    expect(screen.getByText(/about 18s remaining/i)).toBeVisible();
   });
 });

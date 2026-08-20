@@ -9,7 +9,16 @@ export const workspaceSnapshotSchema = z.object({
     size: z.number().nonnegative().nullable(),
     lastModified: z.number().nonnegative().nullable()
   })),
-  truncated: z.boolean()
+  truncated: z.boolean(),
+  scan: z.object({
+    maxEntries: z.number().int().positive(),
+    maxDepth: z.number().int().positive(),
+    omissionCount: z.number().int().nonnegative(),
+    omissions: z.array(z.object({
+      path: z.string(),
+      reason: z.enum(["depth-limit", "entry-limit", "ignored-directory", "unreadable-entry"])
+    }))
+  }).optional()
 });
 
 const directoryHandleSchema = z.custom<FileSystemDirectoryHandle>((value: unknown): boolean => {

@@ -4,7 +4,6 @@ import com.nexoia.auth.session.security.NexoUserPrincipal;
 import com.nexoia.conversation.chat.dto.SendMessageRequest;
 import com.nexoia.conversation.inference.config.ModelStreamProperties;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
-import com.nexoia.conversation.inference.service.ModelRequestRegistry;
 import com.nexoia.conversation.inference.service.ModelRequestService;
 import com.nexoia.shared.api.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +27,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class ModelRequestController {
 
     private final ModelRequestService service;
-    private final ModelRequestRegistry registry;
     private final ExecutorService modelRequestExecutor;
     private final ModelStreamProperties properties;
 
@@ -51,10 +49,8 @@ public class ModelRequestController {
         SseEmitter emitter = new SseEmitter(properties.timeout().toMillis());
         UUID messageId = reservation.assistantMessageId();
 
-        emitter.onTimeout(() -> registry.requestCancellation(messageId));
-        emitter.onError(failure -> registry.requestCancellation(messageId));
         modelRequestExecutor.execute(() -> service.run(
-                reservation, new SseModelStreamListener(emitter, registry, messageId)));
+                reservation, new SseModelStreamListener(emitter, messageId)));
 
         return ResponseEntity.ok(emitter);
     }

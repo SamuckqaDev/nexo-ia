@@ -29,10 +29,10 @@ export const Picker = styled.select`
   }
 `;
 
-export const Status = styled.small`
+export const Status = styled.small<{ $error: boolean }>`
   overflow: hidden;
   max-width: 18rem;
-  color: ${({ theme }) => theme.colors.textSubtle};
+  color: ${({ theme, $error }) => $error ? theme.colors.danger : theme.colors.textSubtle};
   font-size: 0.58rem;
   text-overflow: ellipsis;
   white-space: nowrap;

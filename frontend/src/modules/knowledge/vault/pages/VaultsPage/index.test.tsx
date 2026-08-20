@@ -2,11 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
 import { beforeEach, describe, expect, it } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
-import { previewVaults, useVaultCatalogStore } from "../../stores/useVaultCatalogStore";
+import { useVaultCatalogStore } from "../../stores/useVaultCatalogStore";
 import { VaultsPage } from "./index";
 
 describe("VaultsPage", () => {
-  beforeEach(() => useVaultCatalogStore.setState({ vaults: previewVaults, attachedSourceIds: [] }));
+  beforeEach(() => {
+    useVaultCatalogStore.getState().reset();
+    useVaultCatalogStore.getState().initialize("00000000-0000-4000-8000-000000000101");
+  });
 
   it("creates a selectable session Vault draft", async () => {
     render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
@@ -23,10 +26,20 @@ describe("VaultsPage", () => {
   it("opens source knowledge and attaches readable content to Chat", () => {
     render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
 
-    fireEvent.click(screen.getByRole("button", { name: /PRODUCT_VISION.md/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Source: PRODUCT_VISION.md/i }));
     expect(screen.getByText(/local-first, team-ready AI workspace/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Attach to Chat" }));
     expect(screen.getByRole("button", { name: "Attached to Chat" })).toBeInTheDocument();
+  });
+
+  it("exposes an accessible map whose nodes open the matching knowledge", () => {
+    render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
+
+    expect(screen.getByRole("heading", { name: "Knowledge map" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Interactive knowledge map/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Source: CONTEXT_AND_SKILL_GOVERNANCE.md/i }));
+
+    expect(screen.getByText(/Explicit Skill invocation does not bypass identity/i)).toBeInTheDocument();
   });
 });

@@ -36,8 +36,11 @@ export type VaultSourceReference = {
 };
 
 export type VaultCatalogState = {
+  ownerId: string | null;
   vaults: KnowledgeVault[];
   attachedSourceIds: string[];
+  initialize: (ownerId: string) => void;
+  reset: () => void;
   createVault: (values: CreateVaultValues) => KnowledgeVault;
   addSources: (vaultId: string, sources: VaultSource[]) => void;
   toggleSourceAttachment: (sourceId: string) => void;

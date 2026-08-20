@@ -187,13 +187,27 @@ export const Workspace = styled.div`
   min-height: 0;
   overflow: hidden;
   isolation: isolate;
+
+  @media (max-width: 56rem) {
+    padding-left: 3.35rem;
+
+    &::before {
+      position: absolute;
+      z-index: 3;
+      inset: 0 auto 0 0;
+      width: 3.35rem;
+      border-right: 1px solid ${({ theme }) => theme.colors.line};
+      background: ${({ theme }) => theme.colors.surfaceStrong};
+      content: "";
+    }
+  }
 `;
 
-export const MobileMenuButton = styled.button`
+export const MobileMenuButton = styled.button<{ $open: boolean }>`
   position: fixed;
   z-index: 50;
-  top: ${({ theme }) => theme.spacing.md};
-  left: ${({ theme }) => theme.spacing.md};
+  top: 0.72rem;
+  left: ${({ $open }) => $open ? "min(calc(100vw - 6.35rem), 15rem)" : "0.42rem"};
   display: none;
   width: 2.7rem;
   height: 2.7rem;
@@ -205,6 +219,13 @@ export const MobileMenuButton = styled.button`
   box-shadow: ${({ theme }) => theme.shadow};
   color: ${({ theme }) => theme.colors.primarySoft};
   cursor: pointer;
+  transition: left 0.2s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }) => theme.colors.primary};
+  }
 
   @media (max-width: 56rem) {
     display: grid;
@@ -232,8 +253,4 @@ export const Main = styled.main`
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-
-  @media (max-width: 56rem) {
-    padding-top: 4.5rem;
-  }
 `;

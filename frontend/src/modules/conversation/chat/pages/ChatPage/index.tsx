@@ -8,6 +8,7 @@ import type { ConfirmationState } from "../../../../../shared/feedback/types/con
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
 import { useProviderModelCatalogs } from "../../../../provider/hooks/useProviderModelCatalogs";
 import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
+import { useUsage } from "../../../../usage/hooks/useUsage";
 import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { useWorkspaceCheck } from "../../../../project/workspace/hooks/useWorkspaceCheck";
@@ -54,6 +55,7 @@ export function ChatPage(): ReactElement {
   const create = useCreateConversation();
   const archive = useArchiveConversation();
   const providers = useProviderRegistry();
+  const accountUsage = useUsage("ALL_TIME");
   const activeWorkspace = useActiveWorkspace();
   const workspaceCheck: WorkspaceCheck = useWorkspaceStore((state: WorkspaceState) => state.workspaceCheck);
   const workspaceHydration: WorkspaceState["hydrationStatus"] = useWorkspaceStore((state: WorkspaceState) => state.hydrationStatus);
@@ -76,7 +78,7 @@ export function ChatPage(): ReactElement {
 
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
-  const stream = useChatStream(selectedId);
+  const stream = useChatStream(selectedId, messages.data ?? []);
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
 
   useEffect((): void => {
@@ -201,7 +203,9 @@ export function ChatPage(): ReactElement {
               catalogs={modelCatalogs}
               selectedProviderId={selected?.providerConfigurationId ?? null}
               selectedModel={selected?.selectedModel ?? null}
-              disabled={!selectedId || selectModel.isPending || stream.isBusy}
+              disabled={!selectedId || stream.isBusy}
+              isSaving={selectModel.isPending}
+              errorMessage={selectModel.error?.message ?? null}
               onSelect={(providerConfigurationId: string, selectedModel: string): void =>
                 selectModel.mutate({ providerConfigurationId, selectedModel })}
             />
@@ -230,6 +234,7 @@ export function ChatPage(): ReactElement {
                 thinkingContent={stream.thinkingContent}
                 streamingContent={stream.streamingContent}
                 errorMessage={stream.errorMessage}
+                accountTokenTotal={accountUsage.data?.totals.totalTokens ?? null}
                 mode={mode}
                 onConfigureProvider={(): void => { navigate("/settings/providers"); }}
               />
@@ -247,6 +252,7 @@ export function ChatPage(): ReactElement {
               />
             </ConversationColumn>
             <ConversationContextPanel
+              conversationId={selectedId}
               mode={mode}
               open={isContextOpen}
               onOpenChange={setIsContextOpen}

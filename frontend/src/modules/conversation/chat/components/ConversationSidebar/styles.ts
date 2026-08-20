@@ -147,6 +147,18 @@ export const ItemMeta = styled.small`
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
+export const Activity = styled.small`
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.22rem;
+  color: ${({ theme }) => theme.colors.primarySoft};
+  font-size: 0.62rem;
+  font-weight: 700;
+  svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { svg { animation: none; } }
+`;
 export const Archive = styled.button`
   display: flex;
   align-items: center;

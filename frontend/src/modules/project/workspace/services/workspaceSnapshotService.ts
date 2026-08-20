@@ -1,11 +1,14 @@
 import type {
   WorkspaceSnapshot,
   WorkspaceSnapshotDifference,
-  WorkspaceSnapshotEntry
+  WorkspaceSnapshotEntry,
+  WorkspaceSnapshotOmission,
+  WorkspaceSnapshotOmissionReason
 } from "../types/workspaceSnapshotTypes";
 
-const MAX_SNAPSHOT_ENTRIES = 7500;
+const MAX_SNAPSHOT_ENTRIES = 20_000;
 const MAX_SNAPSHOT_DEPTH = 32;
+const MAX_REPORTED_OMISSIONS = 100;
 const ignoredDirectoryNames: ReadonlySet<string> = new Set([
   ".git",
   ".gradle",
@@ -23,7 +26,21 @@ const ignoredDirectoryNames: ReadonlySet<string> = new Set([
 type SnapshotAccumulator = {
   entries: WorkspaceSnapshotEntry[];
   truncated: boolean;
+  omissionCount: number;
+  omissions: WorkspaceSnapshotOmission[];
 };
+
+function recordOmission(
+  accumulator: SnapshotAccumulator,
+  path: string,
+  reason: WorkspaceSnapshotOmissionReason
+): void {
+  accumulator.truncated = true;
+  accumulator.omissionCount += 1;
+  if (accumulator.omissions.length < MAX_REPORTED_OMISSIONS) {
+    accumulator.omissions.push({ path, reason });
+  }
+}
 
 async function collectDirectory(
   directory: FileSystemDirectoryHandle,
@@ -32,48 +49,65 @@ async function collectDirectory(
   accumulator: SnapshotAccumulator
 ): Promise<void> {
   if (depth > MAX_SNAPSHOT_DEPTH) {
-    accumulator.truncated = true;
+    recordOmission(accumulator, prefix || directory.name, "depth-limit");
     return;
   }
 
-  for await (const [name, handle] of directory.entries()) {
-    if (accumulator.entries.length >= MAX_SNAPSHOT_ENTRIES) {
-      accumulator.truncated = true;
-      return;
-    }
-
-    const path: string = prefix ? `${prefix}/${name}` : name;
-
-    if (handle.kind === "directory") {
-      accumulator.entries.push({ path, kind: "directory", size: null, lastModified: null });
-      if (!ignoredDirectoryNames.has(name)) {
-        await collectDirectory(handle, path, depth + 1, accumulator);
+  try {
+    for await (const [name, handle] of directory.entries()) {
+      if (accumulator.entries.length >= MAX_SNAPSHOT_ENTRIES) {
+        recordOmission(accumulator, prefix || directory.name, "entry-limit");
+        return;
       }
-      continue;
-    }
 
-    try {
-      const file: File = await handle.getFile();
-      accumulator.entries.push({
-        path,
-        kind: "file",
-        size: file.size,
-        lastModified: file.lastModified
-      });
-    } catch {
-      accumulator.truncated = true;
+      const path: string = prefix ? `${prefix}/${name}` : name;
+
+      if (handle.kind === "directory") {
+        accumulator.entries.push({ path, kind: "directory", size: null, lastModified: null });
+        if (ignoredDirectoryNames.has(name)) {
+          recordOmission(accumulator, path, "ignored-directory");
+        } else {
+          await collectDirectory(handle, path, depth + 1, accumulator);
+        }
+        continue;
+      }
+
+      try {
+        const file: File = await handle.getFile();
+        accumulator.entries.push({
+          path,
+          kind: "file",
+          size: file.size,
+          lastModified: file.lastModified
+        });
+      } catch {
+        recordOmission(accumulator, path, "unreadable-entry");
+      }
     }
+  } catch {
+    recordOmission(accumulator, prefix || directory.name, "unreadable-entry");
   }
 }
 
 export async function captureWorkspaceSnapshot(directory: FileSystemDirectoryHandle): Promise<WorkspaceSnapshot> {
-  const accumulator: SnapshotAccumulator = { entries: [], truncated: false };
+  const accumulator: SnapshotAccumulator = {
+    entries: [],
+    truncated: false,
+    omissionCount: 0,
+    omissions: []
+  };
   await collectDirectory(directory, "", 0, accumulator);
   accumulator.entries.sort((left: WorkspaceSnapshotEntry, right: WorkspaceSnapshotEntry): number => left.path.localeCompare(right.path));
   return {
     capturedAt: new Date().toISOString(),
     entries: accumulator.entries,
-    truncated: accumulator.truncated
+    truncated: accumulator.truncated,
+    scan: {
+      maxEntries: MAX_SNAPSHOT_ENTRIES,
+      maxDepth: MAX_SNAPSHOT_DEPTH,
+      omissionCount: accumulator.omissionCount,
+      omissions: accumulator.omissions
+    }
   };
 }
 

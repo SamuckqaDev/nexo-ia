@@ -18,13 +18,22 @@ const ollamaCatalog: ProviderModelCatalogView = {
   message: null
 };
 
-const renderPicker = (catalogs: ProviderModelCatalogView[], onSelect = vi.fn()) => render(
+const renderPicker = (
+  catalogs: ProviderModelCatalogView[],
+  onSelect = vi.fn(),
+  selectedProviderId: string | null = ollamaCatalog.providerConfigurationId,
+  selectedModel: string | null = "qwen3:8b",
+  isSaving = false,
+  errorMessage: string | null = null
+) => render(
   <ThemeProvider theme={darkTheme}>
     <ModelPicker
       catalogs={catalogs}
-      selectedProviderId={ollamaCatalog.providerConfigurationId}
-      selectedModel="qwen3:8b"
+      selectedProviderId={selectedProviderId}
+      selectedModel={selectedModel}
       disabled={false}
+      isSaving={isSaving}
+      errorMessage={errorMessage}
       onSelect={onSelect}
     />
   </ThemeProvider>
@@ -68,9 +77,51 @@ describe("ModelPicker", () => {
       selectedModel: null,
       status: "UNSUPPORTED",
       models: []
-    }]);
+    }], vi.fn(), null, null);
 
     expect(screen.getByRole("combobox", { name: /model for this conversation/i })).toBeDisabled();
     expect(screen.getByRole("option", { name: "Discovery not supported" })).toBeDisabled();
+  });
+
+  it("keeps an explicitly configured model selectable when discovery is unsupported", () => {
+    const onSelect = vi.fn();
+    renderPicker([{
+      ...ollamaCatalog,
+      providerType: "ANTHROPIC",
+      selectedModel: "claude-sonnet-4-5",
+      status: "UNSUPPORTED",
+      models: []
+    }], onSelect, null, null);
+
+    const picker = screen.getByRole("combobox", { name: /model for this conversation/i });
+    expect(picker).toBeEnabled();
+    expect(screen.getByRole("option", { name: "claude-sonnet-4-5 · configured fallback" })).toBeInTheDocument();
+
+    fireEvent.change(picker, {
+      target: { value: JSON.stringify([ollamaCatalog.providerConfigurationId, "claude-sonnet-4-5"]) }
+    });
+
+    expect(onSelect).toHaveBeenCalledWith(ollamaCatalog.providerConfigurationId, "claude-sonnet-4-5");
+  });
+
+  it("explains model persistence instead of silently snapping the selection back", () => {
+    const { rerender } = renderPicker([ollamaCatalog], vi.fn(), null, null, true);
+
+    expect(screen.getByText(/saving model for this conversation/i)).toBeVisible();
+    expect(screen.getByRole("combobox", { name: /model for this conversation/i })).toBeDisabled();
+
+    rerender(
+      <ThemeProvider theme={darkTheme}>
+        <ModelPicker
+          catalogs={[ollamaCatalog]}
+          selectedProviderId={null}
+          selectedModel={null}
+          disabled={false}
+          errorMessage="Provider unavailable"
+          onSelect={vi.fn()}
+        />
+      </ThemeProvider>
+    );
+    expect(screen.getByText(/could not save model/i)).toBeVisible();
   });
 });

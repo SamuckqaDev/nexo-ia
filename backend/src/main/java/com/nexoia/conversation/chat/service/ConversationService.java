@@ -1,5 +1,9 @@
 package com.nexoia.conversation.chat.service;
 
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.dto.ConversationMessageResponse;
 import com.nexoia.conversation.chat.dto.ConversationResponse;
 import com.nexoia.conversation.chat.dto.CreateConversationRequest;
@@ -12,10 +16,7 @@ import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
-import com.nexoia.audit.dto.RecordAuditCommand;
-import com.nexoia.audit.model.AuditAction;
-import com.nexoia.audit.model.AuditTargetType;
-import com.nexoia.audit.service.AuditService;
+import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import java.util.List;
@@ -32,6 +33,7 @@ public class ConversationService {
     private final ConversationMessageRepository messages;
     private final ProviderConfigurationRepository providers;
     private final AuditService audit;
+    private final ConversationContextProperties contextProperties;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> list(UUID userId) {
@@ -144,11 +146,25 @@ public class ConversationService {
                 value.getModel(),
                 value.getInputTokens(),
                 value.getOutputTokens(),
+                totalTokens(value),
+                value.getInputTokens(),
+                value.getRole() == ConversationRole.ASSISTANT
+                        ? contextProperties.tokenBudget()
+                        : null,
                 value.getTokenSource(),
                 value.getLatencyMs(),
                 value.getProcessingLocation(),
                 value.getFailureCode(),
                 value.getCreatedAt(),
                 value.getCompletedAt());
+    }
+
+    private Long totalTokens(ConversationMessage message) {
+        if (message.getInputTokens() == null && message.getOutputTokens() == null) {
+            return null;
+        }
+
+        return (message.getInputTokens() == null ? 0L : message.getInputTokens().longValue())
+                + (message.getOutputTokens() == null ? 0L : message.getOutputTokens().longValue());
     }
 }

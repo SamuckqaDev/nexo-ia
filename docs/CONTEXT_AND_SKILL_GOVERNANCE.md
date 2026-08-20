@@ -88,7 +88,10 @@ The current frontend preview supports explicit activation by typing `/` in Chat.
 adds its bounded method and expected output to that message and records a visible Skill badge on the
 rendered user turn. This makes the method usable with the current provider without pretending that
 publication, trust evaluation, dependency authorization, automatic discovery, or the governed Skill
-runtime is already implemented.
+runtime is already implemented. Built-in Skills are visible to every authenticated user; personal
+and session drafts are kept in a user-partitioned client catalog and reset with the authenticated
+shell. That client partition prevents accidental cross-user display in the current preview, but it
+does not replace authoritative backend ownership and permission checks.
 
 ## Context minimization and audit
 

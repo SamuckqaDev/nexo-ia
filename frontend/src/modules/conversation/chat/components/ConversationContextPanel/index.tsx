@@ -13,6 +13,9 @@ import {
 } from "@phosphor-icons/react";
 import { useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
+import { ImageGenerationProgress } from "../../../media/components/ImageGenerationProgress";
+import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
+import type { ImageGenerationJob, ImageGenerationState } from "../../../media/types/imageGenerationTypes";
 import { useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
 import type { KnowledgeVault, VaultCatalogState, VaultSource } from "../../../../knowledge/vault/types/vaultTypes";
 import { WorkspaceTree } from "../../../../project/workspace/components/WorkspaceTree";
@@ -67,6 +70,7 @@ const agentPreviewSteps: string[] = [
 ];
 
 export function ConversationContextPanel({
+  conversationId,
   mode,
   open,
   onOpenChange,
@@ -79,6 +83,9 @@ export function ConversationContextPanel({
   const vaults: KnowledgeVault[] = useVaultCatalogStore((state: VaultCatalogState) => state.vaults);
   const attachedSourceIds: string[] = useVaultCatalogStore((state: VaultCatalogState) => state.attachedSourceIds);
   const toggleSourceAttachment: VaultCatalogState["toggleSourceAttachment"] = useVaultCatalogStore((state: VaultCatalogState) => state.toggleSourceAttachment);
+  const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
+    (state: ImageGenerationState) => state.jobs))
+    .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId);
 
   const selectSection = (nextSection: ConversationContextSection): void => {
     setSection(nextSection);
@@ -165,6 +172,14 @@ export function ConversationContextPanel({
     }
 
     if (section === "media") {
+      if (imageJobs.length > 0) {
+        return (
+          <ResourceList>
+            <StatusCopy>Image progress is reported by the runtime when available; otherwise Nexo shows an honest indeterminate state and elapsed time.</StatusCopy>
+            {imageJobs.map((job: ImageGenerationJob) => <ImageGenerationProgress key={job.id} job={job} />)}
+          </ResourceList>
+        );
+      }
       return (
         <EmptyState>
           <EmptyIcon><ImageSquare size={22} weight="duotone" /></EmptyIcon>

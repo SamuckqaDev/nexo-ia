@@ -75,7 +75,7 @@ describe("ChatComposer", () => {
     fireEvent.change(message, { target: { value: "/pro" } });
     fireEvent.click(screen.getByRole("option", { name: /Project review/i }));
 
-    expect(screen.getByText("/project-review")).toBeInTheDocument();
+    expect(screen.getByText("Skill: /project-review")).toBeInTheDocument();
     fireEvent.change(message, { target: { value: "Review this module" } });
     fireEvent.keyDown(message, { key: "Enter" });
 

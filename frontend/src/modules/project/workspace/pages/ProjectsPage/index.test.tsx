@@ -6,7 +6,11 @@ import { useWorkspaceStore } from "../../stores/useWorkspaceStore";
 import type { ProjectWorkspace } from "../../types/workspaceTypes";
 import { ProjectsPage } from "./index";
 
-const { chooseFolderMock } = vi.hoisted(() => ({ chooseFolderMock: vi.fn() }));
+const { chooseFolderMock, checkActiveWorkspaceMock, acceptCurrentStructureMock } = vi.hoisted(() => ({
+  chooseFolderMock: vi.fn(),
+  checkActiveWorkspaceMock: vi.fn(),
+  acceptCurrentStructureMock: vi.fn()
+}));
 
 vi.mock("../../hooks/useWorkspaceRegistration", () => ({
   useWorkspaceRegistration: () => ({
@@ -17,6 +21,17 @@ vi.mock("../../hooks/useWorkspaceRegistration", () => ({
     error: null,
     chooseFolder: chooseFolderMock
   })
+}));
+
+vi.mock("../../hooks/useWorkspaceCheck", () => ({
+  useWorkspaceCheck: () => ({
+    checkActiveWorkspace: checkActiveWorkspaceMock,
+    acceptCurrentStructure: acceptCurrentStructureMock
+  })
+}));
+
+vi.mock("../../hooks/useWorkspaceSnapshot", () => ({
+  useWorkspaceSnapshot: () => ({ snapshot: null, status: "ready" })
 }));
 
 const workspace: ProjectWorkspace = {
@@ -33,6 +48,10 @@ const workspace: ProjectWorkspace = {
 describe("ProjectsPage", () => {
   beforeEach(() => {
     chooseFolderMock.mockReset();
+    checkActiveWorkspaceMock.mockReset();
+    checkActiveWorkspaceMock.mockResolvedValue({ workspaceId: workspace.id, status: "unchanged", checkedAt: null, message: null, changes: null });
+    acceptCurrentStructureMock.mockReset();
+    acceptCurrentStructureMock.mockResolvedValue(undefined);
     chooseFolderMock.mockImplementation(() => {
       useWorkspaceStore.getState().registerWorkspace(workspace);
       return Promise.resolve(workspace);
@@ -53,5 +72,19 @@ describe("ProjectsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open Chat" }));
     expect(onOpenChat).toHaveBeenCalledOnce();
+  });
+
+  it("rescans the selected directory when the user requests a fresher tree", () => {
+    useWorkspaceStore.setState({
+      ownerId: workspace.ownerId,
+      workspaces: [workspace],
+      activeWorkspaceId: workspace.id,
+      persistenceError: null
+    });
+
+    render(<ThemeProvider theme={darkTheme}><ProjectsPage onOpenChat={vi.fn()} /></ThemeProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Rescan" }));
+
+    expect(checkActiveWorkspaceMock).toHaveBeenCalledWith(true);
   });
 });

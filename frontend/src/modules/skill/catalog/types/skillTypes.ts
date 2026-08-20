@@ -7,6 +7,7 @@ export type SkillFilter = "all" | "built_in" | "personal" | "project";
 
 export type SkillDefinition = {
   id: string;
+  ownerId?: string;
   command: string;
   name: string;
   description: string;
@@ -27,6 +28,9 @@ export type SkillEditorProps = {
 };
 
 export type SkillCatalogState = {
+  ownerId: string | null;
   skills: SkillDefinition[];
+  initialize: (ownerId: string) => void;
+  reset: () => void;
   saveSkill: (values: SkillEditorValues, skillId?: string) => SkillDefinition;
 };

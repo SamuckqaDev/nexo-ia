@@ -301,3 +301,22 @@ options considered, the selected approach, and its consequences.
   discards the trace before transport and persistence, so it never enters conversation context.
   When enabled, the interface displays the live trace as temporary and removes it when the request
   reaches a terminal state. The preference affects new requests only.
+
+## D-025 — Render conversation Markdown through a safe React component boundary
+
+- **Status:** accepted
+- **Context:** CHAT-01 requires readable Markdown and code changes, while the existing chat displayed
+  every answer as plain pre-wrapped text. Hand-written HTML conversion or raw `innerHTML` would create
+  avoidable correctness and injection risk, and a complete syntax-highlighting bundle would add more
+  weight than the current requirement needs.
+- **Options:** keep plain text; build a project-owned Markdown parser; inject converted HTML; or use a
+  maintained CommonMark React renderer with a narrowly selected GFM plugin and project-owned visual
+  components for code and diffs.
+- **Decision:** use [`react-markdown`](https://github.com/remarkjs/react-markdown) with
+  [`remark-gfm`](https://github.com/remarkjs/remark-gfm), keep embedded HTML disabled, let the renderer
+  apply its safe URL contract, and override only links, inline code, fenced code, and `diff`
+  presentation. External links receive a separate browsing context and `noreferrer`.
+- **Consequence:** headings, lists, tables, links, code, and diffs render consistently without storing
+  HTML or enabling arbitrary markup. The chat route gains the parser dependency cost; it remains
+  route-split, and full language tokenization may be added later only if measured value justifies the
+  additional bundle.

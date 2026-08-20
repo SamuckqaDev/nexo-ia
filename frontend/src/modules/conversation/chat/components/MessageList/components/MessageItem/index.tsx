@@ -2,7 +2,21 @@ import { Check, Copy, Prohibit, Sparkle, UserCircle, WarningCircle } from "@phos
 import { useEffect, useState, type ReactElement } from "react";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
 import type { ConversationMessage } from "../../../../types/chatTypes";
-import { Avatar, Badge, Body, Caret, Column, ContextBadge, ContextBadges, CopyButton, Head, Meta, Name, Row } from "./styles";
+import { MessageContent } from "./components/MessageContent";
+import {
+  Avatar,
+  Badge,
+  Column,
+  ContextBadge,
+  ContextBadges,
+  ContextMeter,
+  ContextMeterTrack,
+  CopyButton,
+  Head,
+  Meta,
+  Name,
+  Row
+} from "./styles";
 
 type MessageItemProps = {
   message: ConversationMessage;
@@ -23,6 +37,9 @@ export function MessageItem({
   const rawContent: string = isStreaming ? streamingContent ?? "" : message.content;
   const contextualMessage = isUser ? parseContextualChatMessage(rawContent) : { content: rawContent, skillName: null, vaultSourceNames: [] };
   const content: string = contextualMessage.content;
+  const contextPercentage: number | null = message.contextTokensUsed !== null && message.contextTokenBudget
+    ? Math.min(100, (message.contextTokensUsed / message.contextTokenBudget) * 100)
+    : null;
   const [copied, setCopied] = useState<boolean>(false);
 
   useEffect((): void => setCopied(false), [content]);
@@ -53,7 +70,7 @@ export function MessageItem({
           </CopyButton>
         </Head>
 
-        <Body $user={isUser}>{content}{isStreaming && <Caret aria-hidden>▌</Caret>}</Body>
+        <MessageContent content={content} isStreaming={isStreaming} isUser={isUser} />
 
         {isUser && (contextualMessage.skillName || contextualMessage.vaultSourceNames.length > 0) && (
           <ContextBadges>
@@ -85,8 +102,15 @@ export function MessageItem({
                 {message.tokenSource === "ESTIMATE" ? " (estimated)" : ""}
               </span>
             )}
+            {message.totalTokens !== null && <span><strong>{message.totalTokens.toLocaleString()}</strong> total tokens</span>}
             {message.latencyMs !== null && <span>{(message.latencyMs / 1000).toFixed(1)}s</span>}
             {message.processingLocation && <span>{message.processingLocation.toLowerCase()}</span>}
+            {contextPercentage !== null && message.contextTokensUsed !== null && message.contextTokenBudget !== null && (
+              <ContextMeter title="Nexo context assembly budget, not the model's discovered maximum window">
+                <span>Context {message.contextTokensUsed.toLocaleString()} / {message.contextTokenBudget.toLocaleString()} ({contextPercentage.toFixed(1)}%)</span>
+                <ContextMeterTrack $percentage={contextPercentage}><i /></ContextMeterTrack>
+              </ContextMeter>
+            )}
           </Meta>
         )}
       </Column>

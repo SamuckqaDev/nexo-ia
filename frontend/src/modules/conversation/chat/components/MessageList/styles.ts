@@ -29,6 +29,46 @@ export const StatusLive = styled.p`
   white-space: nowrap;
 `;
 
+export const TokenSummary = styled.div`
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  width: fit-content;
+  align-self: center;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.round};
+  padding: 0.34rem 0.65rem;
+  background: ${({ theme }) => theme.colors.backgroundElevated};
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.14);
+  color: ${({ theme }) => theme.colors.textSubtle};
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  strong { color: ${({ theme }) => theme.colors.primarySoft}; }
+  @media (max-width: 32rem) { flex-wrap: wrap; justify-content: center; }
+`;
+
+export const RunStatus = styled.div`
+  display: flex;
+  width: min(60rem, 100%);
+  align-self: center;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.primary};
+  > svg { flex: 0 0 auto; animation: spin 1s linear infinite; }
+  > span { display: grid; gap: 0.16rem; }
+  strong { color: ${({ theme }) => theme.colors.text}; font-size: 0.74rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.62rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { > svg { animation: none; } }
+`;
+
 export const Empty = styled.div`
   display: grid;
   width: min(42rem, 100%);

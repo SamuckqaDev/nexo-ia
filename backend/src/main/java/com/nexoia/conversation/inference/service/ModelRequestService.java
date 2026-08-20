@@ -5,6 +5,7 @@ import com.nexoia.audit.model.AuditAction;
 import com.nexoia.audit.model.AuditOutcome;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
@@ -47,6 +48,7 @@ public class ModelRequestService {
     private final AuditService audit;
     private final List<ChatCompletionClient> completionClients;
     private final Clock clock;
+    private final ConversationContextProperties contextProperties;
 
     /**
      * Streams a model answer, reporting progress through the listener.
@@ -122,7 +124,13 @@ public class ModelRequestService {
             Instant completedAt = store.recordCompletion(messageId, outcome, latencyMs);
             auditModelRequest(reservation, AuditAction.MODEL_REQUEST_COMPLETED, AuditOutcome.SUCCESS, null);
             listener.onUsage(new UsageEvent(
-                    outcome.inputTokens(), outcome.outputTokens(), outcome.tokenSource(), latencyMs));
+                    outcome.inputTokens(),
+                    outcome.outputTokens(),
+                    totalTokens(outcome),
+                    outcome.inputTokens(),
+                    contextProperties.tokenBudget(),
+                    outcome.tokenSource(),
+                    latencyMs));
             listener.onCompleted(new CompletedEvent(messageId, outcome.content(), completedAt));
         } catch (RuntimeException exception) {
             log.warn("[NEXO-BACK][INFERENCE] Model request failed correlationId={} reason={}",
@@ -171,5 +179,14 @@ public class ModelRequestService {
                 .filter(client -> client.supports(command.providerType()))
                 .findFirst()
                 .orElseThrow(UnsupportedProviderException::new);
+    }
+
+    private Long totalTokens(ChatCompletionOutcome outcome) {
+        if (outcome.inputTokens() == null && outcome.outputTokens() == null) {
+            return null;
+        }
+
+        return (outcome.inputTokens() == null ? 0L : outcome.inputTokens().longValue())
+                + (outcome.outputTokens() == null ? 0L : outcome.outputTokens().longValue());
     }
 }

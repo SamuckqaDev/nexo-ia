@@ -10,6 +10,8 @@ type ModelPickerProps = {
   selectedProviderId: string | null;
   selectedModel: string | null;
   disabled: boolean;
+  isSaving?: boolean;
+  errorMessage?: string | null;
   onSelect: (providerConfigurationId: string, selectedModel: string) => void;
 };
 
@@ -22,12 +24,13 @@ const catalogModels = (
   selectedModel: string | null
 ): ProviderModel[] => {
   const models: ProviderModel[] = [...catalog.models];
-  const fallback: string | null = catalog.status === "LOADING" || catalog.status === "UNAVAILABLE"
+  const fallback: string | null = catalog.status === "LOADING"
+    || catalog.status === "UNAVAILABLE"
+    || catalog.status === "UNSUPPORTED"
     ? catalog.selectedModel
     : null;
   const current: string | null = catalog.providerConfigurationId === selectedProviderId
     && catalog.status !== "EMPTY"
-    && catalog.status !== "UNSUPPORTED"
     ? selectedModel
     : null;
 
@@ -52,6 +55,8 @@ export function ModelPicker({
   selectedProviderId,
   selectedModel,
   disabled,
+  isSaving = false,
+  errorMessage = null,
   onSelect
 }: ModelPickerProps): ReactElement {
   const selectedValue: string = selectedProviderId && selectedModel
@@ -63,7 +68,11 @@ export function ModelPicker({
     count + catalog.models.length, 0);
   const loading: boolean = catalogs.some((catalog: ProviderModelCatalogView) => catalog.status === "LOADING");
   const unavailable: boolean = catalogs.some((catalog: ProviderModelCatalogView) => catalog.status === "UNAVAILABLE");
-  const summary: string = loading
+  const summary: string = isSaving
+    ? "Saving model for this conversation…"
+    : errorMessage
+      ? `Could not save model · ${errorMessage}`
+      : loading
     ? "Refreshing provider models"
     : discoveredCount > 0
       ? `${discoveredCount} model${discoveredCount === 1 ? "" : "s"} reported by providers`
@@ -91,7 +100,7 @@ export function ModelPicker({
         id="conversation-model"
         aria-label="Model for this conversation"
         value={selectedValue}
-        disabled={disabled || selectableCount === 0}
+        disabled={disabled || isSaving || selectableCount === 0}
         onChange={(event): void => change(event.target.value)}
       >
         <option value="">
@@ -117,7 +126,7 @@ export function ModelPicker({
           );
         })}
       </Picker>
-      <Status aria-live="polite">{summary}</Status>
+      <Status aria-live="polite" $error={Boolean(errorMessage)}>{summary}</Status>
     </Field>
   );
 }

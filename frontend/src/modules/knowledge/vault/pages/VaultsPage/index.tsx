@@ -11,11 +11,12 @@ import {
   Plus,
   Vault
 } from "@phosphor-icons/react";
-import { useMemo, useRef, useState, type ChangeEvent, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Input } from "../../../../../shared/components/Input";
 import { WorkspaceBadge, WorkspaceEmptyState, WorkspacePage, WorkspacePanel } from "../../../../../shared/components/WorkspacePage";
 import { CreateVaultForm } from "../../components/CreateVaultForm";
+import { VaultKnowledgeGraph } from "../../components/VaultKnowledgeGraph";
 import { createVaultSource } from "../../services/vaultSourceService";
 import { useVaultCatalogStore } from "../../stores/useVaultCatalogStore";
 import type { CreateVaultValues, KnowledgeVault, VaultSource } from "../../types/vaultTypes";
@@ -53,6 +54,25 @@ export function VaultsPage(): ReactElement {
   const selectedSource: VaultSource | undefined = selected?.sources.find((source: VaultSource): boolean => source.id === selectedSourceId);
   const visibleVaults = useMemo<KnowledgeVault[]>(() => vaults.filter((vault) => vault.name.toLowerCase().includes(query.toLowerCase())), [query, vaults]);
 
+  useEffect((): void => {
+    if (creating || !vaults.length || vaults.some((vault: KnowledgeVault): boolean => vault.id === selectedId)) return;
+    setSelectedId(vaults[0].id);
+    setSelectedSourceId(vaults[0].sources[0]?.id ?? null);
+  }, [creating, selectedId, vaults]);
+
+  const selectVault = (vaultId: string): void => {
+    const vault: KnowledgeVault | undefined = vaults.find((item: KnowledgeVault): boolean => item.id === vaultId);
+    setSelectedId(vaultId);
+    setSelectedSourceId(vault?.sources[0]?.id ?? null);
+    setCreating(false);
+  };
+
+  const selectSource = (vaultId: string, sourceId: string): void => {
+    setSelectedId(vaultId);
+    setSelectedSourceId(sourceId);
+    setCreating(false);
+  };
+
   const createVault = (values: CreateVaultValues): void => {
     const vault: KnowledgeVault = createVaultDraft(values);
     setSelectedId(vault.id);
@@ -79,13 +99,27 @@ export function VaultsPage(): ReactElement {
       icon={Vault}
       actions={<Button type="button" icon={Plus} onClick={(): void => setCreating(true)}>New Vault</Button>}
     >
+      <WorkspacePanel
+        title="Knowledge map"
+        description="Explore collection membership and shared terms. Only sources marked in green are included in Chat context."
+        action={<WorkspaceBadge tone={attachedSourceIds.length ? "positive" : "default"}>{attachedSourceIds.length} in Chat context</WorkspaceBadge>}
+      >
+        <VaultKnowledgeGraph
+          vaults={vaults}
+          attachedSourceIds={attachedSourceIds}
+          selectedVaultId={selectedId}
+          selectedSourceId={selectedSourceId}
+          onSelectVault={selectVault}
+          onSelectSource={selectSource}
+        />
+      </WorkspacePanel>
       <Explorer>
         <WorkspacePanel title="Your Vaults" description="Personal, project, team and organization collections.">
           <Library>
             <Input id="vault-search" label="Search Vaults" icon={MagnifyingGlass} value={query} onChange={(event): void => setQuery(event.target.value)} placeholder="Name or purpose" />
             <VaultList>
               {visibleVaults.map((vault) => (
-                <VaultButton key={vault.id} type="button" $active={selectedId === vault.id} onClick={(): void => { setSelectedId(vault.id); setSelectedSourceId(vault.sources[0]?.id ?? null); setCreating(false); }}>
+                <VaultButton key={vault.id} type="button" $active={selectedId === vault.id} onClick={(): void => selectVault(vault.id)}>
                   <FolderOpen size={19} weight="duotone" />
                   <VaultCopy><strong>{vault.name}</strong><span>{vault.sources.length} sources · {vault.scope}</span></VaultCopy>
                   <ArrowRight size={14} />

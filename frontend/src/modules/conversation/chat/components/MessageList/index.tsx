@@ -1,4 +1,4 @@
-import { Brain, ChatCircleDots, Cpu, ShieldCheck, Sparkle, SlidersHorizontal } from "@phosphor-icons/react";
+import { Brain, ChatCircleDots, Coins, Cpu, ShieldCheck, Sparkle, SlidersHorizontal, SpinnerGap } from "@phosphor-icons/react";
 import { useEffect, useRef, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import type { ConversationMessage, ConversationMode, StreamPhase } from "../../types/chatTypes";
@@ -12,9 +12,11 @@ import {
   Feature,
   FeatureGrid,
   Messages,
+  RunStatus,
   StatusLive,
   StreamError,
-  ThinkingTrace
+  ThinkingTrace,
+  TokenSummary
 } from "./styles";
 
 type MessageListProps = {
@@ -27,6 +29,7 @@ type MessageListProps = {
   thinkingContent: string;
   streamingContent: string;
   errorMessage: string | null;
+  accountTokenTotal?: number | null;
   mode: ConversationMode;
   onConfigureProvider: () => void;
 };
@@ -53,6 +56,7 @@ export function MessageList({
   thinkingContent,
   streamingContent,
   errorMessage,
+  accountTokenTotal = null,
   mode,
   onConfigureProvider
 }: MessageListProps): ReactElement {
@@ -79,11 +83,22 @@ export function MessageList({
     ? messages.findLast((message: ConversationMessage) => message.role === "ASSISTANT")?.id ?? null
     : null;
   const waitingForFirstToken: boolean = Boolean(streamingId) && !streamingContent;
+  const conversationTokenTotal: number = messages.reduce((total: number, message: ConversationMessage): number =>
+    total + (message.role === "ASSISTANT" ? message.totalTokens ?? 0 : 0), 0);
+  const showRunStatus: boolean = phase === "starting" || waitingForFirstToken;
 
   return (
     <Messages>
       {streamStatus(phase) && (
         <StatusLive role="status" aria-live="polite">{streamStatus(phase)}</StatusLive>
+      )}
+
+      {(conversationTokenTotal > 0 || accountTokenTotal !== null) && (
+        <TokenSummary aria-label="Token usage summary">
+          <Coins size={14} weight="duotone" />
+          <span>Conversation <strong>{conversationTokenTotal.toLocaleString()}</strong> tokens</span>
+          {accountTokenTotal !== null && <span>Account <strong>{accountTokenTotal.toLocaleString()}</strong> total</span>}
+        </TokenSummary>
       )}
 
       {messages.length === 0 && phase === "idle" && (
@@ -116,6 +131,13 @@ export function MessageList({
           <summary><Brain size={15} weight="duotone" /> Thinking <small>live · not saved</small></summary>
           <p>{thinkingContent}</p>
         </ThinkingTrace>
+      )}
+
+      {showRunStatus && (
+        <RunStatus role="status">
+          <SpinnerGap size={18} weight="bold" />
+          <span><strong>Nexo is working in this conversation</strong><small>You can open another chat and come back without stopping it.</small></span>
+        </RunStatus>
       )}
 
       {messages.map((message: ConversationMessage) => message.id === streamingId && waitingForFirstToken

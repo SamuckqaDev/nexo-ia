@@ -14,7 +14,15 @@ describe("streamEventSchema", () => {
   it("accepts a usage frame reporting an estimate", () => {
     const parsed = streamEventSchema.safeParse({
       event: "usage",
-      data: { inputTokens: 20, outputTokens: 3, tokenSource: "ESTIMATE", latencyMs: 1200 }
+      data: {
+        inputTokens: 20,
+        outputTokens: 3,
+        totalTokens: 23,
+        contextTokensUsed: 20,
+        contextTokenBudget: 8000,
+        tokenSource: "ESTIMATE",
+        latencyMs: 1200
+      }
     });
 
     expect(parsed.success).toBe(true);
@@ -23,7 +31,15 @@ describe("streamEventSchema", () => {
   it("accepts a usage frame without provider counts", () => {
     const parsed = streamEventSchema.safeParse({
       event: "usage",
-      data: { inputTokens: null, outputTokens: null, tokenSource: null, latencyMs: 900 }
+      data: {
+        inputTokens: null,
+        outputTokens: null,
+        totalTokens: null,
+        contextTokensUsed: null,
+        contextTokenBudget: 8000,
+        tokenSource: null,
+        latencyMs: 900
+      }
     });
 
     expect(parsed.success).toBe(true);

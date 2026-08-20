@@ -25,6 +25,7 @@ import {
   CalendarToolbar,
   Day,
   DayEvent,
+  DayMore,
   DayNumber,
   Detail,
   DetailGrid,
@@ -75,6 +76,7 @@ export function CalendarPage(): ReactElement {
       title="Tasks & calendar"
       description="See automations, Cowork milestones and approval deadlines together without turning the calendar into a second scheduler."
       icon={CalendarCheck}
+      contentMode="contained"
       actions={<Button type="button" icon={CalendarPlus} onClick={(): void => setComposing(true)}>New schedule</Button>}
     >
       <PreviewNote><span>Interface preview</span> Example occurrences are marked and never executed. New items remain local to this session.</PreviewNote>
@@ -95,16 +97,20 @@ export function CalendarPage(): ReactElement {
           {view === "month" ? (
             <CalendarGrid>
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((name) => <Weekday key={name}>{name}</Weekday>)}
-              {days.map((day) => (
-                <Day key={dateKey(day)} $outside={!sameMonth(day, cursor)}>
-                  <DayNumber>{day.getDate()}</DayNumber>
-                  {items.filter((item) => item.date === dateKey(day)).slice(0, 3).map((item) => (
-                    <DayEvent key={item.id} type="button" $kind={item.kind} $active={selectedId === item.id} onClick={(): void => { setSelectedId(item.id); setComposing(false); }}>
-                      <span>{item.time}</span>{item.title}
-                    </DayEvent>
-                  ))}
-                </Day>
-              ))}
+              {days.map((day) => {
+                const dayItems: CalendarItem[] = items.filter((item) => item.date === dateKey(day));
+                return (
+                  <Day key={dateKey(day)} $outside={!sameMonth(day, cursor)}>
+                    <DayNumber>{day.getDate()}</DayNumber>
+                    {dayItems.slice(0, 2).map((item) => (
+                      <DayEvent key={item.id} type="button" $kind={item.kind} $active={selectedId === item.id} onClick={(): void => { setSelectedId(item.id); setComposing(false); }}>
+                        <span>{item.time}</span>{item.title}
+                      </DayEvent>
+                    ))}
+                    {dayItems.length > 2 && <DayMore>+{dayItems.length - 2} more in agenda</DayMore>}
+                  </Day>
+                );
+              })}
             </CalendarGrid>
           ) : monthItems.length ? (
             <AgendaList>

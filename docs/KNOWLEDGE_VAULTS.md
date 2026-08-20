@@ -74,8 +74,11 @@ Markdown links, `[[wikilinks]]`, tags, and attachments referenced by notes. It p
 ingestion status, incremental reindexing, citations that open the original file, and a relationship
 graph. Obsidian Canvas and a dedicated Obsidian plugin remain later compatibility features.
 
-The current frontend bridge is deliberately narrower. It keeps Vault drafts in the browser session,
-shows bounded previews for explicitly selected Markdown, text, JSON, and CSV files, and lets the user
-attach readable excerpts to Chat. Attached excerpts are sent inside the message to the selected
-provider as untrusted reference data; they are not an index, retrieval result, citation, or durable
-Vault ingestion. PDF and Office selections keep metadata only until supported parsers exist.
+The current frontend bridge is deliberately narrower. It keeps Vault drafts in a catalog partitioned
+by authenticated user, shows bounded previews for explicitly selected Markdown, text, JSON, and CSV
+files, and lets the user attach readable excerpts to Chat. Its interactive knowledge map shows Vault
+membership, shared-term relationships, selection, and attached-source state. Attached excerpts are
+sent inside the message to the selected provider as untrusted reference data; the map and excerpts
+are not an index, retrieval result, citation, durable Vault ingestion, or a tool the model can use to
+open an unattached source automatically. PDF and Office selections keep metadata only until supported
+parsers exist.

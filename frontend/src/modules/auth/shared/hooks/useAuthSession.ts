@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QueryClient, UseMutationResult, UseQueryResult } from "@tanstack/react-query";
+import type { Query, QueryClient, UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 import { useSnackbarStore } from "../../../../shared/feedback/stores/useSnackbarStore";
 import type { SnackbarState } from "../../../../shared/feedback/types/snackbarTypes";
 import { getBootstrapStatus, getCurrentUser, logout } from "../api/authApi";
@@ -23,6 +23,7 @@ export function useAuthSession(): AuthSessionResult {
   const logoutMutation: UseMutationResult<void, Error, void> = useMutation({
     mutationFn: logout,
     onSuccess: () => {
+      queryClient.removeQueries({ predicate: (query: Query): boolean => query.queryKey[0] !== "auth" });
       queryClient.setQueryData(["auth", "session"], null);
       showSnackbar("Session ended safely.", { variant: "info" });
     },

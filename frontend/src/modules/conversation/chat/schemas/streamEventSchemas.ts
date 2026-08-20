@@ -26,6 +26,9 @@ export const thinkingEventSchema = z.object({
 export const usageEventSchema = z.object({
   inputTokens: z.number().int().nullable(),
   outputTokens: z.number().int().nullable(),
+  totalTokens: z.number().int().nullable(),
+  contextTokensUsed: z.number().int().nullable(),
+  contextTokenBudget: z.number().int(),
   tokenSource: tokenSourceSchema.nullable(),
   latencyMs: z.number().int()
 });

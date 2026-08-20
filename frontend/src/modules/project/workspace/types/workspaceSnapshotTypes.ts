@@ -9,10 +9,29 @@ export type WorkspaceSnapshotEntry = {
   lastModified: number | null;
 };
 
+export type WorkspaceSnapshotOmissionReason =
+  | "depth-limit"
+  | "entry-limit"
+  | "ignored-directory"
+  | "unreadable-entry";
+
+export type WorkspaceSnapshotOmission = {
+  path: string;
+  reason: WorkspaceSnapshotOmissionReason;
+};
+
+export type WorkspaceSnapshotScan = {
+  maxEntries: number;
+  maxDepth: number;
+  omissionCount: number;
+  omissions: WorkspaceSnapshotOmission[];
+};
+
 export type WorkspaceSnapshot = {
   capturedAt: string;
   entries: WorkspaceSnapshotEntry[];
   truncated: boolean;
+  scan?: WorkspaceSnapshotScan;
 };
 
 export type StoredWorkspaceRecord = {

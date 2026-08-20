@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { workspaceSnapshotSchema } from "../schemas/workspaceSnapshotSchema";
 import type { WorkspaceSnapshot } from "../types/workspaceSnapshotTypes";
 import { captureWorkspaceSnapshot, compareWorkspaceSnapshots } from "./workspaceSnapshotService";
 
@@ -24,6 +25,14 @@ function directoryHandle(
 }
 
 describe("workspaceSnapshotService", () => {
+  it("keeps existing saved snapshots readable before scan diagnostics were introduced", () => {
+    expect(workspaceSnapshotSchema.safeParse({
+      capturedAt: "2026-08-20T00:00:00.000Z",
+      entries: [],
+      truncated: false
+    }).success).toBe(true);
+  });
+
   it("captures nested project metadata without reading generated dependency trees", async () => {
     const root = directoryHandle("nexo", [
       ["src", directoryHandle("src", [["App.tsx", fileHandle("App.tsx", "export {}", 10)]])],
@@ -34,6 +43,13 @@ describe("workspaceSnapshotService", () => {
 
     expect(snapshot.entries.map((entry) => entry.path)).toEqual(["node_modules", "src", "src/App.tsx"]);
     expect(snapshot.entries.find((entry) => entry.path === "src/App.tsx")?.lastModified).toBe(10);
+    expect(snapshot.truncated).toBe(true);
+    expect(snapshot.scan).toMatchObject({
+      maxEntries: 20_000,
+      maxDepth: 32,
+      omissionCount: 1,
+      omissions: [{ path: "node_modules", reason: "ignored-directory" }]
+    });
   });
 
   it("reports added, removed and modified project entries", () => {

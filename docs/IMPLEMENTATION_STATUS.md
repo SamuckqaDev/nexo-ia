@@ -88,6 +88,16 @@ minimal vertical connection plus the first release `0.1` identity slice.
   granting its declared dependencies. Projects now owns a searchable project folder
   list, active-workspace detail, add/select flow, and an expandable view of the saved folder
   snapshot; Cowork exposes objective, milestone, activity, and decision surfaces.
+- The Vault frontend now includes an interactive relationship map inspired by Obsidian. Vault and
+  source nodes expose collection membership, bounded shared-term relationships, the current
+  selection, and which readable sources are attached to Chat. The map is a visual client-side aid;
+  it does not claim that authoritative ingestion, embeddings, relationship-aware retrieval, or
+  automatic model navigation already exists.
+- Session Vault drafts, attached-source selections, and personal Skill drafts are partitioned by the
+  authenticated user identifier. Built-in Skills remain visible to every user, while a personal
+  draft is returned only to its current owner. These preview catalogs are reset when the authenticated
+  shell closes and non-authenticated query caches are removed on logout. Authoritative publication,
+  sharing, and backend access control remain part of the governed Vault and Skill runtimes.
 - The selected project workspace is shared through the project module's Zustand store and persisted
   in origin-scoped IndexedDB under the authenticated user's identifier. On supported desktop
   Chromium browsers, Projects opens the operating system's folder chooser through the File System
@@ -103,6 +113,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   snapshot. The same expandable snapshot is available from Chat's Project context panel. A folder
   captured for the first time is treated as the accepted baseline, so entering Chat does not report
   a change immediately; an existing or restored workspace is still checked before reuse.
+- Workspace snapshots now inspect up to 20,000 entries, open the first directory level by default,
+  provide path search and expand/collapse controls, and can be rescanned explicitly. Scan diagnostics
+  distinguish ignored dependency/generated directories, depth or entry limits, and unreadable
+  entries so a partial tree is never presented as complete.
 - Preview records and newly created client drafts are labeled explicitly. Calendar drafts never
   execute, Vault files are not indexed, Skill drafts are not published, and Project/Cowork execution
   controls remain inactive until their authoritative backend and Companion APIs are implemented.
@@ -202,6 +216,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   `thinking` event is emitted only for a request that opted in. The request is reserved before the
   emitter opens, so a missing conversation, an unselected model, a busy conversation, or an invalid
   body still answers with the normal `BaseResponse` envelope and status.
+- The SSE connection is no longer the owner of model execution. Navigating to another conversation
+  or losing the response connection stops only delivery to that reader; the server continues the
+  reserved request and persists its terminal result. The frontend keeps one stream snapshot per
+  conversation, marks running threads in the conversation list, restores their progress when the
+  user returns, and polls persisted active messages after a page-level reconnection. Explicit cancel
+  remains authoritative, and logout requests cancellation before clearing session-only state.
 - The chat interface streams answers through a dedicated fetch client with Zod-validated frames,
   exposes loading, empty, error, disconnected, streaming, cancelling, cancelled, and completed
   states, and reports model, token usage, latency, and processing location on completed answers. An
@@ -222,6 +242,16 @@ minimal vertical connection plus the first release `0.1` identity slice.
   conversation, and is reopened from an icon-only header control instead of consuming width as a
   rail. The Chat workspace establishes its own paint layer so internal drawers and counters cannot
   overlap the application's primary sidebar.
+  Assistant and user content is rendered as safe GitHub-flavoured Markdown; headings, lists, tables,
+  links, inline code, fenced code, and `diff` blocks have dedicated readable presentation, copy
+  controls, and added/removed-line treatment. Selected Skills and Vault sources remain visible on
+  the sent turn. Completed answers show input, output, total, context-budget usage, latency, and
+  processing location; Chat also shows conversation and all-time account token totals. Model changes
+  update optimistically, report persistence progress or errors, and roll back on failure instead of
+  silently snapping to the previous selection.
+  Media resources have a typed progress surface for runtime-reported percentage, elapsed time, and
+  remaining-time estimates; an indeterminate state is used when the image runtime cannot provide a
+  real percentage. The generation adapter itself remains pending the local image runtime.
   Capabilities without a connected runtime remain explicit previews or empty states instead of
   suggesting work was executed.
 - A unified security audit trail is recorded in `audit_event` and inspectable only by an Owner at
@@ -239,7 +269,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- Ninety-eight passing default backend tests and sixty-nine passing frontend tests, including cross-user
+- One hundred and one passing default backend tests and ninety-four passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
@@ -268,8 +298,6 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - The organization-level audit *view* that unions session and domain trails is a later increment.
-- Assistant answers render as plain text. CHAT-01 also asks for Markdown rendering, which needs a
-  reviewed dependency and a recorded decision, so it is deliberately unfinished.
 - Agent mode remains a visible choice without a runtime: it must expose its plan, tools, limits,
   approvals, evidence, and stop reason before it can be enabled. Image jobs remain pending the local
   ComfyUI runtime.

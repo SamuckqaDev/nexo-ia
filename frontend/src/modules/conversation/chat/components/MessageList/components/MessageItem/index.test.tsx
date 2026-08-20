@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../../../app/styles/theme";
+import { builtInSkills } from "../../../../../../skill/catalog/stores/useSkillCatalogStore";
+import { buildContextualChatMessage } from "../../../../services/chatContextService";
 import type { ConversationMessage } from "../../../../types/chatTypes";
 import { MessageItem } from "./index";
 
@@ -13,6 +15,9 @@ const message = (overrides: Partial<ConversationMessage> = {}): ConversationMess
   model: "qwen3:8b",
   inputTokens: 20,
   outputTokens: 3,
+  totalTokens: 23,
+  contextTokensUsed: 20,
+  contextTokenBudget: 8000,
   tokenSource: "PROVIDER",
   latencyMs: 1500,
   processingLocation: "LOCAL",
@@ -31,6 +36,8 @@ describe("MessageItem", () => {
 
     expect(screen.getByText("qwen3:8b")).toBeInTheDocument();
     expect(screen.getByText("20 in · 3 out")).toBeInTheDocument();
+    expect(screen.getByText("23")).toBeInTheDocument();
+    expect(screen.getByText(/Context 20 \/ 8,000 \(0.3%\)/)).toBeInTheDocument();
     expect(screen.getByText("1.5s")).toBeInTheDocument();
   });
 
@@ -57,6 +64,16 @@ describe("MessageItem", () => {
     renderItem(message({ role: "USER", content: "hi" }));
 
     expect(screen.queryByText("qwen3:8b")).not.toBeInTheDocument();
+  });
+
+  it("keeps a visible Skill marker on the sent message", () => {
+    renderItem(message({
+      role: "USER",
+      content: buildContextualChatMessage("Review this module", { skill: builtInSkills[0], vaultSources: [] })
+    }));
+
+    expect(screen.getByText("Review this module")).toBeVisible();
+    expect(screen.getByText("Skill: Project review")).toBeVisible();
   });
 
   it("copies the visible message content", async () => {

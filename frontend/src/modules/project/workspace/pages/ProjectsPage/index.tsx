@@ -7,6 +7,7 @@ import {
   HardDrives,
   MagnifyingGlass,
   Plus,
+  ArrowClockwise,
   ShieldCheck,
   Trash
 } from "@phosphor-icons/react";
@@ -19,10 +20,11 @@ import type { ConfirmationState } from "../../../../../shared/feedback/types/con
 import { WorkspaceForm } from "../../components/WorkspaceForm";
 import { WorkspaceTree } from "../../components/WorkspaceTree";
 import { useActiveWorkspace } from "../../hooks/useActiveWorkspace";
+import { useWorkspaceCheck } from "../../hooks/useWorkspaceCheck";
 import { useWorkspaceSnapshot } from "../../hooks/useWorkspaceSnapshot";
 import { workspacePlatformLabel } from "../../services/workspacePlatformService";
 import { useWorkspaceStore } from "../../stores/useWorkspaceStore";
-import type { ProjectWorkspace, ProjectsPageProps, WorkspaceState } from "../../types/workspaceTypes";
+import type { ProjectWorkspace, ProjectsPageProps, WorkspaceCheck, WorkspaceState } from "../../types/workspaceTypes";
 import {
   ActiveContext,
   Detail,
@@ -34,6 +36,7 @@ import {
   ProjectsGrid,
   StorageWarning,
   Structure,
+  StructureHeader,
   StructureStatus,
   WorkspaceButton,
   WorkspaceCopy,
@@ -45,7 +48,9 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
   const selectWorkspace: WorkspaceState["selectWorkspace"] = useWorkspaceStore((state: WorkspaceState) => state.selectWorkspace);
   const forgetWorkspace: WorkspaceState["forgetWorkspace"] = useWorkspaceStore((state: WorkspaceState) => state.forgetWorkspace);
   const persistenceError: string | null = useWorkspaceStore((state: WorkspaceState) => state.persistenceError);
+  const workspaceCheck: WorkspaceCheck = useWorkspaceStore((state: WorkspaceState) => state.workspaceCheck);
   const active = useActiveWorkspace();
+  const workspaceInspection = useWorkspaceCheck();
   const [selectedId, setSelectedId] = useState<string | null>(active?.id ?? workspaces[0]?.id ?? null);
   const [adding, setAdding] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
@@ -147,7 +152,30 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
                 <div><ShieldCheck size={18} /><span>Local access<strong>Browser managed · {workspacePlatformLabel(selected.platform)}</strong></span></div>
               </DetailMeta>
               <Structure>
-                <div><strong>Workspace structure</strong><span>Saved metadata only; click a folder to expand it.</span></div>
+                <StructureHeader>
+                  <div><strong>Workspace structure</strong><span>Saved metadata only. Search paths, expand folders, or rescan the authorized directory.</span></div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    icon={ArrowClockwise}
+                    disabled={workspaceCheck.workspaceId === selected.id && workspaceCheck.status === "checking"}
+                    onClick={(): void => {
+                      selectWorkspace(selected.id);
+                      workspaceInspection.checkActiveWorkspace(true);
+                    }}
+                  >
+                    {workspaceCheck.workspaceId === selected.id && workspaceCheck.status === "checking" ? "Scanning…" : "Rescan"}
+                  </Button>
+                </StructureHeader>
+                {workspaceCheck.workspaceId === selected.id && workspaceCheck.status === "changed" && (
+                  <StructureStatus role="alert">
+                    The tree below contains a newer project structure that has not been accepted yet.
+                    <Button type="button" onClick={(): void => { workspaceInspection.acceptCurrentStructure(); }}>Accept structure</Button>
+                  </StructureStatus>
+                )}
+                {workspaceCheck.workspaceId === selected.id
+                  && (workspaceCheck.status === "permission-required" || workspaceCheck.status === "missing" || workspaceCheck.status === "error")
+                  && <StructureStatus role="alert">{workspaceCheck.message}</StructureStatus>}
                 {workspaceSnapshot.status === "loading" && <StructureStatus role="status">Loading saved folder structure…</StructureStatus>}
                 {workspaceSnapshot.status === "error" && <StructureStatus role="alert">Nexo could not read the saved structure from this browser.</StructureStatus>}
                 {workspaceSnapshot.status === "ready" && workspaceSnapshot.snapshot && <WorkspaceTree snapshot={workspaceSnapshot.snapshot} />}

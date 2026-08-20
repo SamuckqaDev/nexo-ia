@@ -13,9 +13,16 @@ import {
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
+import { cancelAllChatStreams, resetChatStreams } from "../../../modules/conversation/chat/hooks/useChatStream";
+import { useImageGenerationStore } from "../../../modules/conversation/media/stores/useImageGenerationStore";
+import type { ImageGenerationState } from "../../../modules/conversation/media/types/imageGenerationTypes";
+import { useVaultCatalogStore } from "../../../modules/knowledge/vault/stores/useVaultCatalogStore";
+import type { VaultCatalogState } from "../../../modules/knowledge/vault/types/vaultTypes";
 import { useWorkspaceStore } from "../../../modules/project/workspace/stores/useWorkspaceStore";
 import type { WorkspaceState } from "../../../modules/project/workspace/types/workspaceTypes";
 import type { SettingsSection } from "../../../modules/settings/types/settingsTypes";
+import { useSkillCatalogStore } from "../../../modules/skill/catalog/stores/useSkillCatalogStore";
+import type { SkillCatalogState } from "../../../modules/skill/catalog/types/skillTypes";
 import { Loading } from "../../../shared/components/Loading";
 import type { AppSection, AppShellProps, NavigationItem } from "../../types/navigationTypes";
 import { SidebarAccount } from "../SidebarAccount";
@@ -93,16 +100,31 @@ const settingsFromPath = (pathname: string): SettingsSection => {
 export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): ReactElement {
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [isPreparingLogout, setIsPreparingLogout] = useState<boolean>(false);
   const location = useLocation();
   const routerNavigate: NavigateFunction = useNavigate();
   const section: AppSection = sectionFromPath(location.pathname);
   const settingsSection: SettingsSection = settingsFromPath(location.pathname);
   const sidebarCollapsed: boolean = collapsed && !mobileMenuOpen;
   const initializeWorkspaces: WorkspaceState["initialize"] = useWorkspaceStore((state: WorkspaceState) => state.initialize);
+  const initializeVaults: VaultCatalogState["initialize"] = useVaultCatalogStore((state: VaultCatalogState) => state.initialize);
+  const resetVaults: VaultCatalogState["reset"] = useVaultCatalogStore((state: VaultCatalogState) => state.reset);
+  const initializeSkills: SkillCatalogState["initialize"] = useSkillCatalogStore((state: SkillCatalogState) => state.initialize);
+  const resetSkills: SkillCatalogState["reset"] = useSkillCatalogStore((state: SkillCatalogState) => state.reset);
+  const resetImageGeneration: ImageGenerationState["reset"] = useImageGenerationStore(
+    (state: ImageGenerationState) => state.reset);
 
-  useEffect((): void => {
+  useEffect((): (() => void) => {
     initializeWorkspaces(user.id);
-  }, [initializeWorkspaces, user.id]);
+    initializeVaults(user.id);
+    initializeSkills(user.id);
+    return (): void => {
+      resetChatStreams();
+      resetImageGeneration();
+      resetVaults();
+      resetSkills();
+    };
+  }, [initializeSkills, initializeVaults, initializeWorkspaces, resetImageGeneration, resetSkills, resetVaults, user.id]);
 
   const navigate = (targetSection: AppSection): void => {
     routerNavigate(sectionPaths[targetSection]);
@@ -111,6 +133,14 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
   const openSettings = (targetSection: SettingsSection): void => {
     routerNavigate(`/settings/${targetSection}`);
     setMobileMenuOpen(false);
+  };
+  const endSession = (): void => {
+    if (isPreparingLogout || isLoggingOut) return;
+    setIsPreparingLogout(true);
+    cancelAllChatStreams().finally((): void => {
+      onLogout();
+      setIsPreparingLogout(false);
+    });
   };
   return (
     <Shell $collapsed={collapsed}>
@@ -153,8 +183,8 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
         <SidebarAccount
           user={user}
           collapsed={sidebarCollapsed}
-          onLogout={onLogout}
-          isLoggingOut={isLoggingOut}
+          onLogout={endSession}
+          isLoggingOut={isLoggingOut || isPreparingLogout}
           onNavigate={navigate}
         />
       </Sidebar>
@@ -170,6 +200,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
       <Workspace>
         <MobileMenuButton
           type="button"
+          $open={mobileMenuOpen}
           aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={mobileMenuOpen}
           onClick={(): void => setMobileMenuOpen((value: boolean) => !value)}

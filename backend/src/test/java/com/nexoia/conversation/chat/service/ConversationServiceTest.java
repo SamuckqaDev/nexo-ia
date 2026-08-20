@@ -15,10 +15,13 @@ import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
 import com.nexoia.conversation.chat.model.ConversationRole;
+import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
+import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +48,9 @@ class ConversationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConversationService(conversations, messages, providers, audit);
+        service = new ConversationService(
+                conversations, messages, providers, audit,
+                new ConversationContextProperties(8000, 4));
     }
 
     @Test
@@ -92,6 +97,57 @@ class ConversationServiceTest {
 
         assertThatThrownBy(() -> service.messages(userId, conversationId))
                 .isInstanceOf(ConversationNotFoundException.class);
+    }
+
+    @Test
+    void restoresPersistedActiveExecutionAndItsContextBudget() {
+        UUID messageId = UUID.randomUUID();
+        when(conversations.findByIdAndUserIdAndArchivedFalse(conversationId, userId))
+                .thenReturn(Optional.of(conversation()));
+        when(messages.findAllByConversationIdOrderBySequenceNumberAsc(conversationId))
+                .thenReturn(List.of(ConversationMessage.builder()
+                        .id(messageId)
+                        .conversationId(conversationId)
+                        .sequenceNumber(2)
+                        .role(ConversationRole.ASSISTANT)
+                        .status(MessageStatus.STREAMING)
+                        .content("")
+                        .model("qwen3:8b")
+                        .build()));
+
+        ConversationMessageResponse response = service.messages(userId, conversationId).getFirst();
+
+        assertThat(response.id()).isEqualTo(messageId);
+        assertThat(response.status()).isEqualTo(MessageStatus.STREAMING);
+        assertThat(response.contextTokenBudget()).isEqualTo(8000);
+        assertThat(response.totalTokens()).isNull();
+        assertThat(response.completedAt()).isNull();
+    }
+
+    @Test
+    void exposesPerMessageInputOutputTotalAndContextUsage() {
+        when(conversations.findByIdAndUserIdAndArchivedFalse(conversationId, userId))
+                .thenReturn(Optional.of(conversation()));
+        when(messages.findAllByConversationIdOrderBySequenceNumberAsc(conversationId))
+                .thenReturn(List.of(ConversationMessage.builder()
+                        .id(UUID.randomUUID())
+                        .conversationId(conversationId)
+                        .sequenceNumber(2)
+                        .role(ConversationRole.ASSISTANT)
+                        .status(MessageStatus.COMPLETED)
+                        .content("answer")
+                        .model("qwen3:8b")
+                        .inputTokens(20)
+                        .outputTokens(3)
+                        .build()));
+
+        ConversationMessageResponse response = service.messages(userId, conversationId).getFirst();
+
+        assertThat(response.inputTokens()).isEqualTo(20);
+        assertThat(response.outputTokens()).isEqualTo(3);
+        assertThat(response.totalTokens()).isEqualTo(23L);
+        assertThat(response.contextTokensUsed()).isEqualTo(20);
+        assertThat(response.contextTokenBudget()).isEqualTo(8000);
     }
 
     @Test

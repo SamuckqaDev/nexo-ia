@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
@@ -66,7 +67,9 @@ class ModelRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ModelRequestService(store, registry, audit, List.of(client), clock);
+        service = new ModelRequestService(
+                store, registry, audit, List.of(client), clock,
+                new ConversationContextProperties(8000, 4));
     }
 
     @Test
@@ -92,6 +95,10 @@ class ModelRequestServiceTest {
         assertThat(listener.tokens).extracting(TokenEvent::content).containsExactly("Hel", "lo");
         assertThat(listener.tokens).extracting(TokenEvent::index).containsExactly(0, 1);
         assertThat(listener.usage.inputTokens()).isEqualTo(20);
+        assertThat(listener.usage.outputTokens()).isEqualTo(3);
+        assertThat(listener.usage.totalTokens()).isEqualTo(23L);
+        assertThat(listener.usage.contextTokensUsed()).isEqualTo(20);
+        assertThat(listener.usage.contextTokenBudget()).isEqualTo(8000);
         assertThat(listener.usage.tokenSource()).isEqualTo(TokenSource.PROVIDER);
         assertThat(listener.completed.content()).isEqualTo("Hello");
         assertThat(listener.cancelled).isNull();

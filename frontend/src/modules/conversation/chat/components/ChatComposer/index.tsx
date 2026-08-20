@@ -134,7 +134,7 @@ export function ChatComposer({
           {activeSkill && (
             <ActiveContext>
               <Sparkle size={17} weight="fill" />
-              <ActiveContextCopy><strong>/{activeSkill.command}</strong><span>Skill instructions will be included in this message. Dependencies remain permission-gated.</span></ActiveContextCopy>
+              <ActiveContextCopy><strong>Skill: /{activeSkill.command}</strong><span>Skill instructions will be included in this message. Dependencies remain permission-gated.</span></ActiveContextCopy>
               <RemoveContext type="button" aria-label={`Remove ${activeSkill.name} Skill`} onClick={(): void => setActiveSkill(null)}><X size={14} /></RemoveContext>
             </ActiveContext>
           )}

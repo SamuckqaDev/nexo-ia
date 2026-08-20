@@ -93,14 +93,6 @@ export const CopyButton = styled.button`
   &:disabled { cursor: not-allowed; opacity: 0; }
 `;
 
-export const Body = styled.div<{ $user: boolean }>`
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: ${({ theme }) => theme.colors.text};
-  font-size: ${({ $user }) => ($user ? "0.85rem" : "0.9rem")};
-  line-height: 1.72;
-`;
-
 export const Badge = styled.p<{ $tone: "warning" | "danger" }>`
   display: flex;
   align-items: center;
@@ -141,14 +133,26 @@ export const Meta = styled.p`
   color: ${({ theme }) => theme.colors.textSubtle};
   font-size: 0.64rem;
   font-variant-numeric: tabular-nums;
+  strong { color: ${({ theme }) => theme.colors.primarySoft}; }
 `;
 
-export const Caret = styled.span`
-  display: inline-block;
-  width: 0.5rem;
-  color: ${({ theme }) => theme.colors.primary};
-  animation: blink 1s steps(2, start) infinite;
+export const ContextMeter = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+`;
 
-  @keyframes blink { to { visibility: hidden; } }
-  @media (prefers-reduced-motion: reduce) { animation: none; }
+export const ContextMeterTrack = styled.span<{ $percentage: number }>`
+  width: 3.5rem;
+  height: 0.28rem;
+  overflow: hidden;
+  border-radius: ${({ theme }) => theme.radius.round};
+  background: ${({ theme }) => theme.colors.line};
+  i {
+    display: block;
+    width: ${({ $percentage }) => `${$percentage}%`};
+    height: 100%;
+    border-radius: inherit;
+    background: ${({ theme, $percentage }) => $percentage >= 85 ? theme.colors.accent : theme.colors.primary};
+  }
 `;

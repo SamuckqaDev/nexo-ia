@@ -3,11 +3,15 @@ import {
   CaretDoubleLeft,
   ChatCircleDots,
   Plus,
-  ShieldCheck
+  ShieldCheck,
+  SpinnerGap
 } from "@phosphor-icons/react";
 import { Fragment, type ReactElement } from "react";
+import { useChatStreamStore } from "../../stores/useChatStreamStore";
+import type { ChatStreamState, ConversationStreamSnapshot } from "../../types/chatStreamTypes";
 import type { Conversation } from "../../types/chatTypes";
 import {
+  Activity,
   Archive,
   CollapseButton,
   Count,
@@ -49,6 +53,9 @@ export function ConversationSidebar({
   onArchive,
   onClose
 }: ConversationSidebarProps): ReactElement {
+  const streams: Record<string, ConversationStreamSnapshot> = useChatStreamStore(
+    (state: ChatStreamState) => state.streams);
+
   return (
     <Fragment>
       <DrawerScrim
@@ -87,7 +94,10 @@ export function ConversationSidebar({
           </Empty>
         ) : (
           <List>
-            {conversations.map((conversation: Conversation) => (
+            {conversations.map((conversation: Conversation) => {
+              const phase = streams[conversation.id]?.phase;
+              const isRunning: boolean = phase === "starting" || phase === "streaming" || phase === "cancelling";
+              return (
               <Item key={conversation.id} $active={conversation.id === selectedId}>
                 <Open
                   type="button"
@@ -100,7 +110,9 @@ export function ConversationSidebar({
                   }}
                 >
                   <span>{conversation.title}</span>
-                  <ItemMeta>{conversation.selectedModel ?? "Model not selected"}</ItemMeta>
+                  {isRunning
+                    ? <Activity><SpinnerGap size={12} weight="bold" /> {phase === "cancelling" ? "Stopping…" : "Nexo is working…"}</Activity>
+                    : <ItemMeta>{conversation.selectedModel ?? "Model not selected"}</ItemMeta>}
                 </Open>
                 <Archive
                   type="button"
@@ -110,7 +122,8 @@ export function ConversationSidebar({
                   <ArchiveIcon size={16} />
                 </Archive>
               </Item>
-            ))}
+              );
+            })}
           </List>
         )}
       </Sidebar>

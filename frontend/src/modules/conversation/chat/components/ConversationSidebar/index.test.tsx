@@ -1,8 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
 import type { Conversation } from "../../types/chatTypes";
+import { idleConversationStream, useChatStreamStore } from "../../stores/useChatStreamStore";
 import { ConversationSidebar } from "./index";
 
 const conversation: Conversation = {
@@ -33,6 +34,7 @@ const renderSidebar = (overrides: Record<string, unknown> = {}) => {
   return props;
 };
 
+beforeEach(() => useChatStreamStore.getState().reset());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("ConversationSidebar", () => {
@@ -70,5 +72,16 @@ describe("ConversationSidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Archive Responsive Nexo" }));
 
     expect(props.onArchive).toHaveBeenCalledWith(conversation);
+  });
+
+  it("keeps a running conversation visible while another thread can be opened", () => {
+    useChatStreamStore.setState({
+      streams: {
+        [conversation.id]: { ...idleConversationStream, phase: "streaming" }
+      }
+    });
+    renderSidebar();
+
+    expect(screen.getByText("Nexo is working…")).toBeVisible();
   });
 });

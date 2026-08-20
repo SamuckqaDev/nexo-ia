@@ -2,11 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
 import { beforeEach, describe, expect, it } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
-import { builtInSkills, useSkillCatalogStore } from "../../stores/useSkillCatalogStore";
+import { useSkillCatalogStore } from "../../stores/useSkillCatalogStore";
 import { SkillsPage } from "./index";
 
 describe("SkillsPage", () => {
-  beforeEach(() => useSkillCatalogStore.setState({ skills: builtInSkills }));
+  beforeEach(() => {
+    useSkillCatalogStore.getState().reset();
+    useSkillCatalogStore.getState().initialize("00000000-0000-4000-8000-000000000201");
+  });
 
   it("creates a governed session Skill draft", async () => {
     render(<ThemeProvider theme={darkTheme}><SkillsPage /></ThemeProvider>);

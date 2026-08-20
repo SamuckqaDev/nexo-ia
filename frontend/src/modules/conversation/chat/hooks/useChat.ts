@@ -59,13 +59,35 @@ export const useArchiveConversation = (): UseMutationResult<void, Error, string>
 
 export const useSelectConversationModel = (
   conversationId: string | null
-): UseMutationResult<Conversation, Error, { providerConfigurationId: string; selectedModel: string }> => {
+): UseMutationResult<
+  Conversation,
+  Error,
+  { providerConfigurationId: string; selectedModel: string },
+  { previous: Conversation[] | undefined }
+> => {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<
+    Conversation,
+    Error,
+    { providerConfigurationId: string; selectedModel: string },
+    { previous: Conversation[] | undefined }
+  >({
     mutationFn: ({ providerConfigurationId, selectedModel }:
       { providerConfigurationId: string; selectedModel: string }): Promise<Conversation> =>
       selectConversationModel(conversationId ?? "", providerConfigurationId, selectedModel),
-    onSuccess: (): Promise<void> => queryClient.invalidateQueries({ queryKey: conversationsKey })
+    onMutate: ({ providerConfigurationId, selectedModel }): Promise<{ previous: Conversation[] | undefined }> =>
+      queryClient.cancelQueries({ queryKey: conversationsKey }).then(() => {
+        const previous: Conversation[] | undefined = queryClient.getQueryData<Conversation[]>(conversationsKey);
+        queryClient.setQueryData<Conversation[]>(conversationsKey, (current: Conversation[] | undefined): Conversation[] =>
+          (current ?? []).map((conversation: Conversation): Conversation => conversation.id === conversationId
+            ? { ...conversation, providerConfigurationId, selectedModel }
+            : conversation));
+        return { previous };
+      }),
+    onError: (_error, _variables, context): void => {
+      if (context?.previous) queryClient.setQueryData(conversationsKey, context.previous);
+    },
+    onSettled: (): Promise<void> => queryClient.invalidateQueries({ queryKey: conversationsKey })
   });
 };

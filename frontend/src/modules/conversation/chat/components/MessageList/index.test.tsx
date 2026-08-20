@@ -46,7 +46,8 @@ describe("MessageList", () => {
       </ThemeProvider>
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Waiting for model output");
+    expect(screen.getByText(/waiting for model output/i)).toBeInTheDocument();
+    expect(screen.getByText(/you can open another chat and come back/i)).toBeVisible();
     expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
     expect(screen.queryByText(/preparing the selected model/i)).not.toBeInTheDocument();
   });
@@ -111,6 +112,9 @@ describe("MessageList", () => {
             model: "qwen3:8b",
             inputTokens: null,
             outputTokens: null,
+            totalTokens: null,
+            contextTokensUsed: null,
+            contextTokenBudget: 8000,
             tokenSource: null,
             latencyMs: null,
             processingLocation: "LOCAL",
