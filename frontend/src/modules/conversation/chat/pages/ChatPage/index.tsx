@@ -69,6 +69,7 @@ export function ChatPage(): ReactElement {
   const inspectedWorkspaceId = useRef<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isStartingNewConversation, setIsStartingNewConversation] = useState<boolean>(false);
   const [mode, setMode] = useState<ConversationMode>("chat");
   const [isConversationMenuOpen, setIsConversationMenuOpen] = useState<boolean>((): boolean =>
     typeof window === "undefined"
@@ -95,8 +96,10 @@ export function ChatPage(): ReactElement {
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
 
   useEffect((): void => {
-    if (!selectedId && conversations.data?.[0]) setSelectedId(conversations.data[0].id);
-  }, [conversations.data, selectedId]);
+    if (!isStartingNewConversation && !selectedId && conversations.data?.[0]) {
+      setSelectedId(conversations.data[0].id);
+    }
+  }, [conversations.data, isStartingNewConversation, selectedId]);
 
   useEffect((): void => {
     if (initialDraft) clearDraft();
@@ -138,6 +141,7 @@ export function ChatPage(): ReactElement {
   const createConversation = (title: string): void => {
     create.mutate(title, {
       onSuccess: (conversation: Conversation): void => {
+        setIsStartingNewConversation(false);
         setSelectedId(conversation.id);
         if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) {
           setIsConversationMenuOpen(false);
@@ -217,8 +221,12 @@ export function ChatPage(): ReactElement {
           conversations={conversations.data ?? []}
           selectedId={selectedId}
           isCreating={create.isPending}
-          onSelect={setSelectedId}
+          onSelect={(conversationId: string): void => {
+            setIsStartingNewConversation(false);
+            setSelectedId(conversationId);
+          }}
           onNew={(): void => {
+            setIsStartingNewConversation(true);
             setSelectedId(null);
             setDraftModel(null);
             setPendingMessage(null);
