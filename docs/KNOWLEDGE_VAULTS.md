@@ -10,6 +10,10 @@ An Obsidian vault may be used as a Nexo Vault because both can use ordinary Mark
 frontmatter, tags, and local attachments. Obsidian is a compatible editor, not a required database,
 runtime, or product dependency.
 
+The retrieval mechanism behind a Vault — ingestion, embedding, `pgvector` search, the
+authorization boundary, and the data model — is described in
+[RAG and retrieval architecture](RAG_ARCHITECTURE.md).
+
 ## Conceptual model
 
 ```text

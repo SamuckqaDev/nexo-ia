@@ -47,6 +47,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 - [Product vision](docs/PRODUCT_VISION.md)
 - [Feature catalog](docs/FEATURES.md)
 - [Knowledge Vaults](docs/KNOWLEDGE_VAULTS.md)
+- [RAG and retrieval architecture](docs/RAG_ARCHITECTURE.md)
 - [Context isolation and Skill governance](docs/CONTEXT_AND_SKILL_GOVERNANCE.md)
 - [Governed project database access](docs/DATABASE_ACCESS.md)
 - [MVP and release strategy](docs/MVP_AND_RELEASE_STRATEGY.md)
