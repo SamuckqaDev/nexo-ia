@@ -3,9 +3,12 @@ import styled from "styled-components";
 export const Messages = styled.div`
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-height: 0;
   gap: ${({ theme }) => theme.spacing.lg};
   padding: ${({ theme }) => `${theme.spacing.lg} ${theme.spacing.xl}`};
   overflow-y: auto;
+  overflow-x: hidden;
 
   @media (max-width: 48rem) {
     padding: ${({ theme }) => theme.spacing.md};

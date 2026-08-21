@@ -1,8 +1,9 @@
-import { Check, ChatCircleDots, Cpu, FolderOpen, LockKey, X } from "@phosphor-icons/react";
+import { Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
+import { ApiError } from "../../../../../shared/api/ApiError";
 import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
@@ -47,6 +48,7 @@ import {
   Layout,
   LoadFailure,
   ModelArea,
+  ModelLockNotice,
   OpenConversations,
   PrivacyBadge,
   WorkspaceContext
@@ -100,6 +102,13 @@ export function ChatPage(): ReactElement {
       setSelectedId(conversations.data[0].id);
     }
   }, [conversations.data, isStartingNewConversation, selectedId]);
+
+  useEffect((): void => {
+    if (messages.error instanceof ApiError && messages.error.status === 404) {
+      setIsStartingNewConversation(true);
+      setSelectedId(null);
+    }
+  }, [messages.error]);
 
   useEffect((): void => {
     if (initialDraft) clearDraft();
@@ -279,6 +288,11 @@ export function ChatPage(): ReactElement {
             </HeaderCopy>
           </HeaderLeading>
           <ModelArea>
+            {stream.isBusy && (
+              <ModelLockNotice aria-live="polite">
+                <SpinnerGap size={12} weight="bold" /> Nexo is thinking · model locked
+              </ModelLockNotice>
+            )}
             <ModelPicker
               catalogs={modelCatalogs}
               selectedProviderId={effectiveModel?.providerConfigurationId ?? null}

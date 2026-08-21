@@ -187,6 +187,21 @@ export const ModelArea = styled.div`
   }
 `;
 
+export const ModelLockNotice = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 13rem;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.round};
+  padding: 0.28rem 0.5rem;
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.primarySoft};
+  font-size: 0.58rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
 export const LoadFailure = styled.div`
   display: grid;
   gap: ${({ theme }) => theme.spacing.md};
