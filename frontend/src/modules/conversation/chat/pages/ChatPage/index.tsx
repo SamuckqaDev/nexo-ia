@@ -116,12 +116,6 @@ export function ChatPage(): ReactElement {
     if (initialDraft) clearDraft();
   }, [clearDraft, initialDraft]);
 
-  useEffect((): void => {
-    if (!selectedId || !draftModel || selected?.selectedModel || selectModel.isPending) return;
-    selectModel.mutate(draftModel, {
-      onSuccess: (): void => setDraftModel(null)
-    });
-  }, [draftModel, selectModel, selected?.selectedModel, selectedId]);
 
   useEffect((): void => {
     if (
@@ -149,6 +143,24 @@ export function ChatPage(): ReactElement {
   const hasModel: boolean = Boolean(effectiveModel?.selectedModel && effectiveModel.providerConfigurationId);
   const hasConfiguredProvider: boolean = configuredProviders.length > 0;
 
+  useEffect((): void => {
+    if (!selectedId || selected?.selectedModel || selectModel.isPending) return;
+    // When the conversation has no model yet, persist the user's draft, or otherwise the first
+    // available model, so the selection shown at the top is the one the conversation actually uses.
+    const modelToPersist = draftModel ?? firstAvailableModel;
+    if (!modelToPersist) return;
+    selectModel.mutate(modelToPersist, {
+      onSuccess: (): void => setDraftModel(null)
+    });
+  }, [
+    selectedId,
+    selected?.selectedModel,
+    selectModel,
+    draftModel,
+    firstAvailableModel?.providerConfigurationId,
+    firstAvailableModel?.selectedModel
+  ]);
+
   const createConversation = (title: string): void => {
     create.mutate(title, {
       onSuccess: (conversation: Conversation): void => {
@@ -165,7 +177,10 @@ export function ChatPage(): ReactElement {
 
   const sendMessage = (content: string): void => {
     if (selectedId) {
-      stream.send(content);
+      // Send immediately when the conversation already has a model; otherwise hold the message until
+      // the auto-selected model has been persisted, then send it.
+      if (selected?.selectedModel) stream.send(content);
+      else setPendingMessage(content);
       return;
     }
     if (effectiveModel) setDraftModel(effectiveModel);
@@ -174,11 +189,11 @@ export function ChatPage(): ReactElement {
   };
 
   useEffect((): void => {
-    if (!pendingMessage || !selectedId || !hasModel || stream.isBusy || selectModel.isPending) return;
+    if (!pendingMessage || !selectedId || !selected?.selectedModel || stream.isBusy || selectModel.isPending) return;
     const content: string = pendingMessage;
     setPendingMessage(null);
     stream.send(content);
-  }, [hasModel, pendingMessage, selectedId, selectModel.isPending, stream]);
+  }, [selected?.selectedModel, pendingMessage, selectedId, selectModel.isPending, stream]);
 
   const chooseModel = (providerConfigurationId: string, selectedModel: string): void => {
     if (!selectedId) {
