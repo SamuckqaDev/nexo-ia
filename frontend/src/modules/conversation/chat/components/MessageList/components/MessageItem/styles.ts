@@ -60,6 +60,39 @@ export const Name = styled.span<{ $user: boolean }>`
   text-transform: uppercase;
 `;
 
+export const ThinkingTrace = styled.details`
+  margin: 0 0 ${({ theme }) => theme.spacing.sm};
+  border-left: 2px solid ${({ theme }) => theme.colors.primary};
+  padding-left: ${({ theme }) => theme.spacing.sm};
+  color: ${({ theme }) => theme.colors.textMuted};
+
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: ${({ theme }) => theme.colors.primarySoft};
+    font-size: 0.66rem;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker { display: none; }
+    &::before { content: "›"; font-size: 1rem; transition: transform 0.15s ease; }
+  }
+
+  &[open] summary::before { transform: rotate(90deg); }
+
+  p {
+    max-height: 11rem;
+    overflow: auto;
+    margin: ${({ theme }) => `${theme.spacing.xs} 0 0`};
+    color: ${({ theme }) => theme.colors.textSubtle};
+    font-size: 0.66rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+`;
+
 /**
  * The copy control stays out of the way until the row is hovered or the button itself is focused,
  * so a screen-reader or keyboard user can still reach it.

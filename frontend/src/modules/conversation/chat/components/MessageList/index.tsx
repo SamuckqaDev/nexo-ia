@@ -19,7 +19,6 @@ import {
   ThinkingIndicator,
   ThinkingLogo,
   ThinkingDots,
-  ThinkingTrace,
   TokenSummary
 } from "./styles";
 
@@ -124,7 +123,6 @@ export function MessageList({
   const streamingId: string | null = phase === "streaming" || phase === "cancelling"
     ? messages.findLast((message: ConversationMessage) => message.role === "ASSISTANT")?.id ?? null
     : null;
-  const waitingForFirstToken: boolean = Boolean(streamingId) && !streamingContent;
   const conversationTokenTotal: number = messages.reduce((total: number, message: ConversationMessage): number =>
     total + (message.role === "ASSISTANT" ? message.totalTokens ?? 0 : 0), 0);
   const showRunStatus: boolean = phase === "starting" || phase === "streaming" || phase === "cancelling";
@@ -168,23 +166,15 @@ export function MessageList({
         </Empty>
       )}
 
-      {showRunStatus && (
-        <ThinkingTrace open>
-          <summary><Brain size={15} weight="duotone" /> Thinking <small>live · not saved</small></summary>
-          <p>{thinkingContent || "Nexo is thinking through the request…"}</p>
-        </ThinkingTrace>
-      )}
-
-      {messages.map((message: ConversationMessage) => message.id === streamingId && waitingForFirstToken
-        ? null
-        : (
-          <MessageItem
-            key={message.id}
-            message={message}
-            streamingContent={streamingContent}
-            isStreaming={message.id === streamingId}
-          />
-        ))}
+      {messages.map((message: ConversationMessage) => (
+        <MessageItem
+          key={message.id}
+          message={message}
+          streamingContent={streamingContent}
+          thinkingContent={thinkingContent}
+          isStreaming={message.id === streamingId}
+        />
+      ))}
 
       {showRunStatus && <GenerationStatus phase={phase} startedAt={startedAt} />}
 

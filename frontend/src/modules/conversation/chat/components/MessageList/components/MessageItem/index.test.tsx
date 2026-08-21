@@ -60,6 +60,18 @@ describe("MessageItem", () => {
     expect(screen.getByText(/failed and was not completed/i)).toBeInTheDocument();
   });
 
+  it("keeps live thinking collapsed inside the Nexo answer bubble", () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <MessageItem message={message({ content: "", status: "STREAMING" })} isStreaming thinkingContent="Checking the request" />
+      </ThemeProvider>
+    );
+
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.getByText("Checking the request")).toBeInTheDocument();
+    expect(screen.getByText("Thinking").closest("details")).not.toHaveAttribute("open");
+  });
+
   it("does not show execution metadata on a user message", () => {
     renderItem(message({ role: "USER", content: "hi" }));
 

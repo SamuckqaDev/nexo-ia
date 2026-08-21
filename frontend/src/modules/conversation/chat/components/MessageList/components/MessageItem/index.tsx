@@ -1,4 +1,4 @@
-import { Check, Copy, Prohibit, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
+import { Brain, Check, Copy, Prohibit, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
 import type { ConversationMessage } from "../../../../types/chatTypes";
@@ -15,13 +15,15 @@ import {
   Head,
   Meta,
   Name,
-  Row
+  Row,
+  ThinkingTrace
 } from "./styles";
 
 type MessageItemProps = {
   message: ConversationMessage;
   streamingContent?: string;
   isStreaming?: boolean;
+  thinkingContent?: string;
 };
 
 /**
@@ -31,7 +33,8 @@ type MessageItemProps = {
 export function MessageItem({
   message,
   streamingContent,
-  isStreaming = false
+  isStreaming = false,
+  thinkingContent = ""
 }: MessageItemProps): ReactElement {
   const isUser: boolean = message.role === "USER";
   const rawContent: string = isStreaming ? streamingContent ?? "" : message.content;
@@ -91,6 +94,13 @@ export function MessageItem({
             <span>{copied ? "Copied" : "Copy"}</span>
           </CopyButton>
         </Head>
+
+        {!isUser && isStreaming && (
+          <ThinkingTrace>
+            <summary><Brain size={14} weight="duotone" /> Thinking</summary>
+            <p>{thinkingContent || "Nexo is thinking through the request…"}</p>
+          </ThinkingTrace>
+        )}
 
         <MessageContent content={content} isStreaming={isStreaming} isUser={isUser} />
 
