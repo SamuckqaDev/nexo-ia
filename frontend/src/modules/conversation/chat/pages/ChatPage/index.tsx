@@ -1,4 +1,4 @@
-import { ChatCircleDots, Cpu, FolderOpen, LockKey } from "@phosphor-icons/react";
+import { Check, ChatCircleDots, Cpu, FolderOpen, LockKey, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
@@ -19,12 +19,12 @@ import { ConversationContextPanel } from "../../components/ConversationContextPa
 import { ConversationSidebar } from "../../components/ConversationSidebar";
 import { MessageList } from "../../components/MessageList";
 import { ModelPicker } from "../../components/ModelPicker";
-import { NewConversationDialog } from "../../components/NewConversationDialog";
 import {
   useArchiveConversation,
   useConversationMessages,
   useConversations,
   useCreateConversation,
+  useRenameConversation,
   useSelectConversationModel
 } from "../../hooks/useChat";
 import { useChatStream } from "../../hooks/useChatStream";
@@ -42,6 +42,8 @@ import {
   HeaderLeading,
   HeaderMeta,
   HeaderTitle,
+  TitleEdit,
+  TitleInput,
   Layout,
   LoadFailure,
   ModelArea,
@@ -54,6 +56,7 @@ export function ChatPage(): ReactElement {
   const navigate: NavigateFunction = useNavigate();
   const conversations = useConversations();
   const create = useCreateConversation();
+  const rename = useRenameConversation();
   const archive = useArchiveConversation();
   const providers = useProviderRegistry();
   const accountUsage = useUsage("ALL_TIME");
@@ -73,13 +76,18 @@ export function ChatPage(): ReactElement {
     || !window.matchMedia("(max-width: 48rem)").matches
   );
   const [isContextOpen, setIsContextOpen] = useState<boolean>(false);
-  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [draftModel, setDraftModel] = useState<{ providerConfigurationId: string; selectedModel: string } | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState<boolean>(false);
+  const [renameTitle, setRenameTitle] = useState<string>("");
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
   const clearDraft: ChatDraftState["clear"] = useChatDraftStore((state: ChatDraftState) => state.clear);
 
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
   const stream = useChatStream(selectedId, messages.data ?? []);
+  const selected: Conversation | undefined = conversations.data
+    ?.find((item: Conversation) => item.id === selectedId);
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
     .filter((message: ConversationMessage): boolean => message.role === "USER")
     .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
@@ -93,6 +101,13 @@ export function ChatPage(): ReactElement {
   useEffect((): void => {
     if (initialDraft) clearDraft();
   }, [clearDraft, initialDraft]);
+
+  useEffect((): void => {
+    if (!selectedId || !draftModel || selected?.selectedModel || selectModel.isPending) return;
+    selectModel.mutate(draftModel, {
+      onSuccess: (): void => setDraftModel(null)
+    });
+  }, [draftModel, selectModel, selected?.selectedModel, selectedId]);
 
   useEffect((): void => {
     if (
@@ -109,23 +124,59 @@ export function ChatPage(): ReactElement {
     }
   }, [activeWorkspace, consumeWorkspaceCheckSkip, skipNextWorkspaceCheck, workspaceHydration, workspaceInspection]);
 
-  const selected: Conversation | undefined = conversations.data
-    ?.find((item: Conversation) => item.id === selectedId);
   const configuredProviders: ProviderConfiguration[] = providers.registry.data
     ?.filter((provider: ProviderConfiguration) => provider.enabled) ?? [];
   const modelCatalogs = useProviderModelCatalogs(configuredProviders);
-  const hasModel: boolean = Boolean(selected?.selectedModel);
+  const firstAvailableModel = modelCatalogs
+    .flatMap((catalog) => catalog.models.map((model) => ({ providerConfigurationId: catalog.providerConfigurationId, selectedModel: model.name })))[0];
+  const effectiveModel = selected?.selectedModel
+    ? { providerConfigurationId: selected.providerConfigurationId ?? "", selectedModel: selected.selectedModel }
+    : draftModel ?? firstAvailableModel ?? null;
+  const hasModel: boolean = Boolean(effectiveModel?.selectedModel && effectiveModel.providerConfigurationId);
   const hasConfiguredProvider: boolean = configuredProviders.length > 0;
 
   const createConversation = (title: string): void => {
     create.mutate(title, {
       onSuccess: (conversation: Conversation): void => {
         setSelectedId(conversation.id);
-        setIsDialogOpen(false);
         if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) {
           setIsConversationMenuOpen(false);
         }
       }
+    });
+  };
+
+  const titleFromMessage = (content: string): string => content.trim().split("\\n")[0]?.slice(0, 160) || "New conversation";
+
+  const sendMessage = (content: string): void => {
+    if (selectedId) {
+      stream.send(content);
+      return;
+    }
+    if (effectiveModel) setDraftModel(effectiveModel);
+    setPendingMessage(content);
+    createConversation(titleFromMessage(content));
+  };
+
+  useEffect((): void => {
+    if (!pendingMessage || !selectedId || !hasModel || stream.isBusy || selectModel.isPending) return;
+    const content: string = pendingMessage;
+    setPendingMessage(null);
+    stream.send(content);
+  }, [hasModel, pendingMessage, selectedId, selectModel.isPending, stream]);
+
+  const chooseModel = (providerConfigurationId: string, selectedModel: string): void => {
+    if (!selectedId) {
+      setDraftModel({ providerConfigurationId, selectedModel });
+      return;
+    }
+    selectModel.mutate({ providerConfigurationId, selectedModel });
+  };
+
+  const saveRename = (): void => {
+    if (!selectedId || !renameTitle.trim()) return;
+    rename.mutate({ conversationId: selectedId, title: renameTitle.trim() }, {
+      onSuccess: (): void => setIsRenaming(false)
     });
   };
 
@@ -167,8 +218,18 @@ export function ChatPage(): ReactElement {
           selectedId={selectedId}
           isCreating={create.isPending}
           onSelect={setSelectedId}
-          onNew={(): void => setIsDialogOpen(true)}
+          onNew={(): void => {
+            setSelectedId(null);
+            setDraftModel(null);
+            setPendingMessage(null);
+            if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) setIsConversationMenuOpen(false);
+          }}
           onArchive={archiveConversation}
+          onRename={(conversation: Conversation): void => {
+            setSelectedId(conversation.id);
+            setRenameTitle(conversation.title);
+            setIsRenaming(true);
+          }}
           onClose={(): void => setIsConversationMenuOpen(false)}
         />
       )}
@@ -187,7 +248,13 @@ export function ChatPage(): ReactElement {
               </OpenConversations>
             )}
             <HeaderCopy>
-              <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>
+              {isRenaming ? (
+                <TitleEdit>
+                  <TitleInput value={renameTitle} maxLength={160} autoFocus onChange={(event): void => setRenameTitle(event.target.value)} onKeyDown={(event): void => { if (event.key === "Enter") saveRename(); if (event.key === "Escape") setIsRenaming(false); }} />
+                  <Button type="button" variant="outline" icon={Check} aria-label="Save conversation title" onClick={saveRename} disabled={rename.isPending} />
+                  <Button type="button" variant="outline" icon={X} aria-label="Cancel title editing" onClick={(): void => setIsRenaming(false)} />
+                </TitleEdit>
+              ) : <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>}
               <HeaderMeta>
                 <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
                 <WorkspaceContext
@@ -206,13 +273,13 @@ export function ChatPage(): ReactElement {
           <ModelArea>
             <ModelPicker
               catalogs={modelCatalogs}
-              selectedProviderId={selected?.providerConfigurationId ?? null}
-              selectedModel={selected?.selectedModel ?? null}
-              disabled={!selectedId || stream.isBusy}
+              selectedProviderId={effectiveModel?.providerConfigurationId ?? null}
+              selectedModel={effectiveModel?.selectedModel ?? null}
+              disabled={stream.isBusy}
               isSaving={selectModel.isPending}
               errorMessage={selectModel.error?.message ?? null}
               onSelect={(providerConfigurationId: string, selectedModel: string): void =>
-                selectModel.mutate({ providerConfigurationId, selectedModel })}
+                chooseModel(providerConfigurationId, selectedModel)}
             />
           </ModelArea>
         </Header>
@@ -248,13 +315,13 @@ export function ChatPage(): ReactElement {
               <ChatComposer
                 initialContent={initialDraft}
                 messageHistory={messageHistory}
-                disabled={!selectedId}
+                disabled={false}
                 hasModel={hasModel}
                 phase={stream.phase}
                 isBusy={stream.isBusy}
                 mode={mode}
                 onModeChange={setMode}
-                onSend={stream.send}
+                onSend={sendMessage}
                 onCancel={stream.cancel}
               />
             </ConversationColumn>
@@ -270,12 +337,6 @@ export function ChatPage(): ReactElement {
         </ChatContent>
       </Chat>
 
-      <NewConversationDialog
-        open={isDialogOpen}
-        isSaving={create.isPending}
-        onOpenChange={setIsDialogOpen}
-        onCreate={createConversation}
-      />
     </Layout>
   );
 }

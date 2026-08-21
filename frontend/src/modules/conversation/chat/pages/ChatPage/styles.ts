@@ -124,6 +124,24 @@ export const HeaderTitle = styled.h2`
   white-space: nowrap;
 `;
 
+export const TitleEdit = styled.div`
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+export const TitleInput = styled.input`
+  width: min(18rem, 35vw);
+  min-width: 8rem;
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: 0.45rem 0.6rem;
+  background: ${({ theme }) => theme.colors.surfaceStrong};
+  color: ${({ theme }) => theme.colors.text};
+  font: inherit;
+`;
+
 export const HeaderMeta = styled.div`
   display: flex;
   flex-wrap: wrap;

@@ -2,6 +2,7 @@ import {
   Archive as ArchiveIcon,
   CaretDoubleLeft,
   ChatCircleDots,
+  PencilSimple,
   Plus,
   ShieldCheck,
   SpinnerGap
@@ -37,6 +38,7 @@ type ConversationSidebarProps = {
   onSelect: (conversationId: string) => void;
   onNew: () => void;
   onArchive: (conversation: Conversation) => void;
+  onRename?: (conversation: Conversation) => void;
   onClose: () => void;
 };
 
@@ -51,6 +53,7 @@ export function ConversationSidebar({
   onSelect,
   onNew,
   onArchive,
+  onRename,
   onClose
 }: ConversationSidebarProps): ReactElement {
   const streams: Record<string, ConversationStreamSnapshot> = useChatStreamStore(
@@ -116,7 +119,16 @@ export function ConversationSidebar({
                 </Open>
                 <Archive
                   type="button"
+                  aria-label={`Rename ${conversation.title}`}
+                  title="Rename conversation"
+                  onClick={(): void => onRename?.(conversation)}
+                >
+                  <PencilSimple size={16} />
+                </Archive>
+                <Archive
+                  type="button"
                   aria-label={`Archive ${conversation.title}`}
+                  title="Archive conversation"
                   onClick={(): void => onArchive(conversation)}
                 >
                   <ArchiveIcon size={16} />
