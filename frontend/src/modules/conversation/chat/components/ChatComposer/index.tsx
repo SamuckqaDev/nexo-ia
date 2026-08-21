@@ -224,10 +224,10 @@ export function ChatComposer({
             aria-label="Message"
             placeholder={hasModel
               ? mode === "agent" ? "Describe an objective for Nexo Agent…" : "Message Nexo IA…"
-              : "Choose a model first"}
+              : "Type your first message…"}
             value={content}
             maxLength={8000}
-            disabled={disabled || !hasModel || isBusy || mode === "agent"}
+            disabled={disabled || isBusy || mode === "agent"}
             onChange={updateContent}
             onKeyDown={submitOnEnter}
           />
