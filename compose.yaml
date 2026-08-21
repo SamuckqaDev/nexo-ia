@@ -36,7 +36,7 @@ services:
       - nexo-edge
 
   postgres:
-    image: postgres:18.4
+    image: pgvector/pgvector:0.8.6-pg18-bookworm
     environment:
       POSTGRES_DB: ${NEXO_DATABASE_NAME:-nexo}
       POSTGRES_USER: ${NEXO_DATABASE_USER:-nexo}
