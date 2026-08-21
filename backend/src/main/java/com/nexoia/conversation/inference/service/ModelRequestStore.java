@@ -1,5 +1,7 @@
 package com.nexoia.conversation.inference.service;
 
+import com.nexoia.auth.user.exception.UserNotFoundException;
+import com.nexoia.auth.user.repository.UserAccountRepository;
 import com.nexoia.conversation.chat.exception.ConversationBusyException;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
@@ -47,6 +49,7 @@ public class ModelRequestStore {
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
     private final ProviderConfigurationRepository providers;
+    private final UserAccountRepository users;
     private final ConversationContextAssembler contextAssembler;
     private final ProviderEndpointGuard endpointGuard;
     private final Clock clock;
@@ -115,7 +118,11 @@ public class ModelRequestStore {
                         provider.getProviderType(),
                         provider.getEndpoint(),
                         conversation.getSelectedModel(),
-                        contextAssembler.assemble(conversationId),
+                        contextAssembler.assemble(
+                                conversationId,
+                                users.findById(userId)
+                                        .orElseThrow(UserNotFoundException::new)
+                                        .getUsername()),
                         thinkingEnabled),
                 processingLocation);
     }

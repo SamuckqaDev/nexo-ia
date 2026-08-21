@@ -43,10 +43,15 @@ public class ConversationContextAssembler {
     private final ConversationContextProperties properties;
 
     public List<ChatCompletionMessage> assemble(UUID conversationId) {
+        return assemble(conversationId, null);
+    }
+
+    public List<ChatCompletionMessage> assemble(UUID conversationId, String username) {
         List<ConversationMessage> history = messages.findContextHistory(conversationId, USABLE);
         List<ChatCompletionMessage> selected = new ArrayList<>();
         int budget = properties.tokenBudget();
-        int used = properties.estimateTokens(NEXO_IDENTITY);
+        String identity = identityFor(username);
+        int used = properties.estimateTokens(identity);
 
         // Walk backwards so the most recent turns survive a tight budget.
         for (int index = history.size() - 1; index >= 0; index--) {
@@ -68,9 +73,15 @@ public class ConversationContextAssembler {
         }
 
         List<ChatCompletionMessage> context = new ArrayList<>(selected.size() + 1);
-        context.add(new ChatCompletionMessage("system", NEXO_IDENTITY));
+        context.add(new ChatCompletionMessage("system", identity));
         context.addAll(selected.reversed());
         return context;
+    }
+
+    private String identityFor(String username) {
+        if (username == null || username.isBlank()) return NEXO_IDENTITY;
+        return NEXO_IDENTITY + "\n\nThe authenticated user's username is `" + username.trim()
+                + "`. Address the user by this username naturally when it fits the conversation.";
     }
 
     private String role(ConversationMessage message) {
