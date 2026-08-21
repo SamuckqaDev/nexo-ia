@@ -35,7 +35,29 @@ export function MessageItem({
 }: MessageItemProps): ReactElement {
   const isUser: boolean = message.role === "USER";
   const rawContent: string = isStreaming ? streamingContent ?? "" : message.content;
-  const contextualMessage = isUser ? parseContextualChatMessage(rawContent) : { content: rawContent, skillName: null, vaultSourceNames: [] };
+  const [displayedContent, setDisplayedContent] = useState<string>(rawContent);
+
+  useEffect((): (() => void) | void => {
+    if (!isStreaming) {
+      setDisplayedContent(rawContent);
+      return undefined;
+    }
+
+    if (displayedContent.length >= rawContent.length) return undefined;
+
+    const timer: number = window.setInterval((): void => {
+      setDisplayedContent((current: string): string => {
+        if (current.length >= rawContent.length) return current;
+        return rawContent.slice(0, Math.min(rawContent.length, current.length + 2));
+      });
+    }, 14);
+
+    return (): void => window.clearInterval(timer);
+  }, [displayedContent.length, isStreaming, rawContent]);
+
+  const contextualMessage = isUser
+    ? parseContextualChatMessage(displayedContent)
+    : { content: displayedContent, skillName: null, vaultSourceNames: [] };
   const content: string = contextualMessage.content;
   const contextPercentage: number | null = message.contextTokensUsed !== null && message.contextTokenBudget
     ? Math.min(100, (message.contextTokensUsed / message.contextTokenBudget) * 100)

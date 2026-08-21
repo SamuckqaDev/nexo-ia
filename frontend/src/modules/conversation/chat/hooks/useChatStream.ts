@@ -139,6 +139,9 @@ export const useChatStream = (
       errorMessage: null,
       assistantMessageId: null
     });
+    // The backend persists the user message before opening the provider stream.
+    // Refresh immediately so the message is visible while Ollama is still preparing output.
+    queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
 
     streamMessage(conversationId, content, thinkingEnabled, {
       onStarted: (event: StartedEvent): void => {
