@@ -1,4 +1,4 @@
-import { Brain, ChatCircleDots, Coins, Cpu, ShieldCheck, Sparkle, SlidersHorizontal, SpinnerGap } from "@phosphor-icons/react";
+import { Brain, ChatCircleDots, Coins, Cpu, ShieldCheck, Sparkle, SlidersHorizontal } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import type { ConversationMessage, ConversationMode, StreamPhase } from "../../types/chatTypes";
@@ -16,6 +16,9 @@ import {
   RunTimer,
   StatusLive,
   StreamError,
+  ThinkingIndicator,
+  ThinkingLogo,
+  ThinkingDots,
   ThinkingTrace,
   TokenSummary
 } from "./styles";
@@ -73,7 +76,10 @@ function GenerationStatus({ phase, startedAt }: { phase: StreamPhase; startedAt:
 
   return (
     <RunStatus aria-label={label} title={label}>
-      <SpinnerGap size={13} weight="bold" aria-hidden />
+      <ThinkingIndicator aria-hidden>
+        <ThinkingLogo src="/assets/logo/nexo-ia-symbol.png" alt="" />
+        <ThinkingDots><i /><i /><i /></ThinkingDots>
+      </ThinkingIndicator>
       <RunTimer role="timer" aria-live="off" aria-label="Response generation elapsed time">
         {formatElapsedTime(elapsedSeconds)}
       </RunTimer>
@@ -162,10 +168,10 @@ export function MessageList({
         </Empty>
       )}
 
-      {streamingId && thinkingContent && (
+      {showRunStatus && (
         <ThinkingTrace open>
           <summary><Brain size={15} weight="duotone" /> Thinking <small>live · not saved</small></summary>
-          <p>{thinkingContent}</p>
+          <p>{thinkingContent || "Nexo is thinking through the request…"}</p>
         </ThinkingTrace>
       )}
 

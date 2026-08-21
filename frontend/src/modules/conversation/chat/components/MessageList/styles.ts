@@ -67,6 +67,41 @@ export const RunStatus = styled.div`
   @media (prefers-reduced-motion: reduce) { > svg { animation: none; } }
 `;
 
+export const ThinkingIndicator = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+`;
+
+export const ThinkingLogo = styled.img`
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+`;
+
+export const ThinkingDots = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+
+  i {
+    width: 0.28rem;
+    height: 0.28rem;
+    border-radius: 50%;
+    background: ${({ theme }) => theme.colors.accent};
+    animation: nexo-thinking-dot 1.1s ease-in-out infinite;
+    &:nth-child(2) { animation-delay: 0.14s; }
+    &:nth-child(3) { animation-delay: 0.28s; }
+  }
+
+  @keyframes nexo-thinking-dot {
+    0%, 70%, 100% { opacity: 0.25; transform: translateY(0); }
+    35% { opacity: 1; transform: translateY(-0.18rem); }
+  }
+
+  @media (prefers-reduced-motion: reduce) { i { animation: none; } }
+`;
+
 export const RunTimer = styled.time`
   display: inline;
   flex: 0 0 auto;

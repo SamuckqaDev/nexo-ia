@@ -32,7 +32,7 @@ describe("MessageList", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Opening conversation");
   });
 
-  it("does not fabricate a Thinking card before the first model token", () => {
+  it("shows the branded Thinking state before the first model token", () => {
     render(
       <ThemeProvider theme={darkTheme}>
         <MessageList
@@ -55,8 +55,8 @@ describe("MessageList", () => {
     expect(screen.getByText(/waiting for model output/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Nexo is preparing a response")).toBeVisible();
     expect(screen.queryByText(/you can open another chat and come back/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
-    expect(screen.queryByText(/preparing the selected model/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.getByText(/thinking through the request/i)).toBeInTheDocument();
   });
 
   it("offers a path to provider setup when no model is configured yet", () => {
