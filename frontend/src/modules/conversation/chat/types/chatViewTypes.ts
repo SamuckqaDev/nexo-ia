@@ -35,6 +35,7 @@ export type ContextualChatMessage = {
 export type ExplicitChatContext = {
   skill: SkillDefinition | null;
   vaultSources: VaultSourceReference[];
+  workspace?: { id: string; name: string } | null;
 };
 
 export type ChatLoadingProps = {

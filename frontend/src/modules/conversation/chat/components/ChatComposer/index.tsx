@@ -4,6 +4,7 @@ import { attachedVaultSources, useVaultCatalogStore } from "../../../../knowledg
 import type { VaultCatalogState, VaultSourceReference } from "../../../../knowledge/vault/types/vaultTypes";
 import { useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
 import type { SkillCatalogState, SkillDefinition } from "../../../../skill/catalog/types/skillTypes";
+import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { buildContextualChatMessage } from "../../services/chatContextService";
 import type { ChatComposerProps } from "../../types/chatViewTypes";
 import {
@@ -54,6 +55,7 @@ export function ChatComposer({
   const field = useRef<HTMLTextAreaElement>(null);
   const draftBeforeHistory = useRef<string>("");
   const skills: SkillDefinition[] = useSkillCatalogStore((state: SkillCatalogState) => state.skills);
+  const activeWorkspace = useActiveWorkspace();
   const vaultState: VaultCatalogState = useVaultCatalogStore();
   const vaultSources: VaultSourceReference[] = useMemo<VaultSourceReference[]>(
     () => attachedVaultSources(vaultState),
@@ -74,9 +76,10 @@ export function ChatComposer({
   const skillMenuOpen: boolean = !historyOpen && !skillMenuDismissed && content.startsWith("/") && !/\s/.test(skillQuery);
   const visibleSkills: SkillDefinition[] = useMemo<SkillDefinition[]>(() => skills
     .filter((skill: SkillDefinition): boolean => skill.enabled)
+    .filter((skill: SkillDefinition): boolean => skill.scope !== "project" || skill.scopeTarget === activeWorkspace?.id)
     .filter((skill: SkillDefinition): boolean =>
       !skillQuery || `${skill.command} ${skill.name} ${skill.description}`.toLowerCase().includes(skillQuery))
-    .slice(0, 8), [skillQuery, skills]);
+    .slice(0, 8), [activeWorkspace?.id, skillQuery, skills]);
 
   const selectSkill = (skill: SkillDefinition): void => {
     setActiveSkill(skill);
@@ -88,7 +91,11 @@ export function ChatComposer({
 
   const send = (): void => {
     if (!content.trim() || isBusy) return;
-    onSend(buildContextualChatMessage(content, { skill: activeSkill, vaultSources }));
+    onSend(buildContextualChatMessage(content, {
+      skill: activeSkill,
+      vaultSources,
+      workspace: activeWorkspace ? { id: activeWorkspace.id, name: activeWorkspace.name } : null
+    }));
     setContent("");
     setActiveSkill(null);
     setHistoryOpen(false);
