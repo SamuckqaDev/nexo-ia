@@ -210,6 +210,12 @@ export function ChatPage(): ReactElement {
     selectModel.mutate({ providerConfigurationId, selectedModel });
   };
 
+  const toggleVault = (vaultId: string): void => {
+    setSelectedVaultIds((current: string[]): string[] => current.includes(vaultId)
+      ? current.filter((id: string): boolean => id !== vaultId)
+      : [...current, vaultId]);
+  };
+
   const saveRename = (): void => {
     if (!selectedId || !renameTitle.trim()) return;
     rename.mutate({ conversationId: selectedId, title: renameTitle.trim() }, {
@@ -373,10 +379,7 @@ export function ChatPage(): ReactElement {
                       type="button"
                       $active={selectedVaultIds.includes(vault.id)}
                       aria-pressed={selectedVaultIds.includes(vault.id)}
-                      onClick={(): void => setSelectedVaultIds((current: string[]): string[] =>
-                        current.includes(vault.id)
-                          ? current.filter((id: string): boolean => id !== vault.id)
-                          : [...current, vault.id])}
+                      onClick={(): void => toggleVault(vault.id)}
                     >
                       {selectedVaultIds.includes(vault.id) && <Check size={12} weight="bold" />}
                       {vault.name}
@@ -402,7 +405,10 @@ export function ChatPage(): ReactElement {
               conversationId={selectedId}
               mode={mode}
               open={isContextOpen}
+              vaults={backendVaults.vaults.data ?? []}
+              selectedVaultIds={selectedVaultIds}
               onOpenChange={setIsContextOpen}
+              onToggleVault={toggleVault}
               onManageVaults={(): void => { navigate("/vaults"); }}
               onManageWorkspace={(): void => { navigate("/projects"); }}
             />

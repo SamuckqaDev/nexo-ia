@@ -16,8 +16,8 @@ import { Button } from "../../../../../shared/components/Button";
 import { ImageGenerationProgress } from "../../../media/components/ImageGenerationProgress";
 import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
 import type { ImageGenerationJob, ImageGenerationState } from "../../../media/types/imageGenerationTypes";
-import { useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
-import type { KnowledgeVault, VaultCatalogState, VaultSource } from "../../../../knowledge/vault/types/vaultTypes";
+import { useVaultSources } from "../../../../knowledge/vault/hooks/useVaultSources";
+import type { BackendSource, BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
 import { WorkspaceTree } from "../../../../project/workspace/components/WorkspaceTree";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { useWorkspaceSnapshot } from "../../../../project/workspace/hooks/useWorkspaceSnapshot";
@@ -45,7 +45,9 @@ import {
   SourceButton,
   StatusCopy,
   Tab,
-  Tabs
+  Tabs,
+  VaultSourceList,
+  VaultSourceRow
 } from "./styles";
 
 type ContextTab = {
@@ -69,20 +71,67 @@ const agentPreviewSteps: string[] = [
   "Execute and verify"
 ];
 
+type VaultContextCardProps = {
+  vault: BackendVault;
+  selected: boolean;
+  onToggle: () => void;
+};
+
+function VaultContextCard({ vault, selected, onToggle }: VaultContextCardProps): ReactElement {
+  const sourceCatalog = useVaultSources(vault.id);
+  const sources: BackendSource[] = sourceCatalog.sources.data ?? [];
+
+  return (
+    <ResourceCard>
+      <header>
+        <span><Vault size={17} weight="duotone" />{vault.name}</span>
+        <small>{selected ? "In retrieval" : vault.scope.toLowerCase()}</small>
+      </header>
+      <SourceButton
+        type="button"
+        $active={selected}
+        aria-pressed={selected}
+        onClick={onToggle}
+      >
+        <Paperclip size={14} weight={selected ? "fill" : "regular"} />
+        <span>
+          <strong>{selected ? "Remove from Chat" : "Use this Vault"}</strong>
+          <small>{selected ? "Nexo searches it for new messages" : "Enable server-side semantic retrieval"}</small>
+        </span>
+      </SourceButton>
+      {sourceCatalog.sources.isLoading ? (
+        <StatusCopy>Loading indexed documents…</StatusCopy>
+      ) : sourceCatalog.sources.isError ? (
+        <StatusCopy>Nexo could not load this Vault's documents.</StatusCopy>
+      ) : sources.length ? (
+        <VaultSourceList>
+          {sources.map((source: BackendSource) => (
+            <VaultSourceRow key={source.id}>
+              <FileText size={13} weight="duotone" />
+              <span title={source.displayName}>{source.displayName}</span>
+              <small>{source.status.toLowerCase()}</small>
+            </VaultSourceRow>
+          ))}
+        </VaultSourceList>
+      ) : <StatusCopy>This Vault has no documents.</StatusCopy>}
+    </ResourceCard>
+  );
+}
+
 export function ConversationContextPanel({
   conversationId,
   mode,
   open,
+  vaults,
+  selectedVaultIds,
   onOpenChange,
+  onToggleVault,
   onManageVaults,
   onManageWorkspace
 }: ConversationContextPanelProps): ReactElement {
   const [section, setSection] = useState<ConversationContextSection>("workspace");
   const activeWorkspace = useActiveWorkspace();
   const workspaceSnapshot = useWorkspaceSnapshot(activeWorkspace?.id ?? null);
-  const vaults: KnowledgeVault[] = useVaultCatalogStore((state: VaultCatalogState) => state.vaults);
-  const attachedSourceIds: string[] = useVaultCatalogStore((state: VaultCatalogState) => state.attachedSourceIds);
-  const toggleSourceAttachment: VaultCatalogState["toggleSourceAttachment"] = useVaultCatalogStore((state: VaultCatalogState) => state.toggleSourceAttachment);
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
     .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId);
@@ -120,28 +169,15 @@ export function ConversationContextPanel({
     if (section === "vaults") {
       return (
         <ResourceList>
-          <StatusCopy>Attach readable text sources here. Their bounded excerpts are added to new Chat messages until removed; excerpts already sent remain in conversation history.</StatusCopy>
-          {vaults.map((vault: KnowledgeVault) => (
-            <ResourceCard key={vault.id}>
-              <header><span><Vault size={17} weight="duotone" />{vault.name}</span><small>{vault.sources.length} sources</small></header>
-              {vault.sources.length ? vault.sources.map((source: VaultSource) => {
-                const attached: boolean = attachedSourceIds.includes(source.id);
-                return (
-                  <SourceButton
-                    key={source.id}
-                    type="button"
-                    $active={attached}
-                    disabled={!source.contentPreview}
-                    aria-label={source.contentPreview ? `${attached ? "Remove" : "Attach"} ${source.name} ${attached ? "from" : "to"} Chat` : `${source.name} has no readable preview`}
-                    onClick={(): void => toggleSourceAttachment(source.id)}
-                  >
-                    <Paperclip size={14} weight={attached ? "fill" : "regular"} />
-                    <span><strong>{source.name}</strong><small>{source.contentPreview ? attached ? "Attached to Chat" : "Available text excerpt" : "Metadata only"}</small></span>
-                  </SourceButton>
-                );
-              }) : <StatusCopy>This Vault has no sources.</StatusCopy>}
-            </ResourceCard>
-          ))}
+          <StatusCopy>Select the real Vaults Nexo may search for each new message. Retrieval stays isolated to your authenticated account.</StatusCopy>
+          {vaults.length ? vaults.map((vault: BackendVault) => (
+            <VaultContextCard
+              key={vault.id}
+              vault={vault}
+              selected={selectedVaultIds.includes(vault.id)}
+              onToggle={(): void => onToggleVault(vault.id)}
+            />
+          )) : <StatusCopy>No Knowledge Vaults are available for this account.</StatusCopy>}
           <SectionAction><Button type="button" variant="outline" onClick={onManageVaults}>Open Vault Explorer</Button></SectionAction>
         </ResourceList>
       );

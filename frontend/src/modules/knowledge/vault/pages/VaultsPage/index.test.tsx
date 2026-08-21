@@ -7,6 +7,7 @@ import { VaultsPage } from "./index";
 
 const listBackendVaults = vi.fn();
 const listBackendSources = vi.fn();
+const listBackendKnowledgeGraph = vi.fn();
 
 vi.mock("../../api/vaultApi", () => ({
   listBackendVaults: (): Promise<unknown> => listBackendVaults(),
@@ -19,6 +20,10 @@ vi.mock("../../api/sourceApi", () => ({
   listBackendSources: (): Promise<unknown> => listBackendSources(),
   registerBackendSource: vi.fn(),
   archiveBackendSource: vi.fn()
+}));
+
+vi.mock("../../api/knowledgeGraphApi", () => ({
+  listBackendKnowledgeGraph: (): Promise<unknown> => listBackendKnowledgeGraph()
 }));
 
 const vault = {
@@ -79,5 +84,29 @@ describe("VaultsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "New Vault" }));
 
     expect(screen.getByRole("heading", { name: "Create a Knowledge Vault" })).toBeInTheDocument();
+  });
+
+  it("opens the semantic workbench with the authenticated backend graph", async () => {
+    listBackendVaults.mockResolvedValue([vault]);
+    listBackendSources.mockResolvedValue([source]);
+    listBackendKnowledgeGraph.mockResolvedValue({
+      nodes: [
+        { id: `vault:${vault.id}`, kind: "VAULT", vaultId: vault.id, sourceId: null, ordinal: null, label: vault.name, detail: "1 source", excerpt: vault.description, status: "PERSONAL" },
+        { id: `source:${source.id}`, kind: "SOURCE", vaultId: vault.id, sourceId: source.id, ordinal: null, label: source.displayName, detail: "0 chunks", excerpt: null, status: "READY" }
+      ],
+      edges: [
+        { id: "contains:test", relation: "CONTAINS", fromId: `vault:${vault.id}`, toId: `source:${source.id}`, similarity: null }
+      ],
+      vaultCount: 1,
+      sourceCount: 1,
+      chunkCount: 0,
+      truncated: false
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Knowledge graph" }));
+
+    expect(await screen.findByRole("dialog", { name: "Semantic Knowledge Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /vault: Nexo Knowledge Base/i })).toBeInTheDocument();
   });
 });

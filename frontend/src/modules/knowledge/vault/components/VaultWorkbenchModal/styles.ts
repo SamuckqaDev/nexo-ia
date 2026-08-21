@@ -112,6 +112,21 @@ export const WindowBody = styled.div`
   overflow: hidden;
 `;
 
+export const WindowState = styled.div`
+  display: grid;
+  height: 100%;
+  min-height: 14rem;
+  place-content: center;
+  justify-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.xl};
+  color: ${({ theme }) => theme.colors.textSubtle};
+  text-align: center;
+
+  strong { color: ${({ theme }) => theme.colors.text}; font-size: 0.82rem; }
+  span { max-width: 30rem; font-size: 0.64rem; line-height: 1.55; }
+`;
+
 export const WindowStatus = styled.footer`
   display: flex;
   align-items: center;

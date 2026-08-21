@@ -4,6 +4,7 @@ import { useSnackbarStore } from "../../../../shared/feedback/stores/useSnackbar
 import type { SnackbarState } from "../../../../shared/feedback/types/snackbarTypes";
 import { archiveBackendVault, createBackendVault, listBackendVaults, updateBackendVault } from "../api/vaultApi";
 import type { BackendVault, CreateVaultInput } from "../types/backendVaultTypes";
+import { knowledgeGraphKey } from "./useKnowledgeGraph";
 
 export const backendVaultsKey = ["knowledge", "vaults"] as const;
 
@@ -27,6 +28,7 @@ export function useBackendVaultCatalog(): {
     mutationFn: createBackendVault,
     onSuccess: (): void => {
       queryClient.invalidateQueries({ queryKey: backendVaultsKey });
+      queryClient.invalidateQueries({ queryKey: knowledgeGraphKey });
       show("Vault created.", { variant: "success" });
     },
     onError: (error: Error): void => show(error.message, { variant: "error" })
@@ -37,6 +39,7 @@ export function useBackendVaultCatalog(): {
       updateBackendVault(vaultId, { name, description }),
     onSuccess: (): void => {
       queryClient.invalidateQueries({ queryKey: backendVaultsKey });
+      queryClient.invalidateQueries({ queryKey: knowledgeGraphKey });
       show("Vault updated.", { variant: "success" });
     },
     onError: (error: Error): void => show(error.message, { variant: "error" })
@@ -46,6 +49,7 @@ export function useBackendVaultCatalog(): {
     mutationFn: archiveBackendVault,
     onSuccess: (): void => {
       queryClient.invalidateQueries({ queryKey: backendVaultsKey });
+      queryClient.invalidateQueries({ queryKey: knowledgeGraphKey });
       show("Vault archived.", { variant: "success" });
     },
     onError: (error: Error): void => show(error.message, { variant: "error" })

@@ -1,32 +1,32 @@
-import type { KnowledgeVault } from "./vaultTypes";
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { z } from "zod";
+import type {
+  knowledgeGraphEdgeSchema,
+  knowledgeGraphNodeKindSchema,
+  knowledgeGraphNodeSchema,
+  knowledgeGraphRelationSchema,
+  knowledgeGraphSchema
+} from "../schemas/knowledgeGraphSchemas";
 
-export type VaultGraphNodeKind = "vault" | "source";
-export type VaultGraphRelation = "contains" | "related";
+export type KnowledgeGraphNodeKind = z.infer<typeof knowledgeGraphNodeKindSchema>;
+export type KnowledgeGraphRelation = z.infer<typeof knowledgeGraphRelationSchema>;
+export type KnowledgeGraphNode = z.infer<typeof knowledgeGraphNodeSchema>;
+export type KnowledgeGraphEdge = z.infer<typeof knowledgeGraphEdgeSchema>;
+export type BackendKnowledgeGraph = z.infer<typeof knowledgeGraphSchema>;
 
-export type VaultGraphNode = {
-  id: string;
-  kind: VaultGraphNodeKind;
-  vaultId: string;
-  sourceId?: string;
-  label: string;
-  detail: string;
+export type VaultGraphNode = KnowledgeGraphNode & {
   x: number;
   y: number;
-  attached: boolean;
 };
 
-export type VaultGraphEdge = {
-  id: string;
-  relation: VaultGraphRelation;
-  fromId: string;
-  toId: string;
+export type VaultGraphEdge = KnowledgeGraphEdge & {
   x1: number;
   y1: number;
   x2: number;
   y2: number;
 };
 
-export type VaultKnowledgeGraph = {
+export type VaultKnowledgeGraphLayout = {
   width: number;
   height: number;
   nodes: VaultGraphNode[];
@@ -34,12 +34,9 @@ export type VaultKnowledgeGraph = {
 };
 
 export type VaultKnowledgeGraphProps = {
-  vaults: KnowledgeVault[];
-  attachedSourceIds: string[];
-  selectedVaultId?: string;
-  selectedSourceId?: string | null;
+  graph: BackendKnowledgeGraph;
+  selectedVaultId?: string | null;
   onSelectVault: (vaultId: string) => void;
-  onSelectSource: (vaultId: string, sourceId: string) => void;
 };
 
 export type VaultWorkbenchPosition = { x: number; y: number };
@@ -55,7 +52,10 @@ export type VaultWorkbenchDragSnapshot = {
   maxY: number;
 };
 
-export type VaultWorkbenchModalProps = VaultKnowledgeGraphProps & {
+export type VaultWorkbenchModalProps = {
   open: boolean;
   onClose: () => void;
+  graphQuery: UseQueryResult<BackendKnowledgeGraph>;
+  selectedVaultId?: string | null;
+  onSelectVault: (vaultId: string) => void;
 };

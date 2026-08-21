@@ -328,9 +328,15 @@ minimal vertical connection plus the first release `0.1` identity slice.
   on completed answers. Retrieval failure never fails an ordinary chat request.
 - The frontend gained a backend-facing Knowledge Vault API layer (Zod schemas, Axios functions,
   TanStack Query hooks for vaults, sources, and the minimal backend Workspace) and a workspace picker
-  in `CreateVaultForm`. `useVaultCatalogStore` and `VaultsPage` still own the existing client-local
-  preview catalog in this release — see Intentionally incomplete.
-- One hundred and forty passing default backend tests and one hundred and two passing frontend tests,
+  in `CreateVaultForm`. `VaultsPage`, the Chat Knowledge bar, and the conversation resources panel now
+  consume that authenticated catalog; selecting a Vault in either Chat surface sends the same real
+  backend UUID to server-side retrieval.
+- The authenticated `GET /api/v1/knowledge/graph` endpoint projects the real pgvector index into a
+  bounded semantic graph (Vault, source, and chunk nodes; containment and cosine-similarity edges).
+  Owner filtering happens in the repository joins before graph assembly, vectors never reach the
+  browser, and the movable/resizable/maximizable frontend Workbench adds search, zoom, chunk detail,
+  document-only collapse, and indexed-excerpt inspection. See D-027.
+- One hundred and thirty-six passing default backend tests and one hundred and four passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -340,9 +346,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   migrations, bootstrap, login, authenticated profile, and logout. Every migration through V21 was
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
-  Migrations V17–V22 (Workspace, pgvector, Knowledge Vault/Source/Chunk, message citations) were
-  reviewed but not executed against a live pgvector instance in this session — see Intentionally
-  incomplete.
+  The local Compose runtime also started successfully on Java 25 against PostgreSQL 18.6 with all 23
+  Flyway migrations validated and the pgvector-backed user corpus preserved.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.4
   instance and asserts that every migration applied and that the active-request index exists. It
   exists because unit tests construct their collaborators directly and therefore cannot prove that
@@ -375,22 +380,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
   retrieval resolves to an explicit empty result, documented as a deferred follow-up in D-026.
 - PDF and Office sources remain metadata-only (`UNSUPPORTED` status); only Markdown, plain text,
   JSON, and CSV are ingested and embedded.
-- `VaultsPage`, `ConversationContextPanel`'s vaults tab, and `useVaultCatalogStore` still read the
-  client-local preview catalog, not the new backend-facing Knowledge Vault API — the API/schema/hook
-  layer is ready (`useBackendVaultCatalog`, `useKnowledgeWorkspaces`), but swapping the data source
-  and rewriting their tests is a follow-up, not rushed into this release. `useChatStream` already
-  resolves `knowledgeVaultIds` defensively (it ignores the client-only preview vaults, since their ids
-  are not backend UUIDs), so this gap does not risk sending an invalid request.
+- Explicit Markdown links, `[[wikilinks]]`, tags, frontmatter, and user-approved relationships are not
+  parsed into graph edges yet. The current semantic links are inferred from chunk embeddings and are
+  deliberately labeled separately from authored relationships.
 - There is no frontend flow yet to create a backend Workspace, so `CreateVaultForm`'s workspace picker
   is functional but likely empty until one is created directly against the API.
 - No retry-without-reupload endpoint exists; retrying a failed source means re-selecting and
   re-uploading the same file.
-- Migrations V17–V22 and the pgvector image switch (`pgvector/pgvector:0.8.6-pg18-bookworm`) were not
-  executed against a live database in this session — this sandbox has no usable Docker/Podman
-  (a nested-container pause-process error appeared when probing it, and the attempt was abandoned
-  before it could affect the host's other containers). Run `scripts/dev-up.sh` and confirm
-  `SELECT extname FROM pg_extension WHERE extname = 'vector'` and a clean `./mvnw test
-  -Dexcluded.test.groups= -Dgroups=docker` before relying on this in a real environment.
 - The Ollama embedding smoke test convention (`OllamaEmbeddingClient` against a real local Ollama with
   `nomic-embed-text` pulled) is documented but not yet written as an opt-in `ollama`-tagged test.
 
@@ -398,12 +394,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
 
 Next delivery checks:
 
-1. build and run the existing multi-stage backend and frontend images;
-2. verify the complete Compose runtime against PostgreSQL and Ollama;
-3. run `scripts/dev-up.sh` against the new `pgvector/pgvector:0.8.6-pg18-bookworm` image and confirm
-   migrations V17–V22 apply cleanly to an empty database;
-4. pull `nomic-embed-text` in a local Ollama and manually smoke-test: create vault → add a Markdown
+1. verify the complete production frontend image;
+2. pull `nomic-embed-text` in a local Ollama and manually smoke-test: create vault → add a Markdown
    source → wait for `READY` → open Chat → select the vault → ask a question → expand citations →
    confirm isolation with a second account;
-5. swap `VaultsPage`/`ConversationContextPanel`'s data source from `useVaultCatalogStore` to
-   `useBackendVaultCatalog`, and give the vaults tab an ingestion-status badge and retry action.
+3. validate the authenticated Knowledge Workbench visually at desktop and mobile breakpoints; the
+   automated browser used for this change reached the login boundary but had no user session.

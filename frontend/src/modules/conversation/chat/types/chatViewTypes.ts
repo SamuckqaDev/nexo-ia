@@ -1,4 +1,5 @@
 import type { SkillDefinition } from "../../../skill/catalog/types/skillTypes";
+import type { BackendVault } from "../../../knowledge/vault/types/backendVaultTypes";
 import type { VaultSourceReference } from "../../../knowledge/vault/types/vaultTypes";
 import type { ConversationMode, StreamPhase } from "./chatTypes";
 
@@ -8,7 +9,10 @@ export type ConversationContextPanelProps = {
   conversationId: string | null;
   mode: ConversationMode;
   open: boolean;
+  vaults: BackendVault[];
+  selectedVaultIds: string[];
   onOpenChange: (open: boolean) => void;
+  onToggleVault: (vaultId: string) => void;
   onManageVaults: () => void;
   onManageWorkspace: () => void;
 };

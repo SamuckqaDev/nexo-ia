@@ -6,6 +6,7 @@ import {
   FolderOpen,
   MagnifyingGlass,
   Plus,
+  ShareNetwork,
   Trash,
   Vault
 } from "@phosphor-icons/react";
@@ -22,7 +23,9 @@ import {
   WorkspacePanel
 } from "../../../../../shared/components/WorkspacePage";
 import { CreateVaultForm } from "../../components/CreateVaultForm";
+import { VaultWorkbenchModal } from "../../components/VaultWorkbenchModal";
 import { useBackendVaultCatalog } from "../../hooks/useBackendVaultCatalog";
+import { useKnowledgeGraph } from "../../hooks/useKnowledgeGraph";
 import { useVaultSources } from "../../hooks/useVaultSources";
 import type { BackendSource, BackendVault, BackendVaultScope } from "../../types/backendVaultTypes";
 import type { CreateVaultValues } from "../../types/vaultTypes";
@@ -60,11 +63,13 @@ export function VaultsPage(): ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState<string>("");
   const [creating, setCreating] = useState<boolean>(false);
+  const [workbenchOpen, setWorkbenchOpen] = useState<boolean>(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
 
   const selected: BackendVault | undefined = vaults.find((vault: BackendVault) => vault.id === selectedId);
   const sourcesState = useVaultSources(selected?.id ?? null);
+  const graphQuery = useKnowledgeGraph(workbenchOpen);
   const sources: BackendSource[] = sourcesState.sources.data ?? [];
   const readyCount: number = sources.filter((source: BackendSource) => source.status === "READY").length;
 
@@ -114,7 +119,8 @@ export function VaultsPage(): ReactElement {
   };
 
   return (
-    <WorkspacePage
+    <>
+      <WorkspacePage
       eyebrow="Grounded knowledge"
       title="Knowledge Vaults"
       description="Create governed knowledge collections and upload sources. Supported files are chunked and embedded into the vector store, ready for retrieval in Chat."
@@ -122,6 +128,7 @@ export function VaultsPage(): ReactElement {
       contentMode="contained"
       actions={(
         <PageActions>
+          <Button type="button" variant="outline" icon={ShareNetwork} onClick={(): void => setWorkbenchOpen(true)}>Knowledge graph</Button>
           <Button type="button" icon={Plus} onClick={(): void => setCreating(true)}>New Vault</Button>
         </PageActions>
       )}
@@ -191,6 +198,17 @@ export function VaultsPage(): ReactElement {
           ) : <WorkspaceEmptyState icon={Vault} title="Select a Vault" description="Choose a collection from the library or create a new one." />}
         </WorkspacePanel>
       </Explorer>
-    </WorkspacePage>
+      </WorkspacePage>
+      <VaultWorkbenchModal
+        open={workbenchOpen}
+        onClose={(): void => setWorkbenchOpen(false)}
+        graphQuery={graphQuery}
+        selectedVaultId={selectedId}
+        onSelectVault={(vaultId: string): void => {
+          setSelectedId(vaultId);
+          setCreating(false);
+        }}
+      />
+    </>
   );
 }

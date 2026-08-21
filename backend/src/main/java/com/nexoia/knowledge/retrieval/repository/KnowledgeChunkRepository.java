@@ -15,6 +15,20 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
 
     void deleteAllBySourceId(UUID sourceId);
 
+    @Query("""
+            SELECT c FROM KnowledgeChunk c
+            JOIN KnowledgeSource s ON s.id = c.sourceId
+            JOIN KnowledgeVault v ON v.id = s.vaultId
+            WHERE v.ownerId = :ownerId AND v.archived = false AND s.archived = false
+              AND s.status = com.nexoia.knowledge.ingestion.model.SourceStatus.READY
+              AND c.sourceId IN :sourceIds
+            ORDER BY c.createdAt ASC
+            """)
+    List<KnowledgeChunk> findAuthorizedForGraph(
+            @Param("ownerId") UUID ownerId,
+            @Param("sourceIds") Collection<UUID> sourceIds,
+            Limit limit);
+
     /**
      * The authorization boundary for retrieval: the join from chunk to source to vault filters by
      * {@code ownerId} and {@code archived}/{@code status} before ranking, so a chunk under another

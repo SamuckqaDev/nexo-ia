@@ -1,136 +1,126 @@
 import type {
+  BackendKnowledgeGraph,
+  KnowledgeGraphEdge,
+  KnowledgeGraphNode,
   VaultGraphEdge,
   VaultGraphNode,
-  VaultKnowledgeGraph
+  VaultKnowledgeGraphLayout
 } from "../types/vaultGraphTypes";
-import type { KnowledgeVault, VaultSource } from "../types/vaultTypes";
 
-const CANVAS_MIN_WIDTH = 720;
-const VAULT_COLUMN_WIDTH = 320;
-const VAULT_Y = 82;
-const SOURCE_START_Y = 194;
-const SOURCE_ROW_HEIGHT = 104;
-const MAX_RELATED_EDGES = 24;
+const MIN_CLUSTER_SIZE = 720;
+const MIN_WIDTH = 960;
+const MIN_HEIGHT = 680;
+const SOURCE_RADIUS = 155;
+const CHUNK_START_RADIUS = 290;
+const CHUNKS_PER_RING = 10;
+const CHUNK_RING_GAP = 72;
 
-const ignoredTerms = new Set([
-  "about", "after", "also", "and", "como", "com", "das", "data", "de", "does", "dos", "each",
-  "for", "from", "into", "its", "local", "mais", "never", "not", "para", "pela", "pelo", "que",
-  "remain", "should", "the", "this", "uma", "when", "with"
-]);
+type Point = { x: number; y: number };
 
-function nodeId(kind: "vault" | "source", id: string): string {
-  return `${kind}:${id}`;
+function pointOnCircle(center: Point, radius: number, angle: number): Point {
+  return {
+    x: center.x + Math.cos(angle) * radius,
+    y: center.y + Math.sin(angle) * radius
+  };
 }
 
-function normalizeTerm(value: string): string {
-  const normalized: string = value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-  return normalized.length > 4 && normalized.endsWith("s") ? normalized.slice(0, -1) : normalized;
-}
+function sourceSemanticEdges(graph: BackendKnowledgeGraph): KnowledgeGraphEdge[] {
+  const nodeById = new Map<string, KnowledgeGraphNode>(graph.nodes.map((node) => [node.id, node]));
+  const strongestByPair = new Map<string, KnowledgeGraphEdge>();
 
-function sourceTerms(source: VaultSource): Set<string> {
-  const text: string = `${source.name} ${source.contentPreview ?? ""}`;
-  return new Set(text
-    .split(/\s+/)
-    .map(normalizeTerm)
-    .filter((term: string): boolean => term.length >= 4 && !ignoredTerms.has(term)));
-}
-
-function sharedTermCount(left: Set<string>, right: Set<string>): number {
-  let matches = 0;
-  left.forEach((term: string): void => {
-    if (right.has(term)) matches += 1;
+  graph.edges.filter((edge) => edge.relation === "SEMANTIC").forEach((edge) => {
+    const left: KnowledgeGraphNode | undefined = nodeById.get(edge.fromId);
+    const right: KnowledgeGraphNode | undefined = nodeById.get(edge.toId);
+    if (!left?.sourceId || !right?.sourceId || left.sourceId === right.sourceId) return;
+    const orderedIds: string[] = [left.sourceId, right.sourceId].sort();
+    const pairId: string = orderedIds.join(":");
+    const existing: KnowledgeGraphEdge | undefined = strongestByPair.get(pairId);
+    if (existing && (existing.similarity ?? 0) >= (edge.similarity ?? 0)) return;
+    strongestByPair.set(pairId, {
+      id: `semantic-source:${pairId}`,
+      relation: "SEMANTIC",
+      fromId: `source:${orderedIds[0]}`,
+      toId: `source:${orderedIds[1]}`,
+      similarity: edge.similarity
+    });
   });
-  return matches;
+
+  return [...strongestByPair.values()];
 }
 
 export function buildVaultKnowledgeGraph(
-  vaults: KnowledgeVault[],
-  attachedSourceIds: string[]
-): VaultKnowledgeGraph {
-  const vaultCount: number = Math.max(vaults.length, 1);
-  const width: number = Math.max(CANVAS_MIN_WIDTH, vaultCount * VAULT_COLUMN_WIDTH);
-  const columnWidth: number = width / vaultCount;
-  const maxSourceRows: number = Math.max(1, ...vaults.map((vault: KnowledgeVault): number => Math.ceil(vault.sources.length / 2)));
-  const height: number = Math.max(360, SOURCE_START_Y + maxSourceRows * SOURCE_ROW_HEIGHT);
-  const nodes: VaultGraphNode[] = [];
-  const edges: VaultGraphEdge[] = [];
+  graph: BackendKnowledgeGraph,
+  includeChunks: boolean
+): VaultKnowledgeGraphLayout {
+  const vaultNodes: KnowledgeGraphNode[] = graph.nodes.filter((node) => node.kind === "VAULT");
+  const sourceNodes: KnowledgeGraphNode[] = graph.nodes.filter((node) => node.kind === "SOURCE");
+  const chunkNodes: KnowledgeGraphNode[] = includeChunks
+    ? graph.nodes.filter((node) => node.kind === "CHUNK")
+    : [];
+  const maxChunksPerSource: number = Math.max(0, ...sourceNodes.map((source) =>
+    chunkNodes.filter((chunk) => chunk.sourceId === source.sourceId).length));
+  const chunkRings: number = Math.max(1, Math.ceil(maxChunksPerSource / CHUNKS_PER_RING));
+  const clusterRadius: number = includeChunks
+    ? CHUNK_START_RADIUS + (chunkRings - 1) * CHUNK_RING_GAP + 90
+    : SOURCE_RADIUS + 130;
+  const clusterSize: number = Math.max(MIN_CLUSTER_SIZE, clusterRadius * 2);
+  const columns: number = Math.max(1, Math.ceil(Math.sqrt(Math.max(vaultNodes.length, 1))));
+  const rows: number = Math.max(1, Math.ceil(Math.max(vaultNodes.length, 1) / columns));
+  const width: number = Math.max(MIN_WIDTH, columns * clusterSize);
+  const height: number = Math.max(MIN_HEIGHT, rows * clusterSize);
+  const positions = new Map<string, Point>();
 
-  vaults.forEach((vault: KnowledgeVault, vaultIndex: number): void => {
-    const centerX: number = columnWidth * vaultIndex + columnWidth / 2;
-    const vaultNode: VaultGraphNode = {
-      id: nodeId("vault", vault.id),
-      kind: "vault",
-      vaultId: vault.id,
-      label: vault.name,
-      detail: `${vault.sources.length} source${vault.sources.length === 1 ? "" : "s"}`,
-      x: centerX,
-      y: VAULT_Y,
-      attached: vault.sources.some((source: VaultSource): boolean => attachedSourceIds.includes(source.id))
+  vaultNodes.forEach((vault, vaultIndex) => {
+    const column: number = vaultIndex % columns;
+    const row: number = Math.floor(vaultIndex / columns);
+    const center: Point = {
+      x: column * clusterSize + clusterSize / 2 + (width - columns * clusterSize) / 2,
+      y: row * clusterSize + clusterSize / 2 + (height - rows * clusterSize) / 2
     };
-    nodes.push(vaultNode);
+    positions.set(vault.id, center);
 
-    vault.sources.forEach((source: VaultSource, sourceIndex: number): void => {
-      const columnOffset: number = sourceIndex % 2 === 0 ? -82 : 82;
-      const sourceNode: VaultGraphNode = {
-        id: nodeId("source", source.id),
-        kind: "source",
-        vaultId: vault.id,
-        sourceId: source.id,
-        label: source.name,
-        detail: `${source.type} · ${source.size}`,
-        x: centerX + columnOffset,
-        y: SOURCE_START_Y + Math.floor(sourceIndex / 2) * SOURCE_ROW_HEIGHT,
-        attached: attachedSourceIds.includes(source.id)
-      };
-      nodes.push(sourceNode);
-      edges.push({
-        id: `contains:${vault.id}:${source.id}`,
-        relation: "contains",
-        fromId: vaultNode.id,
-        toId: sourceNode.id,
-        x1: vaultNode.x,
-        y1: vaultNode.y,
-        x2: sourceNode.x,
-        y2: sourceNode.y
+    const vaultSources: KnowledgeGraphNode[] = sourceNodes.filter((source) => source.vaultId === vault.vaultId);
+    const sourceCount: number = Math.max(vaultSources.length, 1);
+    vaultSources.forEach((source, sourceIndex) => {
+      const sourceAngle: number = -Math.PI / 2 + (Math.PI * 2 * sourceIndex) / sourceCount;
+      positions.set(source.id, pointOnCircle(center, SOURCE_RADIUS, sourceAngle));
+
+      const sourceChunks: KnowledgeGraphNode[] = chunkNodes.filter((chunk) => chunk.sourceId === source.sourceId);
+      sourceChunks.forEach((chunk, chunkIndex) => {
+        const ring: number = Math.floor(chunkIndex / CHUNKS_PER_RING);
+        const ringStart: number = ring * CHUNKS_PER_RING;
+        const ringCount: number = Math.min(CHUNKS_PER_RING, sourceChunks.length - ringStart);
+        const slot: number = chunkIndex - ringStart;
+        const sector: number = (Math.PI * 2) / sourceCount;
+        const spread: number = Math.min(sector * 0.72, Math.PI * 0.72);
+        const offset: number = ringCount === 1 ? 0 : -spread / 2 + (spread * slot) / (ringCount - 1);
+        positions.set(
+          chunk.id,
+          pointOnCircle(center, CHUNK_START_RADIUS + ring * CHUNK_RING_GAP, sourceAngle + offset)
+        );
       });
     });
   });
 
-  const sourceNodes: VaultGraphNode[] = nodes.filter((node: VaultGraphNode): boolean => node.kind === "source");
-  const sourceLookup = new Map<string, VaultSource>();
-  vaults.forEach((vault: KnowledgeVault): void => vault.sources.forEach((source: VaultSource): void => {
-    sourceLookup.set(source.id, source);
-  }));
-  let relatedEdges = 0;
+  const visibleNodes: KnowledgeGraphNode[] = [...vaultNodes, ...sourceNodes, ...chunkNodes];
+  const layoutNodes: VaultGraphNode[] = visibleNodes.flatMap((node) => {
+    const point: Point | undefined = positions.get(node.id);
+    return point ? [{ ...node, ...point }] : [];
+  });
+  const visibleNodeIds = new Set(layoutNodes.map((node) => node.id));
+  const graphEdges: KnowledgeGraphEdge[] = includeChunks
+    ? graph.edges
+    : [
+        ...graph.edges.filter((edge) => edge.relation === "CONTAINS"
+          && edge.fromId.startsWith("vault:") && edge.toId.startsWith("source:")),
+        ...sourceSemanticEdges(graph)
+      ];
+  const layoutEdges: VaultGraphEdge[] = graphEdges.flatMap((edge) => {
+    if (!visibleNodeIds.has(edge.fromId) || !visibleNodeIds.has(edge.toId)) return [];
+    const from: Point | undefined = positions.get(edge.fromId);
+    const to: Point | undefined = positions.get(edge.toId);
+    return from && to ? [{ ...edge, x1: from.x, y1: from.y, x2: to.x, y2: to.y }] : [];
+  });
 
-  for (let leftIndex = 0; leftIndex < sourceNodes.length && relatedEdges < MAX_RELATED_EDGES; leftIndex += 1) {
-    const leftNode: VaultGraphNode = sourceNodes[leftIndex];
-    const leftSource: VaultSource | undefined = leftNode.sourceId ? sourceLookup.get(leftNode.sourceId) : undefined;
-    if (!leftSource) continue;
-    const leftTerms: Set<string> = sourceTerms(leftSource);
-
-    for (let rightIndex = leftIndex + 1; rightIndex < sourceNodes.length && relatedEdges < MAX_RELATED_EDGES; rightIndex += 1) {
-      const rightNode: VaultGraphNode = sourceNodes[rightIndex];
-      if (leftNode.vaultId === rightNode.vaultId) continue;
-      const rightSource: VaultSource | undefined = rightNode.sourceId ? sourceLookup.get(rightNode.sourceId) : undefined;
-      if (!rightSource || sharedTermCount(leftTerms, sourceTerms(rightSource)) < 2) continue;
-      edges.push({
-        id: `related:${leftNode.id}:${rightNode.id}`,
-        relation: "related",
-        fromId: leftNode.id,
-        toId: rightNode.id,
-        x1: leftNode.x,
-        y1: leftNode.y,
-        x2: rightNode.x,
-        y2: rightNode.y
-      });
-      relatedEdges += 1;
-    }
-  }
-
-  return { width, height, nodes, edges };
+  return { width, height, nodes: layoutNodes, edges: layoutEdges };
 }

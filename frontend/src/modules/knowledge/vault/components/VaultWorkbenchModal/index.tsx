@@ -1,4 +1,4 @@
-import { ArrowsIn, ArrowsOut, DotsSixVertical, X } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowsIn, ArrowsOut, DotsSixVertical, X } from "@phosphor-icons/react";
 import {
   useEffect,
   useRef,
@@ -7,7 +7,10 @@ import {
   type ReactPortal
 } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "../../../../../shared/components/Button";
+import { Loading } from "../../../../../shared/components/Loading";
 import type {
+  KnowledgeGraphNode,
   VaultWorkbenchDragSnapshot,
   VaultWorkbenchModalProps,
   VaultWorkbenchPosition
@@ -20,6 +23,7 @@ import {
   WindowButton,
   WindowControls,
   WindowFrame,
+  WindowState,
   WindowStatus,
   WindowTitle,
   WindowTitlebar
@@ -31,19 +35,17 @@ const clamp = (value: number, minimum: number, maximum: number): number =>
 export function VaultWorkbenchModal({
   open,
   onClose,
-  vaults,
-  attachedSourceIds,
+  graphQuery,
   selectedVaultId,
-  selectedSourceId,
-  onSelectVault,
-  onSelectSource
+  onSelectVault
 }: VaultWorkbenchModalProps): ReactPortal | null {
   const [position, setPosition] = useState<VaultWorkbenchPosition>({ x: 0, y: 0 });
   const [maximized, setMaximized] = useState<boolean>(false);
   const frameRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<VaultWorkbenchDragSnapshot | null>(null);
-  const selectedVaultName: string = vaults.find((vault) => vault.id === selectedVaultId)?.name ?? "All Vaults";
+  const selectedVaultName: string = graphQuery.data?.nodes.find((node: KnowledgeGraphNode) =>
+    node.kind === "VAULT" && node.vaultId === selectedVaultId)?.label ?? "All Vaults";
 
   useEffect(() => {
     if (!open) return;
@@ -124,8 +126,8 @@ export function VaultWorkbenchModal({
         >
           <DragHandle aria-hidden><DotsSixVertical size={19} weight="bold" /></DragHandle>
           <WindowTitle>
-            <strong id="vault-workbench-title">Knowledge Workbench</strong>
-            <span>{selectedVaultName} · drag the title bar or resize the window</span>
+            <strong id="vault-workbench-title">Semantic Knowledge Workbench</strong>
+            <span>{selectedVaultName} · drag, resize or maximize the graph</span>
           </WindowTitle>
           <WindowControls>
             <WindowButton type="button" aria-label={maximized ? "Restore workbench" : "Maximize workbench"} onClick={toggleMaximized}>
@@ -137,18 +139,25 @@ export function VaultWorkbenchModal({
           </WindowControls>
         </WindowTitlebar>
         <WindowBody>
-          <VaultKnowledgeGraph
-            vaults={vaults}
-            attachedSourceIds={attachedSourceIds}
-            selectedVaultId={selectedVaultId}
-            selectedSourceId={selectedSourceId}
-            onSelectVault={onSelectVault}
-            onSelectSource={onSelectSource}
-          />
+          {graphQuery.isLoading ? (
+            <WindowState><Loading label="Mapping your indexed knowledge…" /></WindowState>
+          ) : graphQuery.isError ? (
+            <WindowState>
+              <strong>Could not load the knowledge graph</strong>
+              <span>{graphQuery.error.message}</span>
+              <Button type="button" variant="outline" icon={ArrowClockwise} onClick={(): void => { void graphQuery.refetch(); }}>Try again</Button>
+            </WindowState>
+          ) : graphQuery.data ? (
+            <VaultKnowledgeGraph
+              graph={graphQuery.data}
+              selectedVaultId={selectedVaultId}
+              onSelectVault={onSelectVault}
+            />
+          ) : null}
         </WindowBody>
         <WindowStatus>
-          <span>{vaults.length} Vault{vaults.length === 1 ? "" : "s"}</span>
-          <span>{attachedSourceIds.length} source{attachedSourceIds.length === 1 ? "" : "s"} in Chat context</span>
+          <span>{graphQuery.data?.vaultCount ?? 0} Vaults · {graphQuery.data?.sourceCount ?? 0} documents</span>
+          <span>{graphQuery.data?.chunkCount ?? 0} chunks{graphQuery.data?.truncated ? " · bounded view" : ""}</span>
         </WindowStatus>
       </WindowFrame>
     </Backdrop>,

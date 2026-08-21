@@ -368,3 +368,22 @@ options considered, the selected approach, and its consequences.
   workspace scope only, four ingestible MIME types, no lexical fallback, no ANN index — while keeping
   every contract (scope enum, citation shape, embedding provenance) forward-compatible with the
   deferred work it does not attempt yet.
+
+## D-027 — Derive a bounded semantic graph from the authorized pgvector index
+
+- **Status:** accepted
+- **Context:** the Vault explorer needs an Obsidian-style relationship map over real indexed
+  knowledge. The previous client preview compared repeated words and was disconnected from the
+  backend, while a separate graph database would duplicate ownership and lifecycle state before scale
+  measurements justify another datastore.
+- **Decision:** expose `GET /api/v1/knowledge/graph` as an authenticated, read-only projection of the
+  existing PostgreSQL index. Repository queries join Vault → source → chunk and filter by the current
+  owner before returning data to the graph service. The response contains Vault, source, and chunk
+  nodes, containment edges, and cross-source chunk edges with cosine similarity of at least 0.58. It
+  is capped at 24 Vaults, 96 sources, 160 chunks, 120 semantic edges, and three semantic edges per
+  chunk. Raw vectors are never serialized. The frontend may collapse chunk edges into source edges
+  for a document-only view, but it must retain the backend score and label the relation as inferred.
+- **Consequence:** the Workbench can visualize real private knowledge with predictable memory and
+  response size using the index already required by RAG. This is a semantic graph, not an authored
+  backlink graph: explicit wikilinks, tags, and approved relationships remain a later data-model
+  increment, and an ANN index or graph database requires corpus benchmarks first.

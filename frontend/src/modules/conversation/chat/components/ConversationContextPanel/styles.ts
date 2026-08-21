@@ -214,6 +214,36 @@ export const SourceButton = styled.button<{ $active: boolean }>`
   &:disabled { cursor: not-allowed; opacity: 0.55; }
 `;
 
+export const VaultSourceList = styled.div`
+  display: grid;
+  gap: 0.15rem;
+  padding-top: 0.2rem;
+`;
+
+export const VaultSourceRow = styled.div`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.38rem;
+  min-width: 0;
+  padding: 0.28rem 0.42rem;
+  color: ${({ theme }) => theme.colors.textSubtle};
+
+  > span {
+    overflow: hidden;
+    color: ${({ theme }) => theme.colors.textMuted};
+    font-size: 0.56rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > small {
+    color: ${({ theme }) => theme.colors.textSubtle};
+    font-size: 0.48rem;
+    text-transform: capitalize;
+  }
+`;
+
 export const StatusCopy = styled.p`
   margin: 0;
   color: ${({ theme }) => theme.colors.textSubtle};

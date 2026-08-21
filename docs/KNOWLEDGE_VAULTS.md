@@ -71,22 +71,27 @@ delete permissions remain independent.
   provenance.
 - Export and index rebuilding do not require Obsidian or a proprietary file format.
 
-## Initial implementation
+## Current implementation
 
-The planned authoritative implementation supports a local root containing Markdown, YAML frontmatter, standard
-Markdown links, `[[wikilinks]]`, tags, and attachments referenced by notes. It provides visible
-ingestion status, incremental reindexing, citations that open the original file, and a relationship
-graph. Obsidian Canvas and a dedicated Obsidian plugin remain later compatibility features.
+The authoritative Vault catalog, uploaded sources, normalized text, chunks, embeddings, and citations
+live in PostgreSQL. The Vault page and Chat both read this authenticated backend catalog; selecting a
+Vault in Chat sends its id to server-side retrieval instead of embedding a client-side preview in the
+message. Markdown, text, JSON, and CSV are currently ingestible. PDF and Office files remain
+metadata-only until supported parsers exist.
 
-The current frontend bridge is deliberately narrower. It keeps Vault drafts in a catalog partitioned
-by authenticated user, shows bounded previews for explicitly selected Markdown, text, JSON, and CSV
-files, and lets the user attach readable excerpts to Chat. Its interactive knowledge map shows Vault
-membership, shared-term relationships, selection, and attached-source state. Attached excerpts are
-sent inside the message to the selected provider as untrusted reference data; the map and excerpts
-are not an index, retrieval result, citation, durable Vault ingestion, or a tool the model can use to
-open an unattached source automatically. The contained Vault workspace keeps the collection library,
-source list, and selected knowledge visible together on desktop; each surface owns its scrolling,
-while narrow screens stack the same surfaces inside the Vault explorer. The relationship map opens as
-a movable, resizable knowledge workbench with maximize and restore controls instead of consuming the
-main explorer area; this is a client-side visualization and does not invoke a model. PDF and Office
-selections keep metadata only until supported parsers exist.
+`GET /api/v1/knowledge/graph` builds a bounded semantic view of the current user's real index. It
+returns Vault, document, and chunk nodes; containment edges; and the strongest cross-document chunk
+relationships whose cosine similarity is at least 0.58. Repository joins apply owner, archive, and
+ingestion-status filters before graph data is loaded. Raw embedding vectors never leave the backend.
+The response is capped at 24 Vaults, 96 sources, 160 chunks, 120 semantic edges, and three semantic
+edges per chunk so opening the map cannot request an unbounded corpus.
+
+The Vault page opens this data in a movable, resizable, maximizable Knowledge Workbench. The user can
+pan with the viewport scrollbars, zoom, search, hide or show chunk detail, and inspect a bounded chunk
+excerpt. When chunks are hidden, the frontend collapses their strongest relationships into
+document-level links. This provides the Obsidian-style network view without introducing a separate
+graph database.
+
+Explicit Markdown links, `[[wikilinks]]`, backlinks, tags, frontmatter, incremental filesystem
+reindexing, and user-approved model-suggested links remain later increments. Current semantic edges
+are inferred from the existing embeddings and must not be presented as authored links.

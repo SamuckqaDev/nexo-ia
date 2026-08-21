@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
@@ -5,11 +6,51 @@ import { darkTheme } from "../../../../../app/styles/theme";
 import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
 import { ConversationContextPanel } from "./index";
 
-const renderPanel = (mode: "chat" | "agent", open = true, onOpenChange = vi.fn()) => render(
-  <ThemeProvider theme={darkTheme}>
-    <ConversationContextPanel conversationId="conversation-1" mode={mode} open={open} onOpenChange={onOpenChange} onManageVaults={vi.fn()} onManageWorkspace={vi.fn()} />
-  </ThemeProvider>
-);
+const listBackendSources = vi.fn();
+
+vi.mock("../../../../knowledge/vault/api/sourceApi", () => ({
+  listBackendSources: (vaultId: string): Promise<unknown> => listBackendSources(vaultId),
+  registerBackendSource: vi.fn(),
+  archiveBackendSource: vi.fn()
+}));
+
+const vault = {
+  id: "11111111-1111-4111-8111-111111111111",
+  name: "Nexo Knowledge Base",
+  description: "Product knowledge",
+  scope: "PERSONAL" as const,
+  workspaceId: null,
+  createdAt: "2026-08-21T10:00:00Z",
+  updatedAt: "2026-08-21T10:00:00Z"
+};
+
+const renderPanel = (
+  mode: "chat" | "agent",
+  open = true,
+  onOpenChange = vi.fn(),
+  vaults = [] as typeof vault[],
+  selectedVaultIds: string[] = [],
+  onToggleVault = vi.fn()
+) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={darkTheme}>
+        <ConversationContextPanel
+          conversationId="conversation-1"
+          mode={mode}
+          open={open}
+          vaults={vaults}
+          selectedVaultIds={selectedVaultIds}
+          onOpenChange={onOpenChange}
+          onToggleVault={onToggleVault}
+          onManageVaults={vi.fn()}
+          onManageWorkspace={vi.fn()}
+        />
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 describe("ConversationContextPanel", () => {
   beforeEach(() => useImageGenerationStore.getState().reset());
@@ -51,6 +92,29 @@ describe("ConversationContextPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Media" }));
 
     expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  it("shows real backend Vault documents and selects the Vault for retrieval", async () => {
+    const onToggleVault = vi.fn();
+    listBackendSources.mockResolvedValue([{
+      id: "22222222-2222-4222-8222-222222222222",
+      vaultId: vault.id,
+      sourceKind: "UPLOAD",
+      displayName: "Nexo Principles",
+      mimeType: "text/markdown",
+      byteSize: 2048,
+      status: "READY",
+      errorCode: null,
+      createdAt: "2026-08-21T10:00:00Z",
+      updatedAt: "2026-08-21T10:00:00Z"
+    }]);
+    renderPanel("chat", true, vi.fn(), [vault], [], onToggleVault);
+
+    fireEvent.click(screen.getByRole("tab", { name: /vaults/i }));
+
+    expect(await screen.findByText("Nexo Principles")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /use this vault/i }));
+    expect(onToggleVault).toHaveBeenCalledWith(vault.id);
   });
 
   it("shows reported image progress, elapsed time and remaining estimate", () => {

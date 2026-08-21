@@ -5,6 +5,7 @@ import type { SnackbarState } from "../../../../shared/feedback/types/snackbarTy
 import { archiveBackendSource, listBackendSources, registerBackendSource } from "../api/sourceApi";
 import { backendVaultsKey } from "./useBackendVaultCatalog";
 import type { BackendSource } from "../types/backendVaultTypes";
+import { knowledgeGraphKey } from "./useKnowledgeGraph";
 
 export const vaultSourcesKey = (vaultId: string): readonly unknown[] => ["knowledge", "vaults", vaultId, "sources"];
 
@@ -30,6 +31,7 @@ export function useVaultSources(vaultId: string | null): {
   const invalidate = (): void => {
     if (vaultId) queryClient.invalidateQueries({ queryKey: vaultSourcesKey(vaultId) });
     queryClient.invalidateQueries({ queryKey: backendVaultsKey });
+    queryClient.invalidateQueries({ queryKey: knowledgeGraphKey });
   };
 
   const upload = useMutation({
