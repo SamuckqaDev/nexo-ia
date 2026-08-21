@@ -1,6 +1,9 @@
 package com.nexoia.knowledge.vault.controller;
 
 import com.nexoia.auth.session.security.NexoUserPrincipal;
+import com.nexoia.knowledge.retrieval.dto.RetrievalPreviewResponse;
+import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
+import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.vault.dto.CreateVaultRequest;
 import com.nexoia.knowledge.vault.dto.UpdateVaultRequest;
 import com.nexoia.knowledge.vault.dto.VaultResponse;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -29,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class VaultController {
 
     private final VaultService service;
+    private final RetrievalService retrievalService;
 
     @GetMapping
     @Operation(summary = "List the authenticated user's active Knowledge Vaults")
@@ -64,5 +69,17 @@ public class VaultController {
         service.archive(principal.userId(), vaultId);
 
         return ResponseEntity.ok(BaseResponse.success(200, "Vault archived", List.of()));
+    }
+
+    @GetMapping("/{vaultId}/retrieval-preview")
+    @Operation(summary = "Preview authorized retrieval citations for a query, without invoking a model")
+    public ResponseEntity<BaseResponse<RetrievalPreviewResponse>> retrievalPreview(
+            @AuthenticationPrincipal NexoUserPrincipal principal,
+            @PathVariable UUID vaultId,
+            @RequestParam String q) {
+        return ResponseEntity.ok(BaseResponse.success(200, "Retrieval preview computed",
+                new RetrievalPreviewResponse(retrievalService
+                        .retrieve(principal.userId(), new RetrievalQuery(List.of(vaultId), q))
+                        .citations())));
     }
 }
