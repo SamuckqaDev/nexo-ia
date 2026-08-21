@@ -1,9 +1,24 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
 import { useVaultCatalogStore } from "../../stores/useVaultCatalogStore";
 import { VaultsPage } from "./index";
+
+vi.mock("../../api/knowledgeWorkspaceApi", () => ({
+  listKnowledgeWorkspaces: vi.fn().mockResolvedValue([]),
+  createKnowledgeWorkspace: vi.fn()
+}));
+
+const renderVaultsPage = (): ReturnType<typeof render> => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 describe("VaultsPage", () => {
   beforeEach(() => {
@@ -12,7 +27,7 @@ describe("VaultsPage", () => {
   });
 
   it("creates a selectable session Vault draft", async () => {
-    render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
+    renderVaultsPage();
 
     fireEvent.click(screen.getByRole("button", { name: "New Vault" }));
     fireEvent.change(screen.getByLabelText("Vault name"), { target: { value: "Architecture decisions" } });
@@ -24,7 +39,7 @@ describe("VaultsPage", () => {
   });
 
   it("opens source knowledge and attaches readable content to Chat", () => {
-    render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
+    renderVaultsPage();
 
     fireEvent.click(screen.getByRole("button", { name: /Nexo product docs/i }));
     fireEvent.click(screen.getByRole("button", { name: /PRODUCT_VISION.md/i }));
@@ -35,7 +50,7 @@ describe("VaultsPage", () => {
   });
 
   it("exposes an accessible map whose nodes open the matching knowledge", () => {
-    render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
+    renderVaultsPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Knowledge workbench" }));
     expect(screen.getByLabelText(/Interactive knowledge map/i)).toBeInTheDocument();
@@ -45,7 +60,7 @@ describe("VaultsPage", () => {
   });
 
   it("opens the knowledge map in a movable workbench window", () => {
-    render(<ThemeProvider theme={darkTheme}><VaultsPage /></ThemeProvider>);
+    renderVaultsPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Knowledge workbench" }));
 

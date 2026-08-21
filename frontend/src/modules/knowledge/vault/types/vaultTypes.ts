@@ -2,7 +2,7 @@ import type { ChangeEvent } from "react";
 import type { z } from "zod";
 import type { createVaultSchema } from "../schemas/createVaultSchema";
 
-export type VaultScope = "personal" | "project" | "team" | "organization";
+export type VaultScope = "personal" | "workspace" | "project" | "team" | "organization";
 export type VaultSourceStatus = "preview" | "queued" | "local";
 
 export type VaultSource = {

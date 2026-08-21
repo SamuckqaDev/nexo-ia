@@ -5,15 +5,18 @@ import type { ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Input } from "../../../../../shared/components/Input";
 import { Select } from "../../../../../shared/components/Select";
+import { useKnowledgeWorkspaces } from "../../hooks/useKnowledgeWorkspaces";
 import { createVaultSchema } from "../../schemas/createVaultSchema";
 import type { CreateVaultFormProps, CreateVaultValues } from "../../types/vaultTypes";
 import { Actions, Form, Textarea, TextareaField } from "./styles";
 
 export function CreateVaultForm({ onCreate, onCancel }: CreateVaultFormProps): ReactElement {
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateVaultValues>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<CreateVaultValues>({
     resolver: zodResolver(createVaultSchema),
-    defaultValues: { name: "", description: "", scope: "personal" }
+    defaultValues: { name: "", description: "", scope: "personal", workspaceId: "" }
   });
+  const { workspaces } = useKnowledgeWorkspaces();
+  const scope = watch("scope");
   const submit: SubmitHandler<CreateVaultValues> = (values): void => onCreate(values);
 
   return (
@@ -30,12 +33,23 @@ export function CreateVaultForm({ onCreate, onCancel }: CreateVaultFormProps): R
         helperText="Visibility does not grant retrieval access; every use is authorized again."
         options={[
           { label: "Personal", value: "personal" },
+          { label: "Workspace", value: "workspace" },
           { label: "Project", value: "project" },
           { label: "Team", value: "team" },
           { label: "Organization", value: "organization" }
         ]}
         {...register("scope")}
       />
+      {scope === "workspace" && (
+        <Select
+          id="vault-workspace"
+          label="Workspace"
+          error={errors.workspaceId?.message}
+          helperText={workspaces.data?.length === 0 ? "No workspaces yet." : undefined}
+          options={(workspaces.data ?? []).map((workspace) => ({ label: workspace.name, value: workspace.id }))}
+          {...register("workspaceId")}
+        />
+      )}
       <Actions><Button type="button" variant="outline" icon={X} onClick={onCancel}>Cancel</Button><Button type="submit" icon={Plus}>Create draft</Button></Actions>
     </Form>
   );
