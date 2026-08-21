@@ -3,7 +3,6 @@ package com.nexoia.provider.service;
 import com.nexoia.provider.dto.CreateProviderRequest;
 import com.nexoia.provider.dto.ProviderConfigurationResponse;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
-import com.nexoia.provider.exception.InvalidProviderEndpointException;
 import com.nexoia.provider.exception.ProviderConfigurationConflictException;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
@@ -11,9 +10,6 @@ import com.nexoia.audit.dto.RecordAuditCommand;
 import com.nexoia.audit.model.AuditAction;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -69,19 +65,9 @@ public class ProviderRegistryService {
     }
 
     private String normalizeEndpoint(String endpoint) {
-        try {
-            URI uri = new URI(endpoint.trim()).normalize();
-            if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null
-                    || uri.getRawQuery() != null || uri.getRawFragment() != null
-                    || !("http".equalsIgnoreCase(uri.getScheme())
-                    || "https".equalsIgnoreCase(uri.getScheme()))) {
-                throw new InvalidProviderEndpointException();
-            }
-            return uri.toString();
-        } catch (URISyntaxException | IllegalArgumentException exception) {
-            throw new InvalidProviderEndpointException();
-        }
+        return ProviderEndpointNormalizer.normalize(endpoint);
     }
+
     private ProviderConfigurationResponse response(ProviderConfiguration provider) {
         return new ProviderConfigurationResponse(provider.getId(), provider.getProviderType(), provider.getDisplayName(),
                 provider.getEndpoint(), provider.getSelectedModel(), provider.isEnabled(), provider.getLastConnectedAt());

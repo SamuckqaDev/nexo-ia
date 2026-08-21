@@ -3,7 +3,9 @@ package com.nexoia.provider.controller;
 import com.nexoia.auth.session.security.NexoUserPrincipal;
 import com.nexoia.provider.dto.CreateProviderRequest;
 import com.nexoia.provider.dto.ProviderConfigurationResponse;
+import com.nexoia.provider.dto.ProviderConnectionTestResponse;
 import com.nexoia.provider.dto.ProviderModelCatalogResponse;
+import com.nexoia.provider.dto.TestProviderConnectionRequest;
 import com.nexoia.provider.service.ProviderModelCatalogService;
 import com.nexoia.provider.service.ProviderRegistryService;
 import com.nexoia.shared.api.BaseResponse;
@@ -45,6 +47,14 @@ public class ProviderRegistryController {
                 200,
                 "Provider model catalog inspected",
                 modelCatalogService.discover(principal.userId(), providerId)));
+    }
+
+    @PostMapping("/test")
+    @Operation(summary = "Test a provider connection before saving it")
+    public ResponseEntity<BaseResponse<ProviderConnectionTestResponse>> testConnection(
+            @Valid @RequestBody TestProviderConnectionRequest request) {
+        return ResponseEntity.ok(BaseResponse.success(200, "Provider connection tested",
+                modelCatalogService.testConnection(request.providerType(), request.endpoint())));
     }
 
     @PostMapping

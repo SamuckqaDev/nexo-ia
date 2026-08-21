@@ -97,6 +97,53 @@ class ProviderModelCatalogServiceTest {
         assertThat(response.message()).doesNotContain(provider.getEndpoint());
     }
 
+    @Test
+    void testsAnUnsavedOllamaEndpointWithoutTouchingTheRepository() {
+        when(endpointGuard.verify(ProviderType.OLLAMA, "http://127.0.0.1:11434"))
+                .thenReturn(ProcessingLocation.LOCAL);
+        when(ollamaProviderService.models("http://127.0.0.1:11434"))
+                .thenReturn(List.of(new ProviderModelResponse("qwen3:8b", null, 42L)));
+
+        var response = service.testConnection(ProviderType.OLLAMA, "http://127.0.0.1:11434");
+
+        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.AVAILABLE);
+        assertThat(response.processingLocation()).isEqualTo(ProcessingLocation.LOCAL);
+        assertThat(response.models()).extracting(ProviderModelResponse::name).containsExactly("qwen3:8b");
+        verify(repository, never()).findByIdAndUserId(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void reportsUnsupportedProviderTypesWithoutOpeningANetworkConnectionWhenTesting() {
+        var response = service.testConnection(ProviderType.ANTHROPIC, "https://api.anthropic.com");
+
+        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.UNSUPPORTED);
+        assertThat(response.models()).isEmpty();
+        verify(endpointGuard, never()).verify(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void rejectsAMalformedEndpointBeforeTestingIt() {
+        assertThatThrownBy(() -> service.testConnection(ProviderType.OLLAMA, "not-a-url"))
+                .isInstanceOf(com.nexoia.provider.exception.InvalidProviderEndpointException.class);
+
+        verify(endpointGuard, never()).verify(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void turnsAnUnreachableTestEndpointIntoASafeTypedStatus() {
+        when(endpointGuard.verify(ProviderType.OLLAMA, "http://127.0.0.1:11434"))
+                .thenReturn(ProcessingLocation.LOCAL);
+        when(ollamaProviderService.models("http://127.0.0.1:11434"))
+                .thenThrow(new ProviderUnavailableException());
+
+        var response = service.testConnection(ProviderType.OLLAMA, "http://127.0.0.1:11434");
+
+        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.UNAVAILABLE);
+        assertThat(response.message()).doesNotContain("127.0.0.1");
+    }
+
     private ProviderConfiguration provider(ProviderType providerType) {
         return ProviderConfiguration.builder()
                 .id(providerId)

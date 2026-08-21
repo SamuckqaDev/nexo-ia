@@ -1,9 +1,11 @@
 package com.nexoia.provider.service;
 
+import com.nexoia.provider.dto.ProviderConnectionTestResponse;
 import com.nexoia.provider.dto.ProviderModelCatalogResponse;
 import com.nexoia.provider.dto.ProviderModelResponse;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.exception.ProviderUnavailableException;
+import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderCatalogStatus;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.model.ProviderType;
@@ -51,6 +53,34 @@ public class ProviderModelCatalogService {
         } catch (ProviderUnavailableException exception) {
             return response(provider, ProviderCatalogStatus.UNAVAILABLE, List.of(),
                     "The configured provider is currently unavailable");
+        }
+    }
+
+    /**
+     * Tests connectivity for an endpoint the user has not saved yet. No provider configuration is
+     * read or persisted here, so there is no ownership to resolve and nothing to leak into storage.
+     */
+    public ProviderConnectionTestResponse testConnection(ProviderType providerType, String rawEndpoint) {
+        String endpoint = ProviderEndpointNormalizer.normalize(rawEndpoint);
+
+        if (providerType != ProviderType.OLLAMA) {
+            return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.UNSUPPORTED,
+                    null, List.of(), "Connection testing is not available for this provider type yet");
+        }
+
+        ProcessingLocation processingLocation = endpointGuard.verify(providerType, endpoint);
+
+        try {
+            List<ProviderModelResponse> models = ollamaProviderService.models(endpoint);
+            if (models.isEmpty()) {
+                return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.EMPTY,
+                        processingLocation, models, "No installed models were reported by this provider");
+            }
+            return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.AVAILABLE,
+                    processingLocation, models, null);
+        } catch (ProviderUnavailableException exception) {
+            return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.UNAVAILABLE,
+                    processingLocation, List.of(), "The configured provider is currently unavailable");
         }
     }
 
