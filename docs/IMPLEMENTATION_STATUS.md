@@ -299,12 +299,50 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- One hundred and fifteen passing default backend tests and one hundred and two passing frontend tests, including cross-user
-  isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
-  context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
-  18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
+- A minimal backend Workspace module (`GET/POST /api/v1/workspaces`, owner and name only) gives
+  Knowledge Vault scope `workspace` a real, authorized target. It is deliberately separate from the
+  frontend's IndexedDB-backed `project/workspace` module and not yet unified with it. See D-026.
+- Local Postgres now runs `pgvector/pgvector:0.8.6-pg18-bookworm`. `KnowledgeVault`, `KnowledgeSource`,
+  and `KnowledgeChunk` are persisted with owner/workspace-scoped authorization
+  (`GET/POST/PUT/DELETE /api/v1/knowledge/vaults`, `GET/POST /api/v1/knowledge/vaults/{id}/sources`,
+  `GET /api/v1/knowledge/sources/{id}/ingestion`, `DELETE /api/v1/knowledge/sources/{id}`). Scope
+  `personal` and `workspace` are enforced for real; `project`, `team`, and `organization` are part of
+  the contract but always rejected with `UnsupportedVaultScopeException` until their own backend
+  entities exist.
+- Uploading a source (Markdown, plain text, JSON, or CSV, capped at 3 MB) runs a bounded, synchronous,
+  idempotent-by-content-hash pipeline: normalize, chunk (~1,200 characters, 200 overlap, capped at 300
+  chunks), embed through a new `EmbeddingClient` provider boundary (Ollama only, mirroring
+  `ChatCompletionClient`, resolved through the caller's own registered provider, never required for
+  ordinary chat), and persist. A recognized-but-unextractable MIME type is stored `UNSUPPORTED`,
+  metadata only; a pipeline failure is stored `FAILED` with a safe error code and correlation id,
+  never a raw stack trace.
+- `RetrievalService` ranks chunks through a hand-written JPQL query
+  (`KnowledgeChunkRepository.findAuthorizedNearest`) that joins chunk → source → vault and filters by
+  owner and archived/status *before* ranking by `cosine_distance` — an unauthorized or archived chunk
+  cannot be ranked, let alone returned. Results below a minimum similarity, or an unavailable embedding
+  provider, resolve to an explicit empty result; there is no lexical fallback in this release.
+- Chat accepts a typed `knowledgeVaultIds` field (bounded to 8), replacing the vault portion of the
+  former client-side `[NEXO_EXPLICIT_CONTEXT]` prompt prefix. Retrieval runs server-side before the
+  model request; its citations are inserted as an explicit untrusted-context system message, persisted
+  on the assistant message (never the retrieved excerpts themselves), and rendered as citation chips
+  on completed answers. Retrieval failure never fails an ordinary chat request.
+- The frontend gained a backend-facing Knowledge Vault API layer (Zod schemas, Axios functions,
+  TanStack Query hooks for vaults, sources, and the minimal backend Workspace) and a workspace picker
+  in `CreateVaultForm`. `useVaultCatalogStore` and `VaultsPage` still own the existing client-local
+  preview catalog in this release — see Intentionally incomplete.
+- One hundred and forty passing default backend tests and one hundred and two passing frontend tests,
+  including cross-user isolation for conversations and provider configurations, a deterministic
+  Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
+  (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
+  rejected, a foreign workspace target is rejected, an unauthorized vault's chunks are never queried,
+  results below the minimum score are empty, and an embedding-provider failure is never presented as
+  an answer. The authentication flow was verified against a disposable PostgreSQL 18.4 instance:
+  migrations, bootstrap, login, authenticated profile, and logout. Every migration through V21 was
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
+  Migrations V17–V22 (Workspace, pgvector, Knowledge Vault/Source/Chunk, message citations) were
+  reviewed but not executed against a live pgvector instance in this session — see Intentionally
+  incomplete.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.4
   instance and asserts that every migration applied and that the active-request index exists. It
   exists because unit tests construct their collaborators directly and therefore cannot prove that
@@ -331,10 +369,41 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Agent mode remains a visible choice without a runtime: it must expose its plan, tools, limits,
   approvals, evidence, and stop reason before it can be enabled. Image jobs remain pending the local
   ComfyUI runtime.
+- Knowledge Vault scopes `project`, `team`, and `organization` are contract-complete but always
+  rejected — no backend project/team/organization entity exists yet to authorize against.
+- No lexical/full-text fallback exists for retrieval; below-threshold or provider-unavailable
+  retrieval resolves to an explicit empty result, documented as a deferred follow-up in D-026.
+- PDF and Office sources remain metadata-only (`UNSUPPORTED` status); only Markdown, plain text,
+  JSON, and CSV are ingested and embedded.
+- `VaultsPage`, `ConversationContextPanel`'s vaults tab, and `useVaultCatalogStore` still read the
+  client-local preview catalog, not the new backend-facing Knowledge Vault API — the API/schema/hook
+  layer is ready (`useBackendVaultCatalog`, `useKnowledgeWorkspaces`), but swapping the data source
+  and rewriting their tests is a follow-up, not rushed into this release. `useChatStream` already
+  resolves `knowledgeVaultIds` defensively (it ignores the client-only preview vaults, since their ids
+  are not backend UUIDs), so this gap does not risk sending an invalid request.
+- There is no frontend flow yet to create a backend Workspace, so `CreateVaultForm`'s workspace picker
+  is functional but likely empty until one is created directly against the API.
+- No retry-without-reupload endpoint exists; retrying a failed source means re-selecting and
+  re-uploading the same file.
+- Migrations V17–V22 and the pgvector image switch (`pgvector/pgvector:0.8.6-pg18-bookworm`) were not
+  executed against a live database in this session — this sandbox has no usable Docker/Podman
+  (a nested-container pause-process error appeared when probing it, and the attempt was abandoned
+  before it could affect the host's other containers). Run `scripts/dev-up.sh` and confirm
+  `SELECT extname FROM pg_extension WHERE extname = 'vector'` and a clean `./mvnw test
+  -Dexcluded.test.groups= -Dgroups=docker` before relying on this in a real environment.
+- The Ollama embedding smoke test convention (`OllamaEmbeddingClient` against a real local Ollama with
+  `nomic-embed-text` pulled) is documented but not yet written as an opt-in `ollama`-tagged test.
 
 ## Next verification
 
 Next delivery checks:
 
 1. build and run the existing multi-stage backend and frontend images;
-2. verify the complete Compose runtime against PostgreSQL and Ollama.
+2. verify the complete Compose runtime against PostgreSQL and Ollama;
+3. run `scripts/dev-up.sh` against the new `pgvector/pgvector:0.8.6-pg18-bookworm` image and confirm
+   migrations V17–V22 apply cleanly to an empty database;
+4. pull `nomic-embed-text` in a local Ollama and manually smoke-test: create vault → add a Markdown
+   source → wait for `READY` → open Chat → select the vault → ask a question → expand citations →
+   confirm isolation with a second account;
+5. swap `VaultsPage`/`ConversationContextPanel`'s data source from `useVaultCatalogStore` to
+   `useBackendVaultCatalog`, and give the vaults tab an ingestion-status badge and retry action.
