@@ -171,8 +171,20 @@ minimal vertical connection plus the first release `0.1` identity slice.
   protocols without an implemented adapter never receive fabricated model lists. The Chat picker
   groups every discovered model by provider and persists both provider-configuration ID and model on
   the conversation. A saved default remains fallback metadata rather than limiting the picker to one
-  model. Remote vendor discovery, credential storage, and provider connection testing remain future
-  increments.
+  model. Remote vendor discovery and credential storage remain future increments.
+- `POST /api/v1/providers/configurations/test` lets an authenticated user test a provider type and
+  endpoint before saving it. It runs the same `ProviderEndpointGuard` check and typed
+  available/empty/unavailable/unsupported catalog status as saved-provider discovery, persists
+  nothing, and never leaks the tested endpoint in its error message. The Settings provider setup form
+  now calls it through a "Test connection" action before saving, showing the resulting status inline.
+- The conversation composer now creates a conversation automatically from the first typed message
+  instead of requiring a separate "New conversation" dialog, deriving the initial title from that
+  message. "New conversation" clears the active selection, draft model choice, and pending message
+  state without a full-page reload, and works identically whether the account already has history or
+  none. The chat header conversation title is editable inline from the header and from each sidebar
+  item, saving through the authenticated rename endpoint. The context assembler's identity system
+  message now includes the authenticated username resolved from the session user ID, never a
+  browser-supplied value.
 - Browser navigation now uses React Router DOM with direct, refresh-safe workspace and Settings URLs.
   A shared confirmation modal built on the accessible Radix UI Dialog primitive protects logout,
   session revocation, and Member disablement before their irreversible effects are executed.
@@ -287,7 +299,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- One hundred and three passing default backend tests and one hundred and two passing frontend tests, including cross-user
+- One hundred and fifteen passing default backend tests and one hundred and two passing frontend tests, including cross-user
   isolation for conversations and provider configurations, a deterministic Ollama protocol fake, and
   context-budget behaviour. The authentication flow was verified against a disposable PostgreSQL
   18.4 instance: migrations, bootstrap, login, authenticated profile, and logout. Every migration was
