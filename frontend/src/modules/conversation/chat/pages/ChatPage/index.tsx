@@ -12,6 +12,7 @@ import type { ProviderConfiguration } from "../../../../provider/types/providerC
 import { useUsage } from "../../../../usage/hooks/useUsage";
 import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
+import { useWorkspaceRegistration } from "../../../../project/workspace/hooks/useWorkspaceRegistration";
 import { useWorkspaceCheck } from "../../../../project/workspace/hooks/useWorkspaceCheck";
 import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
 import type { WorkspaceCheck, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
@@ -63,6 +64,7 @@ export function ChatPage(): ReactElement {
   const providers = useProviderRegistry();
   const accountUsage = useUsage("ALL_TIME");
   const activeWorkspace = useActiveWorkspace();
+  const workspaceRegistration = useWorkspaceRegistration();
   const workspaceCheck: WorkspaceCheck = useWorkspaceStore((state: WorkspaceState) => state.workspaceCheck);
   const workspaceHydration: WorkspaceState["hydrationStatus"] = useWorkspaceStore((state: WorkspaceState) => state.hydrationStatus);
   const skipNextWorkspaceCheck: boolean = useWorkspaceStore((state: WorkspaceState) => state.skipNextWorkspaceCheck);
@@ -277,11 +279,17 @@ export function ChatPage(): ReactElement {
                 <WorkspaceContext
                   type="button"
                   $active={Boolean(activeWorkspace)}
-                  title={activeWorkspace ? `Local workspace: ${activeWorkspace.directoryName}` : "Choose a workspace"}
-                  onClick={(): void => { navigate("/projects"); }}
+                  title={activeWorkspace ? `Local workspace: ${activeWorkspace.directoryName}` : "Choose a workspace folder"}
+                  onClick={(): void => {
+                    if (!activeWorkspace && workspaceRegistration.isSupported) {
+                      void workspaceRegistration.chooseFolder("read");
+                      return;
+                    }
+                    navigate("/projects");
+                  }}
                 >
                   <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
-                  Workspace: {activeWorkspace?.name ?? "Choose workspace"}
+                  Workspace: {workspaceRegistration.isPicking ? "Opening folder…" : activeWorkspace?.name ?? "Choose workspace"}
                 </WorkspaceContext>
                 {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
               </HeaderMeta>
