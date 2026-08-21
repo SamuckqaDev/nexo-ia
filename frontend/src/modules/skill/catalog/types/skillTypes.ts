@@ -12,6 +12,7 @@ export type SkillDefinition = {
   name: string;
   description: string;
   scope: SkillScope;
+  scopeTarget?: string;
   activation: SkillActivation;
   instructions: string;
   outputContract: string;

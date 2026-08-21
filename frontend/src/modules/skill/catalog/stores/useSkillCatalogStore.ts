@@ -73,6 +73,7 @@ export const useSkillCatalogStore = create<SkillCatalogState>((set, get) => ({
       name: values.name,
       description: values.description,
       scope: values.scope,
+      scopeTarget: values.scopeTarget?.trim() || undefined,
       activation: values.activation,
       instructions: values.instructions,
       outputContract: values.outputContract,

@@ -3,12 +3,15 @@ import { useMemo, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { WorkspaceBadge, WorkspacePage, WorkspacePanel, WorkspaceSegmentedControl } from "../../../../../shared/components/WorkspacePage";
 import { SkillEditor } from "../../components/SkillEditor";
+import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
+import type { ProjectWorkspace, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
 import { useSkillCatalogStore } from "../../stores/useSkillCatalogStore";
 import type { SkillDefinition, SkillEditorValues, SkillFilter } from "../../types/skillTypes";
 import { Dependency, DependencyList, Library, LibraryToolbar, SkillButton, SkillCopy, SkillList, Workbench } from "./styles";
 
 export function SkillsPage(): ReactElement {
   const skills = useSkillCatalogStore((state) => state.skills);
+  const workspaces: ProjectWorkspace[] = useWorkspaceStore((state: WorkspaceState) => state.workspaces);
   const saveDefinition = useSkillCatalogStore((state) => state.saveSkill);
   const [filter, setFilter] = useState<SkillFilter>("all");
   const [selected, setSelected] = useState<SkillDefinition | undefined>();
@@ -44,7 +47,7 @@ export function SkillsPage(): ReactElement {
               {visible.map((skill) => (
                 <SkillButton key={skill.id} type="button" $active={selected?.id === skill.id} onClick={(): void => { setSelected(skill); setEditorKey((value) => value + 1); }}>
                   {skill.scope === "built_in" ? <Code size={20} weight="duotone" /> : <FileText size={20} weight="duotone" />}
-                  <SkillCopy><strong>{skill.name}</strong><span>{skill.description}</span><div><WorkspaceBadge tone={skill.preview ? "positive" : "attention"}>{skill.preview ? "Built-in preview" : "Session draft"}</WorkspaceBadge><small>{skill.scope.replace("_", " ")} · {skill.version}</small></div></SkillCopy>
+                  <SkillCopy><strong>{skill.name}</strong><span>{skill.description}</span><div><WorkspaceBadge tone={skill.preview ? "positive" : "attention"}>{skill.preview ? "Built-in preview" : "Session draft"}</WorkspaceBadge><small>{skill.scope.replace("_", " ")}{skill.scopeTarget ? ` · ${workspaces.find((workspace: ProjectWorkspace): boolean => workspace.id === skill.scopeTarget)?.name ?? skill.scopeTarget}` : ""} · {skill.version}</small></div></SkillCopy>
                 </SkillButton>
               ))}
             </SkillList>

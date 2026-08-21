@@ -7,5 +7,10 @@ export const skillEditorSchema = z.object({
   activation: z.enum(["explicit", "suggested"]),
   instructions: z.string().trim().min(20, "Add enough instruction for a deterministic workflow."),
   outputContract: z.string().trim().min(5, "Describe the expected output."),
-  dependencies: z.string().trim()
+  dependencies: z.string().trim(),
+  scopeTarget: z.string().trim().optional()
+}).superRefine((values, context): void => {
+  if ((values.scope === "project" || values.scope === "team") && !values.scopeTarget) {
+    context.addIssue({ code: "custom", path: ["scopeTarget"], message: values.scope === "project" ? "Select the project this Skill belongs to." : "Enter the team that owns this Skill." });
+  }
 });

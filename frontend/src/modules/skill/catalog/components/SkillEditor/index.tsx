@@ -7,10 +7,15 @@ import { Input } from "../../../../../shared/components/Input";
 import { Select } from "../../../../../shared/components/Select";
 import { skillEditorSchema } from "../../schemas/skillEditorSchema";
 import type { SkillEditorProps, SkillEditorValues } from "../../types/skillTypes";
+import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
+import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
+import type { ProjectWorkspace, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
 import { EditorForm, Field, FormActions, Notice, Textarea, TwoColumns } from "./styles";
 
 export function SkillEditor({ initialSkill, onSave }: SkillEditorProps): ReactElement {
-  const { register, handleSubmit, formState: { errors } } = useForm<SkillEditorValues>({
+  const activeWorkspace = useActiveWorkspace();
+  const workspaces: ProjectWorkspace[] = useWorkspaceStore((state: WorkspaceState) => state.workspaces);
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<SkillEditorValues>({
     resolver: zodResolver(skillEditorSchema),
     defaultValues: {
       name: initialSkill?.name ?? "",
@@ -19,9 +24,11 @@ export function SkillEditor({ initialSkill, onSave }: SkillEditorProps): ReactEl
       activation: initialSkill?.activation ?? "explicit",
       instructions: initialSkill?.instructions ?? "",
       outputContract: initialSkill?.outputContract ?? "",
-      dependencies: initialSkill?.dependencies.join(", ") ?? ""
+      dependencies: initialSkill?.dependencies.join(", ") ?? "",
+      scopeTarget: initialSkill?.scopeTarget ?? (initialSkill?.scope === "project" ? activeWorkspace?.id : "")
     }
   });
+  const scope = watch("scope");
   const submit: SubmitHandler<SkillEditorValues> = (values): void => onSave(values, initialSkill?.preview ? undefined : initialSkill?.id);
 
   return (
@@ -42,6 +49,20 @@ export function SkillEditor({ initialSkill, onSave }: SkillEditorProps): ReactEl
           {...register("scope")}
         />
       </TwoColumns>
+      {(scope === "project" || scope === "team") && (
+        scope === "project" ? (
+          <Select
+            id="skill-scope-target"
+            label="Project"
+            helperText="Choose the project/workspace that owns this Skill."
+            options={[{ label: "Select a project", value: "" }, ...workspaces.map((workspace: ProjectWorkspace) => ({ label: `${workspace.name} · ${workspace.directoryName}`, value: workspace.id }))]}
+            error={errors.scopeTarget?.message}
+            {...register("scopeTarget")}
+          />
+        ) : (
+          <Input id="skill-scope-target" label="Team" placeholder="Example: Platform team" helperText="Skills are shared only with this team scope." error={errors.scopeTarget?.message} {...register("scopeTarget")} />
+        )
+      )}
       <Input id="skill-description" label="When should Nexo use it?" placeholder="Describe the task pattern and boundaries" error={errors.description?.message} {...register("description")} />
       <Select
         id="skill-activation"
