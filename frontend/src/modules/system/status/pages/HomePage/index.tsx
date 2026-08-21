@@ -74,7 +74,7 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
   const providers = useProviderRegistry().registry;
   const usage = useUsage("LAST_7_DAYS");
   const configuredProvider: ProviderConfiguration | undefined = providers.data
-    ?.find((provider: ProviderConfiguration) => provider.enabled && Boolean(provider.selectedModel));
+    ?.find((provider: ProviderConfiguration) => provider.enabled);
   const activeWorkspace = useActiveWorkspace();
   const recentConversations: Conversation[] = conversations.data?.slice(0, 3) ?? [];
   const [request, setRequest] = useState<string>("");
@@ -208,10 +208,10 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
                 <div><PanelTitle>Current provider</PanelTitle><span>Model processing</span></div>
               </PanelCopy>
             </PanelHeader>
-            <ProviderState><StatusDot $online={Boolean(configuredProvider)} /> {configuredProvider ? "Ready" : "Not configured"}</ProviderState>
+            <ProviderState><StatusDot $online={Boolean(configuredProvider)} /> {configuredProvider ? "Connected" : "Not configured"}</ProviderState>
             <ProviderDetails>
               <span>Provider<strong>{configuredProvider?.displayName ?? "None selected"}</strong></span>
-              <span>Model<strong>{configuredProvider?.selectedModel ?? "Unavailable"}</strong></span>
+              <span>Model<strong>{configuredProvider?.selectedModel ?? "Choose a model in Chat"}</strong></span>
               <span>Type<strong>{configuredProvider?.providerType ?? "—"}</strong></span>
             </ProviderDetails>
             <PanelAction type="button" onClick={(): void => onOpenSettings("providers")}>
