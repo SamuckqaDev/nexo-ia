@@ -34,12 +34,14 @@ describe("streamMessage", () => {
       "23ab2ec1-9fc5-4dd9-a18c-6cc8b62130c5",
       "hello",
       thinkingEnabled,
+      [],
       handlers,
       new AbortController().signal
     );
 
     const request = fetchMock.mock.calls[0]?.[1];
-    expect(JSON.parse(String(request?.body))).toEqual({ content: "hello", thinkingEnabled });
+    expect(JSON.parse(String(request?.body)))
+      .toEqual({ content: "hello", thinkingEnabled, knowledgeVaultIds: [] });
   });
 
   it("dispatches the final SSE frame even when the connection closes without a blank separator", async () => {
@@ -53,6 +55,7 @@ describe("streamMessage", () => {
       "33ab2ec1-9fc5-4dd9-a18c-6cc8b62130c6",
       "hello",
       false,
+      [],
       handlers,
       new AbortController().signal
     );
@@ -81,6 +84,7 @@ describe("streamMessage", () => {
       "33ab2ec1-9fc5-4dd9-a18c-6cc8b62130c6",
       "oi",
       false,
+      [],
       handlers,
       new AbortController().signal
     );

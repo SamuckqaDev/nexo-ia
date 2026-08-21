@@ -1,4 +1,4 @@
-import { Brain, Check, Copy, Prohibit, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
+import { Brain, Check, Copy, Prohibit, Quotes, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
 import type { ConversationMessage } from "../../../../types/chatTypes";
@@ -108,6 +108,19 @@ export function MessageItem({
           <ContextBadges>
             {contextualMessage.skillName && <ContextBadge><Sparkle size={13} weight="fill" /> Skill: {contextualMessage.skillName}</ContextBadge>}
             {contextualMessage.vaultSourceNames.map((sourceName: string) => <ContextBadge key={sourceName}>Vault: {sourceName}</ContextBadge>)}
+          </ContextBadges>
+        )}
+
+        {!isUser && message.status === "COMPLETED" && message.citations && message.citations.length > 0 && (
+          <ContextBadges aria-label="Knowledge Vault citations">
+            {message.citations.map((citation, index) => (
+              <ContextBadge
+                key={`${citation.vaultName}-${citation.sourceDisplayName}-${citation.chunkOrdinal}-${index}`}
+                title={citation.excerpt}
+              >
+                <Quotes size={13} weight="fill" /> {citation.vaultName}/{citation.sourceDisplayName}#{citation.chunkOrdinal}
+              </ContextBadge>
+            ))}
           </ContextBadges>
         )}
 

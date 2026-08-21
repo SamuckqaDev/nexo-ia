@@ -66,6 +66,14 @@ public class ModelRequestService {
     }
 
     /**
+     * Validates the request and reserves its messages, without selecting any Knowledge Vault.
+     */
+    public ModelRequestReservation begin(
+            UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
+        return begin(userId, conversationId, content, thinkingEnabled, List.of());
+    }
+
+    /**
      * Validates the request and reserves its messages.
      *
      * <p>Called before a streaming transport opens its response, so a missing conversation, an
@@ -73,9 +81,10 @@ public class ModelRequestService {
      * ordinary error status rather than as an event on an already-committed stream.
      */
     public ModelRequestReservation begin(
-            UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
+            UUID userId, UUID conversationId, String content, boolean thinkingEnabled,
+            List<UUID> knowledgeVaultIds) {
         ModelRequestReservation reservation =
-                store.reserve(userId, conversationId, content, thinkingEnabled);
+                store.reserve(userId, conversationId, content, thinkingEnabled, knowledgeVaultIds);
         clientFor(reservation.command());
 
         return reservation;
@@ -121,7 +130,8 @@ public class ModelRequestService {
                 return;
             }
 
-            Instant completedAt = store.recordCompletion(messageId, outcome, latencyMs);
+            Instant completedAt =
+                    store.recordCompletion(messageId, outcome, latencyMs, reservation.citations());
             auditModelRequest(reservation, AuditAction.MODEL_REQUEST_COMPLETED, AuditOutcome.SUCCESS, null);
             listener.onUsage(new UsageEvent(
                     outcome.inputTokens(),
@@ -131,7 +141,8 @@ public class ModelRequestService {
                     contextProperties.tokenBudget(),
                     outcome.tokenSource(),
                     latencyMs));
-            listener.onCompleted(new CompletedEvent(messageId, outcome.content(), completedAt));
+            listener.onCompleted(new CompletedEvent(
+                    messageId, outcome.content(), completedAt, reservation.citations()));
         } catch (RuntimeException exception) {
             log.warn("[NEXO-BACK][INFERENCE] Model request failed correlationId={} reason={}",
                     reservation.correlationId(), exception.getClass().getSimpleName());

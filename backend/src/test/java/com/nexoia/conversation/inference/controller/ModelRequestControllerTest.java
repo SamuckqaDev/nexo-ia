@@ -100,7 +100,7 @@ class ModelRequestControllerTest {
 
     @Test
     void answersNotFoundForAConversationTheCallerDoesNotOwn() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(false)))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of())))
                 .thenThrow(new ConversationNotFoundException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -114,7 +114,7 @@ class ModelRequestControllerTest {
 
     @Test
     void answersConflictWhenTheConversationIsAlreadyGenerating() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(false)))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of())))
                 .thenThrow(new ConversationBusyException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -127,7 +127,7 @@ class ModelRequestControllerTest {
 
     @Test
     void answersUnprocessableWhenNoModelIsSelected() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(false)))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of())))
                 .thenThrow(new ModelNotSelectedException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -150,7 +150,7 @@ class ModelRequestControllerTest {
 
     @Test
     void forwardsTheEnabledThinkingPreferenceBeforeOpeningTheStream() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(true)))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(true), eq(List.of())))
                 .thenThrow(new ConversationNotFoundException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -159,7 +159,7 @@ class ModelRequestControllerTest {
                         .content("{\"content\":\"hello\",\"thinkingEnabled\":true}"))
                 .andExpect(status().isNotFound());
 
-        verify(service).begin(userId, conversationId, "hello", true);
+        verify(service).begin(userId, conversationId, "hello", true, List.of());
     }
 
     @Test
@@ -203,12 +203,13 @@ class ModelRequestControllerTest {
                         "qwen3:8b",
                         List.of(),
                         false),
-                ProcessingLocation.LOCAL);
-        when(service.begin(userId, conversationId, "hello", false)).thenReturn(reservation);
+                ProcessingLocation.LOCAL,
+                List.of());
+        when(service.begin(userId, conversationId, "hello", false, List.of())).thenReturn(reservation);
         doAnswer(invocation -> {
             ModelStreamListener listener = invocation.getArgument(1);
             listener.onCompleted(new CompletedEvent(
-                    assistantMessageId, "Ready", Instant.parse("2026-08-20T18:44:02Z")));
+                    assistantMessageId, "Ready", Instant.parse("2026-08-20T18:44:02Z"), List.of()));
             return null;
         }).when(service).run(eq(reservation), any(ModelStreamListener.class));
         doAnswer(invocation -> {

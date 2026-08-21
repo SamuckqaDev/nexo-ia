@@ -89,6 +89,7 @@ const requestStream = (
   conversationId: string,
   content: string,
   thinkingEnabled: boolean,
+  knowledgeVaultIds: string[],
   handlers: ChatStreamHandlers,
   signal: AbortSignal,
   canRefresh: boolean
@@ -102,12 +103,12 @@ const requestStream = (
       Accept: "text/event-stream, application/json",
       "X-XSRF-TOKEN": csrfToken()
     },
-    body: JSON.stringify({ content, thinkingEnabled })
+    body: JSON.stringify({ content, thinkingEnabled, knowledgeVaultIds })
   }).then((response: Response): Promise<void> => {
     if (response.status === 401 && canRefresh) {
       return refreshAuthenticatedSession().then(
         (): Promise<void> => requestStream(
-          conversationId, content, thinkingEnabled, handlers, signal, false),
+          conversationId, content, thinkingEnabled, knowledgeVaultIds, handlers, signal, false),
         (): Promise<never> => rejectWithBackendError(response)
       );
     }
@@ -119,7 +120,8 @@ export const streamMessage = (
   conversationId: string,
   content: string,
   thinkingEnabled: boolean,
+  knowledgeVaultIds: string[],
   handlers: ChatStreamHandlers,
   signal: AbortSignal
 ): Promise<void> => requestStream(
-  conversationId, content, thinkingEnabled, handlers, signal, true);
+  conversationId, content, thinkingEnabled, knowledgeVaultIds, handlers, signal, true);

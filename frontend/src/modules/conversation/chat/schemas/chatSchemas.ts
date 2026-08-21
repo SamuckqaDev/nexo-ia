@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { knowledgeCitationSchema } from "../../../knowledge/vault/schemas/citationSchema";
 
 export const messageStatusSchema = z.enum([
   "QUEUED",
@@ -38,7 +39,8 @@ export const conversationMessageSchema = z.object({
   processingLocation: processingLocationSchema.nullable(),
   failureCode: z.string().nullable(),
   createdAt: z.iso.datetime(),
-  completedAt: z.iso.datetime().nullable()
+  completedAt: z.iso.datetime().nullable(),
+  citations: z.array(knowledgeCitationSchema).nullable()
 });
 
 export const conversationTitleSchema = z.string().trim().min(1, "Name this conversation").max(160);

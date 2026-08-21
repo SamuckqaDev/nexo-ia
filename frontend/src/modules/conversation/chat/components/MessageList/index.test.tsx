@@ -128,7 +128,8 @@ describe("MessageList", () => {
             processingLocation: "LOCAL",
             failureCode: null,
             createdAt: "2026-08-20T12:00:00Z",
-            completedAt: null
+            completedAt: null,
+            citations: null
           }]}
           isLoading={false}
           hasConversation

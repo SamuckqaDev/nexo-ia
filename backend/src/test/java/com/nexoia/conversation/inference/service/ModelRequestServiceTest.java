@@ -84,7 +84,7 @@ class ModelRequestServiceTest {
             onToken.accept("lo");
             return new ChatCompletionOutcome("Hello", 20, 3, TokenSource.PROVIDER, false, "stop");
         });
-        when(store.recordCompletion(eq(assistantMessageId), any(), anyLong()))
+        when(store.recordCompletion(eq(assistantMessageId), any(), anyLong(), any()))
                 .thenReturn(Instant.parse("2026-08-18T12:00:01Z"));
 
         service.stream(userId, conversationId, "hi", true, listener);
@@ -122,7 +122,7 @@ class ModelRequestServiceTest {
         assertThat(listener.cancelled.content()).isEqualTo("Hel");
         assertThat(listener.completed).isNull();
         assertThat(listener.usage).isNull();
-        verify(store, never()).recordCompletion(any(), any(), anyLong());
+        verify(store, never()).recordCompletion(any(), any(), anyLong(), any());
     }
 
     @Test
@@ -134,7 +134,7 @@ class ModelRequestServiceTest {
             onThinking.accept("Provider trace that must not leave the backend");
             return new ChatCompletionOutcome("Answer", 5, 1, TokenSource.PROVIDER, false, "stop");
         });
-        when(store.recordCompletion(eq(assistantMessageId), any(), anyLong()))
+        when(store.recordCompletion(eq(assistantMessageId), any(), anyLong(), any()))
                 .thenReturn(Instant.parse("2026-08-18T12:00:01Z"));
 
         service.stream(userId, conversationId, "hi", false, listener);
@@ -208,14 +208,15 @@ class ModelRequestServiceTest {
     }
 
     private void reservationIsAvailable(boolean thinkingEnabled) {
-        when(store.reserve(userId, conversationId, "hi", thinkingEnabled)).thenReturn(new ModelRequestReservation(
+        when(store.reserve(userId, conversationId, "hi", thinkingEnabled, List.of())).thenReturn(new ModelRequestReservation(
                 userId,
                 userMessageId,
                 assistantMessageId,
                 UUID.randomUUID(),
                 new ChatCompletionCommand(ProviderType.OLLAMA, "http://127.0.0.1:11434", "qwen3:8b",
                         List.of(new ChatCompletionMessage("user", "hi")), thinkingEnabled),
-                ProcessingLocation.LOCAL));
+                ProcessingLocation.LOCAL,
+                List.of()));
     }
 
     private static final class RecordingListener implements ModelStreamListener {

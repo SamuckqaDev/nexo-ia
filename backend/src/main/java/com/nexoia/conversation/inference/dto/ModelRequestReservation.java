@@ -1,7 +1,9 @@
 package com.nexoia.conversation.inference.dto;
 
+import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.model.ProcessingLocation;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -16,4 +18,5 @@ public record ModelRequestReservation(
         UUID assistantMessageId,
         UUID correlationId,
         ChatCompletionCommand command,
-        ProcessingLocation processingLocation) {}
+        ProcessingLocation processingLocation,
+        List<CitationResponse> citations) {}

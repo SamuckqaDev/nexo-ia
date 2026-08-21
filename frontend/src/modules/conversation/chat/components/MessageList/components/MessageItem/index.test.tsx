@@ -24,6 +24,7 @@ const message = (overrides: Partial<ConversationMessage> = {}): ConversationMess
   failureCode: null,
   createdAt: "2026-08-18T12:00:00Z",
   completedAt: "2026-08-18T12:00:02Z",
+  citations: null,
   ...overrides
 });
 

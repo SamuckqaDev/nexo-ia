@@ -31,6 +31,7 @@ describe("useChatStream", () => {
       _conversationId: string,
       _content: string,
       _thinkingEnabled: boolean,
+      _knowledgeVaultIds: string[],
       nextHandlers: ChatStreamHandlers,
       nextSignal: AbortSignal
     ): Promise<void> => {

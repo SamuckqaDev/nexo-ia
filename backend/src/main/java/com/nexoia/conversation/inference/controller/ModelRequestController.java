@@ -44,8 +44,9 @@ public class ModelRequestController {
             @AuthenticationPrincipal NexoUserPrincipal principal,
             @PathVariable UUID conversationId,
             @Valid @RequestBody SendMessageRequest request) {
-        ModelRequestReservation reservation =
-                service.begin(principal.userId(), conversationId, request.content(), request.thinkingEnabled());
+        ModelRequestReservation reservation = service.begin(
+                principal.userId(), conversationId, request.content(), request.thinkingEnabled(),
+                request.knowledgeVaultIds());
         SseEmitter emitter = new SseEmitter(properties.timeout().toMillis());
         UUID messageId = reservation.assistantMessageId();
 

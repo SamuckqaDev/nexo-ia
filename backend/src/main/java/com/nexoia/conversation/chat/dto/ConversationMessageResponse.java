@@ -2,9 +2,11 @@ package com.nexoia.conversation.chat.dto;
 
 import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.model.MessageStatus;
+import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.TokenSource;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ConversationMessageResponse(
@@ -23,4 +25,5 @@ public record ConversationMessageResponse(
         ProcessingLocation processingLocation,
         String failureCode,
         Instant createdAt,
-        Instant completedAt) {}
+        Instant completedAt,
+        List<CitationResponse> citations) {}

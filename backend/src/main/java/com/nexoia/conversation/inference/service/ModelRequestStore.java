@@ -13,6 +13,11 @@ import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
+import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
+import com.nexoia.knowledge.retrieval.dto.CitationResponse;
+import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
+import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
+import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
@@ -52,16 +57,33 @@ public class ModelRequestStore {
     private final UserAccountRepository users;
     private final ConversationContextAssembler contextAssembler;
     private final ProviderEndpointGuard endpointGuard;
+    private final RetrievalService retrievalService;
     private final Clock clock;
+
+    /**
+     * Reserves without selecting any Knowledge Vault — equivalent to {@code knowledgeVaultIds =
+     * List.of()}.
+     */
+    public ModelRequestReservation reserve(
+            UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
+        return reserve(userId, conversationId, content, thinkingEnabled, List.of());
+    }
 
     /**
      * Appends the user message and reserves the assistant message, returning the values the
      * streaming stage needs. Holds the conversation write lock for the duration of this transaction
      * only.
+     *
+     * <p>Retrieval failure (an unavailable embedding provider) never fails the request — chat must
+     * keep working with zero citations, per D-026. Only an explicit isolation boundary (an
+     * unauthorized or archived vault) is allowed to silently produce no citations; any other
+     * retrieval defect is a bug, not a reason to degrade silently, so only
+     * {@link EmbeddingProviderUnavailableException} is caught here.
      */
     @Transactional
     public ModelRequestReservation reserve(
-            UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
+            UUID userId, UUID conversationId, String content, boolean thinkingEnabled,
+            List<UUID> knowledgeVaultIds) {
         Conversation conversation = conversations.findOwnedForUpdate(conversationId, userId)
                 .orElseThrow(ConversationNotFoundException::new);
 
@@ -109,6 +131,8 @@ public class ModelRequestStore {
             throw new ConversationBusyException();
         }
 
+        List<CitationResponse> citations = retrieve(userId, knowledgeVaultIds, content);
+
         return new ModelRequestReservation(
                 userId,
                 userMessage.getId(),
@@ -122,9 +146,22 @@ public class ModelRequestStore {
                                 conversationId,
                                 users.findById(userId)
                                         .orElseThrow(UserNotFoundException::new)
-                                        .getUsername()),
+                                        .getUsername(),
+                                citations),
                         thinkingEnabled),
-                processingLocation);
+                processingLocation,
+                citations);
+    }
+
+    private List<CitationResponse> retrieve(UUID userId, List<UUID> knowledgeVaultIds, String content) {
+        try {
+            RetrievalResult result = retrievalService.retrieve(userId, new RetrievalQuery(knowledgeVaultIds, content));
+            return result.citations();
+        } catch (EmbeddingProviderUnavailableException exception) {
+            log.warn("[NEXO-BACK][KNOWLEDGE] Embedding provider unavailable; continuing without citations userId={}",
+                    userId);
+            return List.of();
+        }
     }
 
     @Transactional
@@ -133,7 +170,8 @@ public class ModelRequestStore {
     }
 
     @Transactional
-    public Instant recordCompletion(UUID messageId, ChatCompletionOutcome outcome, long latencyMs) {
+    public Instant recordCompletion(
+            UUID messageId, ChatCompletionOutcome outcome, long latencyMs, List<CitationResponse> citations) {
         Instant completedAt = clock.instant();
         messages.findById(messageId).ifPresent(message -> message.complete(
                 outcome.content(),
@@ -141,7 +179,8 @@ public class ModelRequestStore {
                 outcome.outputTokens(),
                 outcome.tokenSource(),
                 latencyMs,
-                completedAt));
+                completedAt,
+                citations));
 
         return completedAt;
     }

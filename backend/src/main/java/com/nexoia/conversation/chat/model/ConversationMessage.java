@@ -1,5 +1,6 @@
 package com.nexoia.conversation.chat.model;
 
+import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.TokenSource;
 import jakarta.persistence.Column;
@@ -9,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -16,6 +18,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Builder
@@ -74,6 +78,10 @@ public class ConversationMessage {
     @Column(name = "correlation_id")
     private UUID correlationId;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<CitationResponse> citations;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -95,7 +103,8 @@ public class ConversationMessage {
             Integer outputTokens,
             TokenSource tokenSource,
             long latencyMs,
-            Instant completedAt) {
+            Instant completedAt,
+            List<CitationResponse> citations) {
         this.status = MessageStatus.COMPLETED;
         this.content = content;
         this.inputTokens = inputTokens;
@@ -103,6 +112,7 @@ public class ConversationMessage {
         this.tokenSource = tokenSource;
         this.latencyMs = latencyMs;
         this.completedAt = completedAt;
+        this.citations = citations == null || citations.isEmpty() ? null : citations;
     }
 
     /**

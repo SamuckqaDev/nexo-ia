@@ -156,7 +156,8 @@ public class ConversationService {
                 value.getProcessingLocation(),
                 value.getFailureCode(),
                 value.getCreatedAt(),
-                value.getCompletedAt());
+                value.getCompletedAt(),
+                value.getCitations());
     }
 
     private Long totalTokens(ConversationMessage message) {

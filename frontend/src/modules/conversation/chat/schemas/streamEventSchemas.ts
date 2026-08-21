@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { knowledgeCitationSchema } from "../../../knowledge/vault/schemas/citationSchema";
 import { processingLocationSchema, tokenSourceSchema } from "./chatSchemas";
 
 /**
@@ -36,7 +37,8 @@ export const usageEventSchema = z.object({
 export const completedEventSchema = z.object({
   messageId: z.uuid(),
   content: z.string(),
-  completedAt: z.iso.datetime()
+  completedAt: z.iso.datetime(),
+  citations: z.array(knowledgeCitationSchema).default([])
 });
 
 export const cancelledEventSchema = z.object({
