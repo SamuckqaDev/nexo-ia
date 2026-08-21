@@ -119,24 +119,6 @@ describe("ChatComposer", () => {
     expect(stop).not.toHaveTextContent("Stop");
   });
 
-  it("opens a deduplicated list of recent messages and restores one by click", () => {
-    renderComposer("chat", vi.fn(), "", vi.fn(), false, "idle", [
-      "Review authentication",
-      "Explain this module",
-      "Explain this module",
-      "Create the tests"
-    ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Recent messages" }));
-
-    const options = screen.getAllByRole("option");
-    expect(options).toHaveLength(3);
-    expect(options[0]).toHaveTextContent("Create the tests");
-    expect(options[1]).toHaveTextContent("Explain this module");
-    fireEvent.click(options[1]);
-    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("Explain this module");
-  });
-
   it("browses sent messages with ArrowUp and ArrowDown, then sends the recalled prompt", () => {
     const onSend = vi.fn();
     renderComposer("chat", vi.fn(), "", onSend, false, "idle", ["First prompt", "Second prompt", "Latest prompt"]);

@@ -17,7 +17,6 @@ import {
   ComposerSurface,
   Field,
   Hint,
-  HistoryButton,
   HistoryCopy,
   HistoryMenu,
   HistoryOption,
@@ -251,16 +250,6 @@ export function ChatComposer({
               <ImageSquare size={16} weight="duotone" /> <span>Image</span>
             </CapabilityButton>
             <ComposerActions>
-              <HistoryButton
-                type="button"
-                aria-label="Recent messages"
-                aria-expanded={historyOpen}
-                title="Recent messages · press ↑ in an empty field"
-                disabled={isBusy || !recentMessages.length || mode === "agent"}
-                onClick={openHistory}
-              >
-                <ArrowUp size={17} weight="bold" />
-              </HistoryButton>
               {isBusy ? (
                 <StopButton type="button" aria-label="Stop response" disabled={phase === "starting" || phase === "cancelling"} onClick={onCancel}>
                   <Stop size={18} weight="fill" />
