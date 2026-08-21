@@ -38,7 +38,7 @@ class ProviderRegistryServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProviderRegistryService(repository, audit);
+        service = new ProviderRegistryService(repository, new ProviderEndpointNormalizer(""), audit);
     }
 
     @Test

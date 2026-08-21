@@ -21,6 +21,7 @@ public class ProviderModelCatalogService {
 
     private final ProviderConfigurationRepository repository;
     private final ProviderEndpointGuard endpointGuard;
+    private final ProviderEndpointNormalizer endpointNormalizer;
     private final OllamaProviderService ollamaProviderService;
 
     /**
@@ -61,7 +62,7 @@ public class ProviderModelCatalogService {
      * read or persisted here, so there is no ownership to resolve and nothing to leak into storage.
      */
     public ProviderConnectionTestResponse testConnection(ProviderType providerType, String rawEndpoint) {
-        String endpoint = ProviderEndpointNormalizer.normalize(rawEndpoint);
+        String endpoint = endpointNormalizer.normalize(rawEndpoint);
 
         if (providerType != ProviderType.OLLAMA) {
             return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.UNSUPPORTED,

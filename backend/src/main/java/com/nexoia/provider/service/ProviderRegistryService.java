@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProviderRegistryService {
     private final ProviderConfigurationRepository repository;
+    private final ProviderEndpointNormalizer endpointNormalizer;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
@@ -65,7 +66,7 @@ public class ProviderRegistryService {
     }
 
     private String normalizeEndpoint(String endpoint) {
-        return ProviderEndpointNormalizer.normalize(endpoint);
+        return endpointNormalizer.normalize(endpoint);
     }
 
     private ProviderConfigurationResponse response(ProviderConfiguration provider) {

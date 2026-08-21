@@ -39,7 +39,7 @@ class ProviderModelCatalogServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProviderModelCatalogService(repository, endpointGuard, ollamaProviderService);
+        service = new ProviderModelCatalogService(repository, endpointGuard, new ProviderEndpointNormalizer(""), ollamaProviderService);
     }
 
     @Test

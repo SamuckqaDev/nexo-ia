@@ -39,6 +39,10 @@ management:
 
 nexo:
   version: "@project.version@"
+  provider:
+    # In a container, a loopback endpoint reaches the container, not the host running Ollama.
+    # When set, loopback provider endpoints are rewritten to this host so localhost still works.
+    loopback-host: ${NEXO_PROVIDER_LOOPBACK_HOST:}
   knowledge:
     embedding:
       # Never required for ordinary chat. Dimensions are fixed by migration (V21), not configurable
