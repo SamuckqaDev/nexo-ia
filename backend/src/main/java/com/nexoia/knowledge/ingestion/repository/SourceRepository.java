@@ -10,7 +10,7 @@ public interface SourceRepository extends JpaRepository<KnowledgeSource, UUID> {
 
     List<KnowledgeSource> findAllByVaultIdAndArchivedFalseOrderByCreatedAtDesc(UUID vaultId);
 
-    Optional<KnowledgeSource> findByIdAndVaultIdAndArchivedFalse(UUID id, UUID vaultId);
+    Optional<KnowledgeSource> findByIdAndArchivedFalse(UUID id);
 
     Optional<KnowledgeSource> findByVaultIdAndContentHash(UUID vaultId, String contentHash);
 }

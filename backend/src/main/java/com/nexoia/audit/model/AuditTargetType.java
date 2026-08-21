@@ -5,5 +5,7 @@ public enum AuditTargetType {
     PROVIDER,
     CONVERSATION,
     MESSAGE,
-    SESSION
+    SESSION,
+    KNOWLEDGE_VAULT,
+    KNOWLEDGE_SOURCE
 }
