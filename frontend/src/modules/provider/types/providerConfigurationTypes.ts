@@ -19,6 +19,9 @@ export type ProviderModelCatalogView = Omit<ProviderModelCatalog, "status"> & {
   status: ProviderCatalogStatus | "LOADING";
 };
 export type ProviderConfigurationInput = { providerType: ProviderType; displayName: string; endpoint: string; selectedModel?: string };
+export type ProviderConnectionTestInput = { providerType: ProviderType; endpoint: string };
+export type ProviderConnectionTest = { endpoint: string; status: ProviderCatalogStatus; processingLocation: "LOCAL" | "REMOTE" | null; models: ProviderModel[]; message: string | null };
+export type ProviderConnectionTestMutationResult = UseMutationResult<ProviderConnectionTest, Error, ProviderConnectionTestInput>;
 export type ProviderRegistryResult = UseQueryResult<ProviderConfiguration[], Error>;
 export type ProviderMutationResult = UseMutationResult<ProviderConfiguration, Error, ProviderConfigurationInput>;
 export type ProviderUpdateInput = { id: string; input: ProviderConfigurationInput };

@@ -7,13 +7,20 @@ import { Select } from "../../../../shared/components/Select";
 import { useProviderRegistry } from "../../hooks/useProviderRegistry";
 import { providerConfigurationSchema, type ProviderConfigurationFormValues } from "../../schemas/providerConfigurationSchema";
 import type { ProviderConfiguration } from "../../types/providerConfigurationTypes";
-import { Fields, Form, Help } from "./styles";
+import { Fields, Form, Help, TestResult } from "./styles";
 
 type ProviderSetupProps = { provider?: ProviderConfiguration; onSaved?: () => void };
 
+const TEST_STATUS_COPY: Record<string, string> = {
+  AVAILABLE: "Connected. Nexo can reach this provider and discovered its models.",
+  EMPTY: "Connected, but no models were reported by this provider yet.",
+  UNAVAILABLE: "This provider could not be reached at the given endpoint.",
+  UNSUPPORTED: "Connection testing is not available for this provider type yet."
+};
+
 export function ProviderSetup({ provider, onSaved }: ProviderSetupProps): ReactElement {
-  const { create, update } = useProviderRegistry();
-  const { register, handleSubmit, formState: { errors } } = useForm<ProviderConfigurationFormValues>({
+  const { create, update, test } = useProviderRegistry();
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<ProviderConfigurationFormValues>({
     resolver: zodResolver(providerConfigurationSchema),
     defaultValues: {
       providerType: provider?.providerType ?? "OLLAMA",
@@ -28,6 +35,9 @@ export function ProviderSetup({ provider, onSaved }: ProviderSetupProps): ReactE
       return;
     }
     create.mutate(values, { onSuccess: (): void => onSaved?.() });
+  };
+  const testConnection = (): void => {
+    test.mutate({ providerType: watch("providerType"), endpoint: watch("endpoint") });
   };
 
   return (
@@ -51,6 +61,14 @@ export function ProviderSetup({ provider, onSaved }: ProviderSetupProps): ReactE
           {...register("providerType")}
         />
       </Fields>
+      <Button type="button" variant="outline" disabled={test.isPending} onClick={testConnection}>
+        {test.isPending ? "Testing…" : "Test connection"}
+      </Button>
+      {test.data && (
+        <TestResult $ok={test.data.status === "AVAILABLE"}>
+          {test.data.message ?? TEST_STATUS_COPY[test.data.status]}
+        </TestResult>
+      )}
       <Button type="submit" disabled={create.isPending || update.isPending}>
         {provider ? update.isPending ? "Updating…" : "Update provider" : create.isPending ? "Saving…" : "Save provider"}
       </Button>

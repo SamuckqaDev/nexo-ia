@@ -1,34 +1,39 @@
 import { ArrowClockwise, CheckCircle, Cpu, WarningCircle } from "@phosphor-icons/react";
-import { useEffect, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { Button } from "../../../../shared/components/Button";
 import { Loading } from "../../../../shared/components/Loading";
-import { useSessionExpiredStore } from "../../../../shared/auth/sessionExpiredStore";
-import { ApiError } from "../../../../shared/api/ApiError";
-import { useProviderStatus } from "../../hooks/useProviderStatus";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useProviderModelCatalogs } from "../../hooks/useProviderModelCatalogs";
+import { useProviderRegistry } from "../../hooks/useProviderRegistry";
+import type { ProviderConfiguration, ProviderModelCatalogView } from "../../types/providerConfigurationTypes";
 import { Actions, Content, Dot, Empty, Endpoint, Error, Model, ModelList, StatusLine } from "./styles";
 
 export function ProviderStatusCard(): ReactElement {
-  const query = useProviderStatus();
-  const status = query.data;
-  const openSessionExpired: () => void = useSessionExpiredStore((state) => state.open);
-
-  useEffect((): void => {
-    if (query.error instanceof ApiError && query.error.status === 401) openSessionExpired();
-  }, [openSessionExpired, query.error]);
+  const { registry } = useProviderRegistry();
+  const queryClient: QueryClient = useQueryClient();
+  const providers: ProviderConfiguration[] = registry.data?.filter((provider) => provider.enabled && provider.providerType === "OLLAMA") ?? [];
+  const catalogs: ProviderModelCatalogView[] = useProviderModelCatalogs(providers);
+  const provider: ProviderConfiguration | undefined = providers[0];
+  const catalog: ProviderModelCatalogView | undefined = catalogs[0];
+  const loading: boolean = registry.isLoading || catalog?.status === "LOADING";
+  const connected: boolean = catalog?.status === "AVAILABLE";
+  const unavailable: boolean = registry.isError || catalog?.status === "UNAVAILABLE";
 
   return (
     <Content>
       <StatusLine>
-        {query.isError ? <WarningCircle size={19} weight="duotone" /> : <CheckCircle size={19} weight="duotone" />}
-        <Dot $connected={Boolean(status?.connected)} />
-        {query.isLoading ? "Checking Ollama…" : query.isError ? "Unavailable" : status?.connected ? "Connected" : "Disconnected"}
+        {unavailable ? <WarningCircle size={19} weight="duotone" /> : <CheckCircle size={19} weight="duotone" />}
+        <Dot $connected={connected} />
+        {loading ? "Checking Ollama…" : unavailable ? "Unavailable" : connected ? "Connected" : "Disconnected"}
       </StatusLine>
-      {status && <Endpoint><Cpu size={14} /> {status.endpoint}</Endpoint>}
-      {query.isError && <Error>Ollama could not be reached. Check that it is running on the configured host.</Error>}
-      {query.isLoading && <Loading label="Discovering installed models…" size={44} />}
-      {status && status.models.length === 0 && <Empty>No models were discovered.</Empty>}
-      {status && status.models.length > 0 && <ModelList>{status.models.map((model) => <Model key={model.name}><span>{model.name}</span><small>{model.size ? `${Math.round(model.size / 1_000_000_000 * 10) / 10} GB` : "Size unknown"}</small></Model>)}</ModelList>}
-      <Actions><Button type="button" variant="outline" icon={ArrowClockwise} disabled={query.isFetching} onClick={(): void => { query.refetch(); }}>Refresh</Button></Actions>
+      {provider && <Endpoint><Cpu size={14} /> {provider.endpoint}</Endpoint>}
+      {unavailable && <Error>Ollama could not be reached using the saved provider configuration.</Error>}
+      {loading && <Loading label="Discovering installed models…" size={44} />}
+      {catalog && catalog.models.length === 0 && <Empty>No models were discovered.</Empty>}
+      {catalog && catalog.models.length > 0 && <ModelList>{catalog.models.map((model) => <Model key={model.name}><span>{model.name}</span><small>{model.size ? `${Math.round(model.size / 1_000_000_000 * 10) / 10} GB` : "Size unknown"}</small></Model>)}</ModelList>}
+      <Actions><Button type="button" variant="outline" icon={ArrowClockwise} disabled={loading} onClick={(): void => {
+        queryClient.invalidateQueries({ queryKey: ["providers"] });
+      }}>Refresh</Button></Actions>
     </Content>
   );
 }
