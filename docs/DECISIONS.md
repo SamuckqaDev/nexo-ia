@@ -320,3 +320,51 @@ options considered, the selected approach, and its consequences.
   HTML or enabling arbitrary markup. The chat route gains the parser dependency cost; it remains
   route-split, and full language tokenization may be added later only if measured value justifies the
   additional bundle.
+
+## D-026 — Lock Knowledge Vault and RAG retrieval parameters
+
+- **Status:** accepted
+- **Context:** release 0.2 moves the Knowledge Vault from a client-only preview (Zustand and local file
+  reads, no backend) to authorized backend persistence, bounded ingestion, and pgvector retrieval
+  wired into Chat, per [`CLAUDE_CODE_RAG_IMPLEMENTATION_PLAN.md`](CLAUDE_CODE_RAG_IMPLEMENTATION_PLAN.md).
+  No organization, team, project, or workspace entity existed in the backend before this release; a
+  minimal backend Workspace (owner and name only) is introduced alongside Knowledge so vault scope
+  `workspace` has a real, authorized target, while `project`, `team`, and `organization` stay defined
+  in the scope contract but reject at runtime until their own backend entities exist.
+- **Options:** for each parameter below, the implementation plan allowed a range of choices (remote
+  embedding providers, lexical fallback, Spring AI's `VectorStore` abstraction, unbounded chunk/source
+  limits); the narrower selected option is recorded as the decision.
+- **Decision:**
+  - **Embedding provider:** Ollama only, through a new project-owned `EmbeddingClient` interface
+    mirroring `ChatCompletionClient`'s adapter shape, never required for ordinary chat.
+  - **Model and dimensions:** default model identifier `nomic-embed-text`, 768 dimensions. Dimensions
+    are fixed by migration, not runtime-configurable; `embedding_model` and `embedding_dimensions` are
+    stored on every chunk for provenance and mismatch detection.
+  - **Chunking:** ~1,200 characters per chunk, 200-character overlap, capped at 300 chunks per source
+    and 512 KB of normalized text per source; upload itself stays capped at 3 MB, reusing the existing
+    `spring.servlet.multipart.max-file-size` limit.
+  - **MIME policy:** Markdown, plain text, JSON (bounded pretty/field extraction), and CSV (bounded
+    row/column handling) are ingested; every other type is stored `UNSUPPORTED`, metadata-only.
+  - **Retrieval:** top-k 6, minimum cosine similarity 0.55, a dedicated
+    `nexo.knowledge.retrieval.context-token-budget` separate from the chat context budget, citation
+    format `{vaultName}/{sourceDisplayName}#{chunkOrdinal}` with a bounded excerpt — never a raw path
+    or full source.
+  - **Fallback when embeddings are unavailable or confidence is insufficient:** an explicit
+    no-knowledge-found outcome. No lexical/full-text fallback is built in this release; it stays a
+    documented, deferred follow-up rather than an invented answer.
+  - **Local source upload:** the browser reads file content client-side (the same `file.text()` path
+    already used by the vault preview) and uploads bytes plus the file's display name only, through
+    `multipart/form-data`, mirroring `ProfileAvatarController`. No absolute path or
+    `FileSystemDirectoryHandle` ever reaches the backend.
+  - **pgvector image:** local Postgres moves from `postgres:18.4` to
+    `pgvector/pgvector:0.8.6-pg18-bookworm` in `compose.yaml` and `compose.dev.yaml`.
+  - **Vector storage mechanism:** Hibernate's native vector support
+    (`@JdbcTypeCode(SqlTypes.VECTOR)` on a `float[]` field) with a plain Spring Data JPQL `@Query`
+    using `cosine_distance(...)`, not Spring AI's `VectorStore`/pgvector starter — ranking must happen
+    after a real owner/workspace authorization join that a generic vector-store abstraction cannot
+    express, and `backend-java.md` allows a custom `@Query` exactly for a case standard Spring Data
+    contracts cannot cover cleanly.
+- **Consequence:** the first Knowledge Vault release stays deliberately bounded — personal and
+  workspace scope only, four ingestible MIME types, no lexical fallback, no ANN index — while keeping
+  every contract (scope enum, citation shape, embedding provenance) forward-compatible with the
+  deferred work it does not attempt yet.
