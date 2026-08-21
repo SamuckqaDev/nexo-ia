@@ -1,4 +1,4 @@
-import { Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
+import { BookOpen, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
@@ -8,6 +8,8 @@ import { useConfirmationStore } from "../../../../../shared/feedback/stores/useC
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegistry";
 import { useProviderModelCatalogs } from "../../../../provider/hooks/useProviderModelCatalogs";
+import { useBackendVaultCatalog } from "../../../../knowledge/vault/hooks/useBackendVaultCatalog";
+import type { BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
 import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
 import { useUsage } from "../../../../usage/hooks/useUsage";
 import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
@@ -52,6 +54,9 @@ import {
   ModelLockNotice,
   OpenConversations,
   PrivacyBadge,
+  VaultBar,
+  VaultBarLabel,
+  VaultChip,
   WorkspaceContext
 } from "./styles";
 
@@ -62,6 +67,7 @@ export function ChatPage(): ReactElement {
   const rename = useRenameConversation();
   const archive = useArchiveConversation();
   const providers = useProviderRegistry();
+  const backendVaults = useBackendVaultCatalog();
   const accountUsage = useUsage("ALL_TIME");
   const activeWorkspace = useActiveWorkspace();
   const workspaceRegistration = useWorkspaceRegistration();
@@ -85,12 +91,13 @@ export function ChatPage(): ReactElement {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [renameTitle, setRenameTitle] = useState<string>("");
+  const [selectedVaultIds, setSelectedVaultIds] = useState<string[]>([]);
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
   const clearDraft: ChatDraftState["clear"] = useChatDraftStore((state: ChatDraftState) => state.clear);
 
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
-  const stream = useChatStream(selectedId, messages.data ?? []);
+  const stream = useChatStream(selectedId, messages.data ?? [], selectedVaultIds);
   const selected: Conversation | undefined = conversations.data
     ?.find((item: Conversation) => item.id === selectedId);
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
@@ -356,6 +363,27 @@ export function ChatPage(): ReactElement {
                 mode={mode}
                 onConfigureProvider={(): void => { navigate("/settings/providers"); }}
               />
+
+              {(backendVaults.vaults.data ?? []).length > 0 && (
+                <VaultBar>
+                  <VaultBarLabel><BookOpen size={13} weight="duotone" /> Knowledge</VaultBarLabel>
+                  {(backendVaults.vaults.data ?? []).map((vault: BackendVault) => (
+                    <VaultChip
+                      key={vault.id}
+                      type="button"
+                      $active={selectedVaultIds.includes(vault.id)}
+                      aria-pressed={selectedVaultIds.includes(vault.id)}
+                      onClick={(): void => setSelectedVaultIds((current: string[]): string[] =>
+                        current.includes(vault.id)
+                          ? current.filter((id: string): boolean => id !== vault.id)
+                          : [...current, vault.id])}
+                    >
+                      {selectedVaultIds.includes(vault.id) && <Check size={12} weight="bold" />}
+                      {vault.name}
+                    </VaultChip>
+                  ))}
+                </VaultBar>
+              )}
 
               <ChatComposer
                 initialContent={initialDraft}

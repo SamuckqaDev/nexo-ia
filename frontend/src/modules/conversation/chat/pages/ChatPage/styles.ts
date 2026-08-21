@@ -211,3 +211,42 @@ export const LoadFailure = styled.div`
   color: ${({ theme }) => theme.colors.textMuted};
   text-align: center;
 `;
+
+export const VaultBar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  width: min(60rem, 100%);
+  align-self: center;
+  padding: 0 ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.xs};
+`;
+
+export const VaultBarLabel = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: ${({ theme }) => theme.colors.textSubtle};
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+`;
+
+export const VaultChip = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid ${({ theme, $active }) => ($active ? theme.colors.primary : theme.colors.line)};
+  border-radius: ${({ theme }) => theme.radius.round};
+  padding: 0.28rem 0.65rem;
+  background: ${({ theme, $active }) => ($active ? theme.colors.surfaceAccent : "transparent")};
+  color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textMuted)};
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { border-color: ${({ theme }) => theme.colors.lineStrong}; }
+  &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.primary}; outline-offset: 1px; }
+`;

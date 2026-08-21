@@ -1,8 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../../../shared/api/ApiError";
-import { useVaultCatalogStore } from "../../../knowledge/vault/stores/useVaultCatalogStore";
-import type { KnowledgeVault, VaultCatalogState } from "../../../knowledge/vault/types/vaultTypes";
 import { usePreferenceStore } from "../../../settings/stores/usePreferenceStore";
 import type { PreferenceState } from "../../../settings/types/preferenceTypes";
 import { cancelModelRequest } from "../api/chatApi";
@@ -71,12 +69,11 @@ export const cancelAllChatStreams = (): Promise<void> => {
  */
 export const useChatStream = (
   conversationId: string | null,
-  persistedMessages: ConversationMessage[] = []
+  persistedMessages: ConversationMessage[] = [],
+  selectedVaultIds: string[] = []
 ): ChatStream => {
   const queryClient = useQueryClient();
   const thinkingEnabled: boolean = usePreferenceStore((state: PreferenceState) => state.thinkingEnabled);
-  const vaults: KnowledgeVault[] = useVaultCatalogStore((state: VaultCatalogState) => state.vaults);
-  const attachedSourceIds: string[] = useVaultCatalogStore((state: VaultCatalogState) => state.attachedSourceIds);
   const snapshot: ConversationStreamSnapshot = useChatStreamStore((state: ChatStreamState) =>
     conversationId ? state.streams[conversationId] ?? idleConversationStream : idleConversationStream);
   const updateStream: ChatStreamState["updateStream"] = useChatStreamStore(
@@ -150,14 +147,7 @@ export const useChatStream = (
     // Only a real, backend-persisted Vault (never the client-only preview catalog, whose ids are not
     // UUIDs the backend can resolve) with an attached, readable source counts as selected for
     // retrieval — a Vault with no attached excerpt is not implicitly searched.
-    const knowledgeVaultIds: string[] = [...new Set(
-      vaults
-        .filter((vault: KnowledgeVault) => !vault.preview && vault.sources.some(
-          (source) => attachedSourceIds.includes(source.id)))
-        .map((vault: KnowledgeVault) => vault.id)
-    )];
-
-    streamMessage(conversationId, content, thinkingEnabled, knowledgeVaultIds, {
+    streamMessage(conversationId, content, thinkingEnabled, selectedVaultIds, {
       onStarted: (event: StartedEvent): void => {
         updateStream(conversationId, { phase: "streaming", assistantMessageId: event.assistantMessageId });
         queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
@@ -203,7 +193,7 @@ export const useChatStream = (
         });
         settle(conversationId, error instanceof ApiError ? "failed" : "disconnected");
       });
-  }, [attachedSourceIds, conversationId, queryClient, settle, thinkingEnabled, updateStream, vaults]);
+  }, [selectedVaultIds, conversationId, queryClient, settle, thinkingEnabled, updateStream]);
 
   const cancel = useCallback((): void => {
     if (!conversationId || !snapshot.assistantMessageId) return;
