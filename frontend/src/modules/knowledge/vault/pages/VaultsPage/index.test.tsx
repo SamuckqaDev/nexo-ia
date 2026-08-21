@@ -1,17 +1,50 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
-import { useVaultCatalogStore } from "../../stores/useVaultCatalogStore";
 import { VaultsPage } from "./index";
 
-vi.mock("../../api/knowledgeWorkspaceApi", () => ({
-  listKnowledgeWorkspaces: vi.fn().mockResolvedValue([]),
-  createKnowledgeWorkspace: vi.fn()
+const listBackendVaults = vi.fn();
+const listBackendSources = vi.fn();
+
+vi.mock("../../api/vaultApi", () => ({
+  listBackendVaults: (): Promise<unknown> => listBackendVaults(),
+  createBackendVault: vi.fn(),
+  updateBackendVault: vi.fn(),
+  archiveBackendVault: vi.fn()
 }));
 
-const renderVaultsPage = (): ReturnType<typeof render> => {
+vi.mock("../../api/sourceApi", () => ({
+  listBackendSources: (): Promise<unknown> => listBackendSources(),
+  registerBackendSource: vi.fn(),
+  archiveBackendSource: vi.fn()
+}));
+
+const vault = {
+  id: "11111111-1111-4111-8111-111111111111",
+  name: "Nexo Knowledge Base",
+  description: "Seeded docs",
+  scope: "PERSONAL",
+  workspaceId: null,
+  createdAt: "2026-08-21T10:00:00Z",
+  updatedAt: "2026-08-21T10:00:00Z"
+};
+
+const source = {
+  id: "22222222-2222-4222-8222-222222222222",
+  vaultId: vault.id,
+  sourceKind: "UPLOAD",
+  displayName: "Nexo Principles",
+  mimeType: "text/markdown",
+  byteSize: 2048,
+  status: "READY",
+  errorCode: null,
+  createdAt: "2026-08-21T10:00:00Z",
+  updatedAt: "2026-08-21T10:00:00Z"
+};
+
+const renderPage = (): ReturnType<typeof render> => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -21,54 +54,30 @@ const renderVaultsPage = (): ReturnType<typeof render> => {
 };
 
 describe("VaultsPage", () => {
-  beforeEach(() => {
-    useVaultCatalogStore.getState().reset();
-    useVaultCatalogStore.getState().initialize("00000000-0000-4000-8000-000000000101");
+  it("shows an empty state when the backend has no Vaults", async () => {
+    listBackendVaults.mockResolvedValueOnce([]);
+    renderPage();
+
+    expect(await screen.findByText("No Vaults yet")).toBeInTheDocument();
   });
 
-  it("creates a selectable session Vault draft", async () => {
-    renderVaultsPage();
+  it("lists real backend Vaults and their embedded sources", async () => {
+    listBackendVaults.mockResolvedValue([vault]);
+    listBackendSources.mockResolvedValue([source]);
+    renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "New Vault" }));
-    fireEvent.change(screen.getByLabelText("Vault name"), { target: { value: "Architecture decisions" } });
-    fireEvent.change(screen.getByLabelText("Purpose"), { target: { value: "Ground answers in accepted architecture decisions." } });
-    fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Nexo Knowledge Base/i }));
 
-    expect(await screen.findByRole("heading", { name: "Architecture decisions" })).toBeInTheDocument();
-    expect(screen.getByText("This Vault has no sources")).toBeInTheDocument();
+    expect(await screen.findByText("Nexo Principles")).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
-  it("opens source knowledge and attaches readable content to Chat", () => {
-    renderVaultsPage();
+  it("opens the create-Vault form", async () => {
+    listBackendVaults.mockResolvedValue([]);
+    renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: /Nexo product docs/i }));
-    fireEvent.click(screen.getByRole("button", { name: /PRODUCT_VISION.md/i }));
-    expect(screen.getByText(/local-first, team-ready AI workspace/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "New Vault" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Attach to Chat" }));
-    expect(screen.getByRole("button", { name: "Attached to Chat" })).toBeInTheDocument();
-  });
-
-  it("exposes an accessible map whose nodes open the matching knowledge", () => {
-    renderVaultsPage();
-
-    fireEvent.click(screen.getByRole("button", { name: "Knowledge workbench" }));
-    expect(screen.getByLabelText(/Interactive knowledge map/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /^Source: CONTEXT_AND_SKILL_GOVERNANCE.md/i }));
-
-    expect(screen.getByText(/Explicit Skill invocation does not bypass identity/i)).toBeInTheDocument();
-  });
-
-  it("opens the knowledge map in a movable workbench window", () => {
-    renderVaultsPage();
-
-    fireEvent.click(screen.getByRole("button", { name: "Knowledge workbench" }));
-
-    expect(screen.getByRole("dialog", { name: "Knowledge Workbench" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Maximize workbench" }));
-    expect(screen.getByRole("button", { name: "Restore workbench" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close knowledge workbench" }));
-    expect(screen.queryByRole("dialog", { name: "Knowledge Workbench" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Create a Knowledge Vault" })).toBeInTheDocument();
   });
 });

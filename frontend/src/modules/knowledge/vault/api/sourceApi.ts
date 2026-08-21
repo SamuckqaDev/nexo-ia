@@ -22,9 +22,10 @@ export const registerBackendSource = (vaultId: string, file: File): Promise<Back
   body.append("file", file);
   body.append("displayName", file.name);
 
-  return apiClient.post<BaseResponse<unknown>>(`/knowledge/vaults/${vaultId}/sources`, body, {
-    headers: { "Content-Type": "multipart/form-data" }
-  }).then(({ data }) => first(data, (value) => backendSourceSchema.parse(value)));
+  // Let the browser set multipart/form-data with its boundary; a manual header omits the boundary
+  // and the backend cannot parse the parts.
+  return apiClient.post<BaseResponse<unknown>>(`/knowledge/vaults/${vaultId}/sources`, body)
+    .then(({ data }) => first(data, (value) => backendSourceSchema.parse(value)));
 };
 
 export const getSourceIngestionStatus = (sourceId: string): Promise<SourceIngestionStatus> =>

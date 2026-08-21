@@ -1,26 +1,31 @@
 import {
   ArrowRight,
-  ArrowsOut,
-  CheckCircle,
-  Eye,
   File,
   FileArrowUp,
   Files,
   FolderOpen,
   MagnifyingGlass,
-  Paperclip,
   Plus,
+  Trash,
   Vault
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { Input } from "../../../../../shared/components/Input";
-import { WorkspaceBadge, WorkspaceEmptyState, WorkspacePage, WorkspacePanel } from "../../../../../shared/components/WorkspacePage";
+import { Loading } from "../../../../../shared/components/Loading";
+import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
+import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
+import {
+  WorkspaceBadge,
+  WorkspaceEmptyState,
+  WorkspacePage,
+  WorkspacePanel
+} from "../../../../../shared/components/WorkspacePage";
 import { CreateVaultForm } from "../../components/CreateVaultForm";
-import { VaultWorkbenchModal } from "../../components/VaultWorkbenchModal";
-import { createVaultSource } from "../../services/vaultSourceService";
-import { useVaultCatalogStore } from "../../stores/useVaultCatalogStore";
-import type { CreateVaultValues, KnowledgeVault, VaultSource } from "../../types/vaultTypes";
+import { useBackendVaultCatalog } from "../../hooks/useBackendVaultCatalog";
+import { useVaultSources } from "../../hooks/useVaultSources";
+import type { BackendSource, BackendVault, BackendVaultScope } from "../../types/backendVaultTypes";
+import type { CreateVaultValues } from "../../types/vaultTypes";
 import {
   Explorer,
   FileInput,
@@ -29,166 +34,163 @@ import {
   MetaItem,
   PageActions,
   SourceAction,
-  SourceDetail,
-  SourceDetailHeader,
   SourceList,
-  SourcePreview,
   SourceRow,
-  SourceStatus,
   Summary,
   VaultButton,
   VaultCopy,
   VaultList
 } from "./styles";
 
+const STATUS_LABEL: Record<BackendSource["status"], { label: string; tone: "default" | "positive" | "attention" }> = {
+  READY: { label: "Ready", tone: "positive" },
+  INGESTING: { label: "Processing", tone: "attention" },
+  REGISTERED: { label: "Queued", tone: "attention" },
+  UNSUPPORTED: { label: "Not embedded", tone: "attention" },
+  FAILED: { label: "Failed", tone: "attention" }
+};
+
+const formatBytes = (bytes: number): string =>
+  bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 export function VaultsPage(): ReactElement {
-  const vaults = useVaultCatalogStore((state) => state.vaults);
-  const createVaultDraft = useVaultCatalogStore((state) => state.createVault);
-  const addVaultSources = useVaultCatalogStore((state) => state.addSources);
-  const attachedSourceIds = useVaultCatalogStore((state) => state.attachedSourceIds);
-  const toggleSourceAttachment = useVaultCatalogStore((state) => state.toggleSourceAttachment);
-  const [selectedId, setSelectedId] = useState<string>(vaults[0]?.id ?? "");
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(vaults[0]?.sources[0]?.id ?? null);
+  const catalog = useBackendVaultCatalog();
+  const vaults: BackendVault[] = catalog.vaults.data ?? [];
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState<string>("");
   const [creating, setCreating] = useState<boolean>(false);
-  const [workbenchOpen, setWorkbenchOpen] = useState<boolean>(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const selected: KnowledgeVault | undefined = vaults.find((vault) => vault.id === selectedId);
-  const selectedSource: VaultSource | undefined = selected?.sources.find((source: VaultSource): boolean => source.id === selectedSourceId);
-  const visibleVaults = useMemo<KnowledgeVault[]>(() => vaults.filter((vault) => vault.name.toLowerCase().includes(query.toLowerCase())), [query, vaults]);
-  const closeWorkbench = useCallback((): void => setWorkbenchOpen(false), []);
+  const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
+
+  const selected: BackendVault | undefined = vaults.find((vault: BackendVault) => vault.id === selectedId);
+  const sourcesState = useVaultSources(selected?.id ?? null);
+  const sources: BackendSource[] = sourcesState.sources.data ?? [];
+  const readyCount: number = sources.filter((source: BackendSource) => source.status === "READY").length;
+
+  const visibleVaults = useMemo<BackendVault[]>(
+    () => vaults.filter((vault: BackendVault) => vault.name.toLowerCase().includes(query.toLowerCase())),
+    [query, vaults]
+  );
 
   useEffect((): void => {
-    if (creating || !vaults.length || vaults.some((vault: KnowledgeVault): boolean => vault.id === selectedId)) return;
+    if (creating || selected || !vaults.length) return;
     setSelectedId(vaults[0].id);
-    setSelectedSourceId(vaults[0].sources[0]?.id ?? null);
-  }, [creating, selectedId, vaults]);
-
-  const selectVault = (vaultId: string): void => {
-    const vault: KnowledgeVault | undefined = vaults.find((item: KnowledgeVault): boolean => item.id === vaultId);
-    setSelectedId(vaultId);
-    setSelectedSourceId(vault?.sources[0]?.id ?? null);
-    setCreating(false);
-  };
-
-  const selectSource = (vaultId: string, sourceId: string): void => {
-    setSelectedId(vaultId);
-    setSelectedSourceId(sourceId);
-    setCreating(false);
-  };
+  }, [creating, selected, vaults]);
 
   const createVault = (values: CreateVaultValues): void => {
-    const vault: KnowledgeVault = createVaultDraft(values);
-    setSelectedId(vault.id);
-    setSelectedSourceId(null);
-    setCreating(false);
+    catalog.create.mutate(
+      {
+        name: values.name,
+        description: values.description || undefined,
+        scope: values.scope.toUpperCase() as BackendVaultScope,
+        workspaceId: values.workspaceId || undefined
+      },
+      {
+        onSuccess: (vault: BackendVault): void => {
+          setSelectedId(vault.id);
+          setCreating(false);
+        }
+      }
+    );
   };
 
   const addSources = (event: ChangeEvent<HTMLInputElement>): void => {
     const files: File[] = Array.from(event.target.files ?? []);
-    if (!files.length || !selected) return;
-    const vaultId: string = selected.id;
-    Promise.all(files.map(createVaultSource)).then((additions: VaultSource[]): void => {
-      addVaultSources(vaultId, additions);
-      setSelectedSourceId(additions[0]?.id ?? null);
-    });
+    files.forEach((file: File) => sourcesState.upload.mutate(file));
     event.target.value = "";
+  };
+
+  const removeVault = (vault: BackendVault): void => {
+    ask({
+      title: "Delete this Vault?",
+      message: `"${vault.name}" and all of its embedded sources will be removed.`,
+      confirmLabel: "Delete Vault",
+      tone: "danger"
+    }).then((confirmed: boolean): void => {
+      if (!confirmed) return;
+      catalog.archive.mutate(vault.id, { onSuccess: (): void => { if (vault.id === selectedId) setSelectedId(null); } });
+    });
   };
 
   return (
     <WorkspacePage
       eyebrow="Grounded knowledge"
       title="Knowledge Vaults"
-      description="Create governed knowledge collections, inspect readable local sources, and explicitly attach bounded excerpts when Chat needs them."
+      description="Create governed knowledge collections and upload sources. Supported files are chunked and embedded into the vector store, ready for retrieval in Chat."
       icon={Vault}
       contentMode="contained"
       actions={(
         <PageActions>
-          <Button type="button" variant="outline" icon={ArrowsOut} onClick={(): void => setWorkbenchOpen(true)}>Knowledge workbench</Button>
           <Button type="button" icon={Plus} onClick={(): void => setCreating(true)}>New Vault</Button>
         </PageActions>
       )}
     >
       <Explorer>
-        <WorkspacePanel title="Your Vaults" description="Personal, project, team and organization collections.">
+        <WorkspacePanel title="Your Vaults" description="Personal and workspace collections stored in the backend.">
           <Library>
-            <Input id="vault-search" label="Search Vaults" icon={MagnifyingGlass} value={query} onChange={(event): void => setQuery(event.target.value)} placeholder="Name or purpose" />
-            <VaultList>
-              {visibleVaults.map((vault) => (
-                <VaultButton key={vault.id} type="button" $active={selectedId === vault.id} onClick={(): void => selectVault(vault.id)}>
-                  <FolderOpen size={19} weight="duotone" />
-                  <VaultCopy><strong>{vault.name}</strong><span>{vault.sources.length} sources · {vault.scope}</span></VaultCopy>
-                  <ArrowRight size={14} />
-                </VaultButton>
-              ))}
-            </VaultList>
+            <Input id="vault-search" label="Search Vaults" icon={MagnifyingGlass} value={query} onChange={(event): void => setQuery(event.target.value)} placeholder="Name" />
+            {catalog.vaults.isLoading ? <Loading label="Loading your Vaults…" /> : visibleVaults.length ? (
+              <VaultList>
+                {visibleVaults.map((vault: BackendVault) => (
+                  <VaultButton key={vault.id} type="button" $active={selectedId === vault.id} onClick={(): void => { setSelectedId(vault.id); setCreating(false); }}>
+                    <FolderOpen size={19} weight="duotone" />
+                    <VaultCopy><strong>{vault.name}</strong><span>{vault.scope.toLowerCase()}</span></VaultCopy>
+                    <ArrowRight size={14} />
+                  </VaultButton>
+                ))}
+              </VaultList>
+            ) : <WorkspaceEmptyState icon={Vault} title="No Vaults yet" description="Create your first Knowledge Vault to add sources." action={<Button type="button" icon={Plus} onClick={(): void => setCreating(true)}>New Vault</Button>} />}
           </Library>
         </WorkspacePanel>
 
         <WorkspacePanel
-          title={creating ? "Create a Knowledge Vault" : selected?.name}
-          description={creating ? "Define ownership and purpose before adding sources." : selected?.description}
-          action={!creating && selected ? <WorkspaceBadge tone={selected.preview ? "attention" : "default"}>{selected.preview ? "Preview collection" : "Session draft"}</WorkspaceBadge> : undefined}
+          title={creating ? "Create a Knowledge Vault" : selected?.name ?? "Select a Vault"}
+          description={creating ? "Define ownership and purpose before adding sources." : selected?.description ?? undefined}
+          action={!creating && selected ? (
+            <Button type="button" variant="outline" icon={Trash} onClick={(): void => removeVault(selected)}>Delete</Button>
+          ) : undefined}
         >
-          {creating ? <CreateVaultForm onCreate={createVault} onCancel={(): void => setCreating(false)} /> : selected ? (
+          {creating ? (
+            <CreateVaultForm onCreate={createVault} onCancel={(): void => setCreating(false)} />
+          ) : selected ? (
             <>
               <Summary>
                 <MetaGrid>
-                  <MetaItem><span>Scope</span><strong>{selected.scope}</strong></MetaItem>
-                  <MetaItem><span>Sources</span><strong>{selected.sources.length}</strong></MetaItem>
-                  <MetaItem><span>Chat context</span><strong>{selected.sources.filter((source: VaultSource): boolean => attachedSourceIds.includes(source.id)).length} attached</strong></MetaItem>
+                  <MetaItem><span>Scope</span><strong>{selected.scope.toLowerCase()}</strong></MetaItem>
+                  <MetaItem><span>Sources</span><strong>{sources.length}</strong></MetaItem>
+                  <MetaItem><span>Embedded</span><strong>{readyCount} ready</strong></MetaItem>
                 </MetaGrid>
                 <SourceAction>
-                  <FileInput ref={fileInput} type="file" multiple accept=".md,.txt,.pdf,.doc,.docx,.json,.csv" onChange={addSources} />
-                  <Button type="button" icon={FileArrowUp} onClick={(): void => fileInput.current?.click()}>Add sources</Button>
+                  <FileInput ref={fileInput} type="file" multiple accept=".md,.txt,.json,.csv" onChange={addSources} />
+                  <Button type="button" icon={FileArrowUp} disabled={sourcesState.upload.isPending} onClick={(): void => fileInput.current?.click()}>
+                    {sourcesState.upload.isPending ? "Uploading…" : "Add sources"}
+                  </Button>
                 </SourceAction>
               </Summary>
-              {selected.sources.length ? (
+
+              {sourcesState.sources.isLoading ? <Loading label="Loading sources…" /> : sources.length ? (
                 <SourceList>
-                  {selected.sources.map((source) => (
-                    <SourceRow key={source.id} type="button" $active={source.id === selectedSourceId} onClick={(): void => setSelectedSourceId(source.id)}>
+                  {sources.map((source: BackendSource) => (
+                    <SourceRow key={source.id} type="button" $active={false} onClick={(): void => sourcesState.remove.mutate(source.id)} title="Click to remove this source">
                       <File size={20} weight="duotone" />
-                      <div><strong>{source.name}</strong><span>{source.type} · {source.size}</span></div>
-                      <SourceStatus $local={source.status === "local"}>{source.status === "local" ? <Files size={15} /> : <CheckCircle size={15} />}{source.status === "local" ? "Local session" : "Example"}</SourceStatus>
+                      <div><strong>{source.displayName}</strong><span>{source.mimeType} · {formatBytes(source.byteSize)}</span></div>
+                      <WorkspaceBadge tone={STATUS_LABEL[source.status].tone}>{STATUS_LABEL[source.status].label}</WorkspaceBadge>
                     </SourceRow>
                   ))}
                 </SourceList>
-              ) : <WorkspaceEmptyState icon={Files} title="This Vault has no sources" description="Add Markdown, text, PDF, Office, JSON or CSV files. Supported text gets a session-only preview; other formats keep metadata until ingestion is connected." action={<Button type="button" variant="outline" icon={FileArrowUp} onClick={(): void => fileInput.current?.click()}>Choose files</Button>} />}
-              {selectedSource && (
-                <SourceDetail>
-                  <SourceDetailHeader>
-                    <div><Eye size={18} weight="duotone" /><span><strong>{selectedSource.name}</strong><small>Knowledge visible in this browser session</small></span></div>
-                    <Button
-                      type="button"
-                      variant={attachedSourceIds.includes(selectedSource.id) ? "primary" : "outline"}
-                      icon={Paperclip}
-                      disabled={!selectedSource.contentPreview}
-                      onClick={(): void => toggleSourceAttachment(selectedSource.id)}
-                    >
-                      {attachedSourceIds.includes(selectedSource.id) ? "Attached to Chat" : "Attach to Chat"}
-                    </Button>
-                  </SourceDetailHeader>
-                  <SourcePreview>
-                    {selectedSource.contentPreview
-                      ? <>{selectedSource.contentPreview}{selectedSource.previewTruncated && <small>Preview truncated to keep local context bounded.</small>}</>
-                      : <span>{selectedSource.previewUnavailableReason ?? "No readable content is available for this source."}</span>}
-                  </SourcePreview>
-                </SourceDetail>
+              ) : (
+                <WorkspaceEmptyState
+                  icon={Files}
+                  title="This Vault has no sources"
+                  description="Add Markdown, text, JSON or CSV files. They are chunked and embedded into the vector store so Chat can cite them. PDF and Office keep metadata only until a parser is connected."
+                  action={<Button type="button" variant="outline" icon={FileArrowUp} onClick={(): void => fileInput.current?.click()}>Choose files</Button>}
+                />
               )}
             </>
           ) : <WorkspaceEmptyState icon={Vault} title="Select a Vault" description="Choose a collection from the library or create a new one." />}
         </WorkspacePanel>
       </Explorer>
-      <VaultWorkbenchModal
-        open={workbenchOpen}
-        onClose={closeWorkbench}
-        vaults={vaults}
-        attachedSourceIds={attachedSourceIds}
-        selectedVaultId={selectedId}
-        selectedSourceId={selectedSourceId}
-        onSelectVault={selectVault}
-        onSelectSource={selectSource}
-      />
     </WorkspacePage>
   );
 }
