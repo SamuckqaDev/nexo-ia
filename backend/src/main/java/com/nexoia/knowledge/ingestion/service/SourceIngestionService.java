@@ -2,6 +2,7 @@ package com.nexoia.knowledge.ingestion.service;
 
 import com.nexoia.audit.dto.RecordAuditCommand;
 import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditOutcome;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.knowledge.ingestion.dto.SourceIngestionStatusResponse;
@@ -13,33 +14,45 @@ import com.nexoia.knowledge.ingestion.model.KnowledgeSource;
 import com.nexoia.knowledge.ingestion.model.SourceKind;
 import com.nexoia.knowledge.ingestion.model.SourceStatus;
 import com.nexoia.knowledge.ingestion.repository.SourceRepository;
+import com.nexoia.knowledge.embedding.dto.EmbeddingOutcome;
+import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
+import com.nexoia.knowledge.embedding.service.EmbeddingService;
+import com.nexoia.knowledge.retrieval.model.KnowledgeChunk;
 import com.nexoia.knowledge.retrieval.repository.KnowledgeChunkRepository;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.service.VaultService;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.core.JacksonException;
 
 /**
- * Registers a source under a Knowledge Vault. Registration is bounded and idempotent by content hash;
- * the normalize/chunk/embed pipeline that turns a REGISTERED source into READY is implemented
- * synchronously, in this same request thread, once {@code EmbeddingClient} exists — no async/task
- * infrastructure exists in the backend to own retry and lifecycle for a background job (D-026).
+ * Registers a source under a Knowledge Vault and runs its normalize/chunk/embed pipeline synchronously,
+ * in this same request thread — no async/task infrastructure exists in the backend to own retry and
+ * lifecycle for a background job (D-026).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SourceIngestionService {
 
     private static final long MAX_SOURCE_BYTES = 3L * 1024 * 1024;
+    private static final String ERROR_EXTRACTION_FAILED = "INGESTION_EXTRACTION_FAILED";
+    private static final String ERROR_EMBEDDING_UNAVAILABLE = "INGESTION_EMBEDDING_UNAVAILABLE";
+    private static final String ERROR_UNEXPECTED = "INGESTION_FAILED";
 
     /**
      * Extensions this release can extract text from. Everything else is registered and immediately
@@ -50,6 +63,9 @@ public class SourceIngestionService {
     private final VaultService vaultService;
     private final SourceRepository sources;
     private final KnowledgeChunkRepository chunks;
+    private final SourceNormalizer normalizer;
+    private final ChunkingService chunking;
+    private final EmbeddingService embeddingService;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
@@ -117,9 +133,76 @@ public class SourceIngestionService {
 
         if (!INGESTIBLE_EXTENSIONS.contains(extension)) {
             source.markUnsupported();
+            return response(source);
         }
 
+        ingest(vault, source, extension, content);
+
         return response(source);
+    }
+
+    private void ingest(KnowledgeVault vault, KnowledgeSource source, String extension, byte[] content) {
+        source.markIngesting();
+        audit.record(RecordAuditCommand.success(
+                AuditAction.SOURCE_INGESTION_STARTED, vault.getOwnerId(), null,
+                AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
+
+        try {
+            String normalizedText = normalizer.normalize(extension, content);
+            List<ChunkingService.ChunkDraft> drafts = chunking.chunk(normalizedText);
+
+            if (drafts.isEmpty()) {
+                source.markReady(Map.of("chunkCount", 0));
+            } else {
+                EmbeddingOutcome outcome = embeddingService.embed(
+                        vault.getOwnerId(), drafts.stream().map(ChunkingService.ChunkDraft::content).toList());
+                chunks.saveAll(chunkEntities(source, drafts, outcome));
+                source.markReady(Map.of("chunkCount", drafts.size()));
+            }
+            audit.record(RecordAuditCommand.success(
+                    AuditAction.SOURCE_INGESTION_COMPLETED, vault.getOwnerId(), null,
+                    AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
+        } catch (EmbeddingProviderUnavailableException exception) {
+            failIngestion(vault, source, ERROR_EMBEDDING_UNAVAILABLE, exception);
+        } catch (RuntimeException exception) {
+            failIngestion(vault, source, isExtractionFailure(exception) ? ERROR_EXTRACTION_FAILED : ERROR_UNEXPECTED,
+                    exception);
+        }
+    }
+
+    private void failIngestion(KnowledgeVault vault, KnowledgeSource source, String errorCode, RuntimeException cause) {
+        UUID correlationId = UUID.randomUUID();
+        log.warn("[NEXO-BACK][KNOWLEDGE] Ingestion failed sourceId={} correlationId={} errorCode={} reason={}",
+                source.getId(), correlationId, errorCode, cause.getClass().getSimpleName());
+        source.markFailed(errorCode);
+        audit.record(new RecordAuditCommand(
+                AuditAction.SOURCE_INGESTION_FAILED, AuditOutcome.FAILURE,
+                vault.getOwnerId(), null, AuditTargetType.KNOWLEDGE_SOURCE, source.getId(),
+                correlationId, errorCode));
+    }
+
+    private boolean isExtractionFailure(RuntimeException exception) {
+        return exception instanceof UncheckedIOException || exception instanceof JacksonException;
+    }
+
+    private List<KnowledgeChunk> chunkEntities(
+            KnowledgeSource source, List<ChunkingService.ChunkDraft> drafts, EmbeddingOutcome outcome) {
+        List<KnowledgeChunk> entities = new ArrayList<>(drafts.size());
+        for (int index = 0; index < drafts.size(); index++) {
+            ChunkingService.ChunkDraft draft = drafts.get(index);
+            entities.add(KnowledgeChunk.builder()
+                    .id(UUID.randomUUID())
+                    .sourceId(source.getId())
+                    .ordinal(draft.ordinal())
+                    .content(draft.content())
+                    .tokenEstimate(draft.tokenEstimate())
+                    .embedding(outcome.embeddings().get(index))
+                    .embeddingModel(outcome.model())
+                    .embeddingDimensions(outcome.dimensions())
+                    .build());
+        }
+
+        return entities;
     }
 
     /**

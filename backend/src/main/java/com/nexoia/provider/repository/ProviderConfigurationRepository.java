@@ -1,6 +1,7 @@
 package com.nexoia.provider.repository;
 
 import com.nexoia.provider.model.ProviderConfiguration;
+import com.nexoia.provider.model.ProviderType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,4 +12,7 @@ public interface ProviderConfigurationRepository extends JpaRepository<ProviderC
     Optional<ProviderConfiguration> findByIdAndUserId(UUID id, UUID userId);
     boolean existsByUserIdAndEndpoint(UUID userId, String endpoint);
     boolean existsByUserIdAndEndpointAndIdNot(UUID userId, String endpoint, UUID id);
+
+    Optional<ProviderConfiguration> findFirstByUserIdAndProviderTypeAndEnabledTrueOrderByCreatedAtAsc(
+            UUID userId, ProviderType providerType);
 }
