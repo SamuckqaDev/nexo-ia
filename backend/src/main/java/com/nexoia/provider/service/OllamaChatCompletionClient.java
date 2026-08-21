@@ -49,6 +49,28 @@ public class OllamaChatCompletionClient implements ChatCompletionClient {
             Consumer<String> onThinking,
             Consumer<String> onToken,
             BooleanSupplier cancelled) {
+        try {
+            return streamRequest(command, onThinking, onToken, cancelled);
+        } catch (ProviderStreamException exception) {
+            // Ollama rejects `think: true` for models that do not advertise thinking capability
+            // (for example granite). A normal answer is still valid, so retry once without the
+            // optional reasoning flag instead of failing the whole chat request.
+            if (!command.thinkingEnabled()) {
+                throw exception;
+            }
+            log.warn("[NEXO-BACK][PROVIDER] Model does not accept thinking; retrying without it model={}",
+                    command.model());
+            return streamRequest(new ChatCompletionCommand(
+                    command.providerType(), command.endpoint(), command.model(), command.messages(), false),
+                    onThinking, onToken, cancelled);
+        }
+    }
+
+    private ChatCompletionOutcome streamRequest(
+            ChatCompletionCommand command,
+            Consumer<String> onThinking,
+            Consumer<String> onToken,
+            BooleanSupplier cancelled) {
         OllamaChatRequest payload = new OllamaChatRequest(
                 command.model(), command.messages(), true, command.thinkingEnabled());
 
