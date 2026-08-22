@@ -42,6 +42,8 @@ const renderPanel = (
           open={open}
           vaults={vaults}
           selectedVaultIds={selectedVaultIds}
+          isVaultSelectionPending={false}
+          vaultSelectionError={null}
           onOpenChange={onOpenChange}
           onToggleVault={onToggleVault}
           onManageVaults={vi.fn()}
@@ -63,13 +65,13 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText(/switch to agent/i)).toBeInTheDocument();
   });
 
-  it("shows the governed plan preview without claiming that the runtime is active", () => {
+  it("states the live read-only boundary of Agent mode", () => {
     renderPanel("agent");
 
     fireEvent.click(screen.getByRole("tab", { name: /plan/i }));
-    expect(screen.getByText("Runtime preview")).toBeInTheDocument();
     expect(screen.getByText("Execute and verify")).toBeInTheDocument();
-    expect(screen.getByText(/when the governed Agent runtime is connected/i)).toBeInTheDocument();
+    expect(screen.getByText(/read-only Knowledge search tool/i)).toBeInTheDocument();
+    expect(screen.queryByText(/preview/i)).not.toBeInTheDocument();
   });
 
   it("exposes tasks, artifacts and media as conversation resources", () => {

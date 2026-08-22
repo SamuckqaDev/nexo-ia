@@ -6,6 +6,7 @@ import com.nexoia.conversation.chat.dto.ConversationResponse;
 import com.nexoia.conversation.chat.dto.CreateConversationRequest;
 import com.nexoia.conversation.chat.dto.RenameConversationRequest;
 import com.nexoia.conversation.chat.dto.SendMessageRequest;
+import com.nexoia.conversation.chat.dto.UpdateConversationKnowledgeRequest;
 import com.nexoia.conversation.chat.dto.UpdateConversationModelRequest;
 import com.nexoia.conversation.chat.service.ConversationService;
 import com.nexoia.shared.api.BaseResponse;
@@ -79,6 +80,17 @@ public class ConversationController {
         return ResponseEntity.ok(BaseResponse.success(
                 200, "Conversation model selected",
                 service.selectModel(principal.userId(), conversationId, request)));
+    }
+
+    @PutMapping("/{conversationId}/knowledge-vaults")
+    @Operation(summary = "Replace the Knowledge Vaults selected for a conversation")
+    public ResponseEntity<BaseResponse<ConversationResponse>> selectKnowledge(
+            @AuthenticationPrincipal NexoUserPrincipal principal,
+            @PathVariable UUID conversationId,
+            @Valid @RequestBody UpdateConversationKnowledgeRequest request) {
+        return ResponseEntity.ok(BaseResponse.success(
+                200, "Conversation Knowledge Vaults selected",
+                service.selectKnowledge(principal.userId(), conversationId, request)));
     }
 
     @GetMapping("/{conversationId}/messages")

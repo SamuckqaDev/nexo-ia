@@ -1,11 +1,14 @@
 package com.nexoia.conversation.inference.controller;
 
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
+import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
+import com.nexoia.conversation.inference.dto.event.ToolCompletedEvent;
+import com.nexoia.conversation.inference.dto.event.ToolStartedEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.service.ModelStreamListener;
 import java.io.IOException;
@@ -38,6 +41,21 @@ public class SseModelStreamListener implements ModelStreamListener {
     @Override
     public void onThinking(ThinkingEvent event) {
         send("thinking", event);
+    }
+
+    @Override
+    public void onAgentState(AgentStateEvent event) {
+        send("agent_state", event);
+    }
+
+    @Override
+    public void onToolStarted(ToolStartedEvent event) {
+        send("tool_started", event);
+    }
+
+    @Override
+    public void onToolCompleted(ToolCompletedEvent event) {
+        send("tool_completed", event);
     }
 
     @Override

@@ -29,6 +29,7 @@ import {
   useConversations,
   useCreateConversation,
   useRenameConversation,
+  useSelectConversationKnowledge,
   useSelectConversationModel
 } from "../../hooks/useChat";
 import { useChatStream } from "../../hooks/useChatStream";
@@ -91,15 +92,16 @@ export function ChatPage(): ReactElement {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [renameTitle, setRenameTitle] = useState<string>("");
-  const [selectedVaultIds, setSelectedVaultIds] = useState<string[]>([]);
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
   const clearDraft: ChatDraftState["clear"] = useChatDraftStore((state: ChatDraftState) => state.clear);
 
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
-  const stream = useChatStream(selectedId, messages.data ?? [], selectedVaultIds);
   const selected: Conversation | undefined = conversations.data
     ?.find((item: Conversation) => item.id === selectedId);
+  const selectedVaultIds: string[] = selected?.knowledgeVaultIds ?? [];
+  const selectKnowledge = useSelectConversationKnowledge(selectedId);
+  const stream = useChatStream(selectedId, messages.data ?? [], mode);
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
     .filter((message: ConversationMessage): boolean => message.role === "USER")
     .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
@@ -211,9 +213,11 @@ export function ChatPage(): ReactElement {
   };
 
   const toggleVault = (vaultId: string): void => {
-    setSelectedVaultIds((current: string[]): string[] => current.includes(vaultId)
-      ? current.filter((id: string): boolean => id !== vaultId)
-      : [...current, vaultId]);
+    if (!selectedId || selectKnowledge.isPending) return;
+    const nextSelection: string[] = selectedVaultIds.includes(vaultId)
+      ? selectedVaultIds.filter((id: string): boolean => id !== vaultId)
+      : [...selectedVaultIds, vaultId];
+    selectKnowledge.mutate(nextSelection);
   };
 
   const saveRename = (): void => {
@@ -365,13 +369,15 @@ export function ChatPage(): ReactElement {
                 thinkingContent={stream.thinkingContent}
                 streamingContent={stream.streamingContent}
                 errorMessage={stream.errorMessage}
+                agentState={stream.agentState}
+                toolExecutions={stream.toolExecutions}
                 accountTokenTotal={accountUsage.data?.totals.totalTokens ?? null}
                 mode={mode}
                 onConfigureProvider={(): void => { navigate("/settings/providers"); }}
               />
 
               {(backendVaults.vaults.data ?? []).length > 0 && (
-                <VaultBar>
+                <VaultBar aria-busy={selectKnowledge.isPending}>
                   <VaultBarLabel><BookOpen size={13} weight="duotone" /> Knowledge</VaultBarLabel>
                   {(backendVaults.vaults.data ?? []).map((vault: BackendVault) => (
                     <VaultChip
@@ -379,12 +385,17 @@ export function ChatPage(): ReactElement {
                       type="button"
                       $active={selectedVaultIds.includes(vault.id)}
                       aria-pressed={selectedVaultIds.includes(vault.id)}
+                      disabled={!selectedId || selectKnowledge.isPending}
                       onClick={(): void => toggleVault(vault.id)}
                     >
                       {selectedVaultIds.includes(vault.id) && <Check size={12} weight="bold" />}
                       {vault.name}
                     </VaultChip>
                   ))}
+                  {selectKnowledge.isPending && <VaultBarLabel>Saving…</VaultBarLabel>}
+                  {selectKnowledge.isError && (
+                    <VaultBarLabel role="alert">Could not save Vault selection</VaultBarLabel>
+                  )}
                 </VaultBar>
               )}
 
@@ -407,6 +418,8 @@ export function ChatPage(): ReactElement {
               open={isContextOpen}
               vaults={backendVaults.vaults.data ?? []}
               selectedVaultIds={selectedVaultIds}
+              isVaultSelectionPending={selectKnowledge.isPending}
+              vaultSelectionError={selectKnowledge.error?.message ?? null}
               onOpenChange={setIsContextOpen}
               onToggleVault={toggleVault}
               onManageVaults={(): void => { navigate("/vaults"); }}

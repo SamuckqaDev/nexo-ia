@@ -46,7 +46,7 @@ public class ModelRequestController {
             @Valid @RequestBody SendMessageRequest request) {
         ModelRequestReservation reservation = service.begin(
                 principal.userId(), conversationId, request.content(), request.thinkingEnabled(),
-                request.knowledgeVaultIds());
+                request.knowledgeVaultIds(), request.mode());
         SseEmitter emitter = new SseEmitter(properties.timeout().toMillis());
         UUID messageId = reservation.assistantMessageId();
 

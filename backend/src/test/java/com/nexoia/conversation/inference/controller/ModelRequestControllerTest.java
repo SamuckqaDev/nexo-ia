@@ -22,6 +22,7 @@ import com.nexoia.auth.token.service.TokenSessionService;
 import com.nexoia.auth.user.model.UserRole;
 import com.nexoia.conversation.chat.exception.ConversationBusyException;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.config.ModelStreamProperties;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
@@ -100,7 +101,8 @@ class ModelRequestControllerTest {
 
     @Test
     void answersNotFoundForAConversationTheCallerDoesNotOwn() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of())))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of()),
+                eq(ConversationMode.CHAT)))
                 .thenThrow(new ConversationNotFoundException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -114,7 +116,8 @@ class ModelRequestControllerTest {
 
     @Test
     void answersConflictWhenTheConversationIsAlreadyGenerating() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of())))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of()),
+                eq(ConversationMode.CHAT)))
                 .thenThrow(new ConversationBusyException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -127,7 +130,8 @@ class ModelRequestControllerTest {
 
     @Test
     void answersUnprocessableWhenNoModelIsSelected() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of())))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(false), eq(List.of()),
+                eq(ConversationMode.CHAT)))
                 .thenThrow(new ModelNotSelectedException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -150,7 +154,8 @@ class ModelRequestControllerTest {
 
     @Test
     void forwardsTheEnabledThinkingPreferenceBeforeOpeningTheStream() throws Exception {
-        when(service.begin(eq(userId), eq(conversationId), any(), eq(true), eq(List.of())))
+        when(service.begin(eq(userId), eq(conversationId), any(), eq(true), eq(List.of()),
+                eq(ConversationMode.CHAT)))
                 .thenThrow(new ConversationNotFoundException());
 
         mockMvc.perform(post("/api/v1/conversations/{id}/messages/stream", conversationId)
@@ -159,7 +164,8 @@ class ModelRequestControllerTest {
                         .content("{\"content\":\"hello\",\"thinkingEnabled\":true}"))
                 .andExpect(status().isNotFound());
 
-        verify(service).begin(userId, conversationId, "hello", true, List.of());
+        verify(service).begin(
+                userId, conversationId, "hello", true, List.of(), ConversationMode.CHAT);
     }
 
     @Test
@@ -205,7 +211,9 @@ class ModelRequestControllerTest {
                         false),
                 ProcessingLocation.LOCAL,
                 List.of());
-        when(service.begin(userId, conversationId, "hello", false, List.of())).thenReturn(reservation);
+        when(service.begin(
+                userId, conversationId, "hello", false, List.of(), ConversationMode.CHAT))
+                .thenReturn(reservation);
         doAnswer(invocation -> {
             ModelStreamListener listener = invocation.getArgument(1);
             listener.onCompleted(new CompletedEvent(

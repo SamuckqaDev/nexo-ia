@@ -11,6 +11,8 @@ export type ConversationContextPanelProps = {
   open: boolean;
   vaults: BackendVault[];
   selectedVaultIds: string[];
+  isVaultSelectionPending: boolean;
+  vaultSelectionError: string | null;
   onOpenChange: (open: boolean) => void;
   onToggleVault: (vaultId: string) => void;
   onManageVaults: () => void;

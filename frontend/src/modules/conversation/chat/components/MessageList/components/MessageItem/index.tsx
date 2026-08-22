@@ -1,7 +1,19 @@
-import { Brain, Check, Copy, Prohibit, Quotes, Sparkle, UserCircle, WarningCircle } from "@phosphor-icons/react";
+import {
+  BookOpen,
+  Brain,
+  Check,
+  Copy,
+  MagnifyingGlass,
+  Prohibit,
+  Quotes,
+  Sparkle,
+  SpinnerGap,
+  UserCircle,
+  WarningCircle
+} from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
-import type { ConversationMessage } from "../../../../types/chatTypes";
+import type { AgentState, ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
 import { MessageContent } from "./components/MessageContent";
 import {
   Avatar,
@@ -16,7 +28,9 @@ import {
   Meta,
   Name,
   Row,
-  ThinkingTrace
+  ThinkingTrace,
+  ToolActivity,
+  ToolActivityList
 } from "./styles";
 
 type MessageItemProps = {
@@ -24,6 +38,8 @@ type MessageItemProps = {
   streamingContent?: string;
   isStreaming?: boolean;
   thinkingContent?: string;
+  activeAgentState?: AgentState | null;
+  activeToolExecutions?: ToolExecution[];
 };
 
 /**
@@ -34,7 +50,9 @@ export function MessageItem({
   message,
   streamingContent,
   isStreaming = false,
-  thinkingContent = ""
+  thinkingContent = "",
+  activeAgentState = null,
+  activeToolExecutions = []
 }: MessageItemProps): ReactElement {
   const isUser: boolean = message.role === "USER";
   const rawContent: string = isStreaming ? streamingContent ?? "" : message.content;
@@ -66,6 +84,12 @@ export function MessageItem({
     ? Math.min(100, (message.contextTokensUsed / message.contextTokenBudget) * 100)
     : null;
   const [copied, setCopied] = useState<boolean>(false);
+  const agentState: AgentState | null | undefined = isStreaming
+    ? activeAgentState ?? message.agentState
+    : message.agentState;
+  const toolExecutions: ToolExecution[] = isStreaming && activeToolExecutions.length > 0
+    ? activeToolExecutions
+    : message.toolExecutions ?? [];
 
   useEffect((): void => setCopied(false), [content]);
 
@@ -104,6 +128,34 @@ export function MessageItem({
 
         <MessageContent content={content} isStreaming={isStreaming} isUser={isUser} />
 
+        {!isUser && agentState && (
+          <ContextBadges aria-label="Agent execution state">
+            <ContextBadge>
+              <Brain size={13} weight="duotone" /> Agent: {agentState.toLowerCase()}
+            </ContextBadge>
+          </ContextBadges>
+        )}
+
+        {!isUser && toolExecutions.length > 0 && (
+          <ToolActivityList aria-label="Agent tool activity">
+            {toolExecutions.map((execution: ToolExecution) => (
+              <ToolActivity key={execution.id}>
+                {execution.status === "RUNNING"
+                  ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
+                  : <MagnifyingGlass size={13} weight="duotone" />}
+                <span>Knowledge search</span>
+                <small>
+                  {execution.status === "RUNNING"
+                    ? "running"
+                    : `${execution.status.toLowerCase().replace("_", " ")}${execution.durationMs !== null
+                      ? ` · ${(execution.durationMs / 1000).toFixed(1)}s`
+                      : ""}`}
+                </small>
+              </ToolActivity>
+            ))}
+          </ToolActivityList>
+        )}
+
         {isUser && (contextualMessage.skillName || contextualMessage.vaultSourceNames.length > 0) && (
           <ContextBadges>
             {contextualMessage.skillName && <ContextBadge><Sparkle size={13} weight="fill" /> Skill: {contextualMessage.skillName}</ContextBadge>}
@@ -121,6 +173,12 @@ export function MessageItem({
                 <Quotes size={13} weight="fill" /> {citation.vaultName}/{citation.sourceDisplayName}#{citation.chunkOrdinal}
               </ContextBadge>
             ))}
+          </ContextBadges>
+        )}
+
+        {!isUser && message.status === "COMPLETED" && (!message.citations || message.citations.length === 0) && (
+          <ContextBadges aria-label="Knowledge Vault evidence">
+            <ContextBadge><BookOpen size={13} weight="duotone" /> No Vault sources used</ContextBadge>
           </ContextBadges>
         )}
 

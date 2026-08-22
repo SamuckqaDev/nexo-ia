@@ -13,6 +13,9 @@ vi.mock("../../../../shared/api/client", () => ({
 const handlers: ChatStreamHandlers = {
   onStarted: vi.fn(),
   onThinking: vi.fn(),
+  onAgentState: vi.fn(),
+  onToolStarted: vi.fn(),
+  onToolCompleted: vi.fn(),
   onToken: vi.fn(),
   onUsage: vi.fn(),
   onCompleted: vi.fn(),
@@ -34,14 +37,14 @@ describe("streamMessage", () => {
       "23ab2ec1-9fc5-4dd9-a18c-6cc8b62130c5",
       "hello",
       thinkingEnabled,
-      [],
+      "chat",
       handlers,
       new AbortController().signal
     );
 
     const request = fetchMock.mock.calls[0]?.[1];
     expect(JSON.parse(String(request?.body)))
-      .toEqual({ content: "hello", thinkingEnabled, knowledgeVaultIds: [] });
+      .toEqual({ content: "hello", thinkingEnabled, mode: "chat" });
   });
 
   it("dispatches the final SSE frame even when the connection closes without a blank separator", async () => {
@@ -55,7 +58,7 @@ describe("streamMessage", () => {
       "33ab2ec1-9fc5-4dd9-a18c-6cc8b62130c6",
       "hello",
       false,
-      [],
+      "chat",
       handlers,
       new AbortController().signal
     );
@@ -84,7 +87,7 @@ describe("streamMessage", () => {
       "33ab2ec1-9fc5-4dd9-a18c-6cc8b62130c6",
       "oi",
       false,
-      [],
+      "chat",
       handlers,
       new AbortController().signal
     );

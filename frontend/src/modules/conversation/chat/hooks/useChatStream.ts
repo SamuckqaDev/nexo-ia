@@ -9,12 +9,18 @@ import { idleConversationStream, useChatStreamStore } from "../stores/useChatStr
 import type { ChatStreamState, ConversationStreamSnapshot } from "../types/chatStreamTypes";
 import type {
   CancelledEvent,
+  AgentState,
+  AgentStateEvent,
   CompletedEvent,
+  ConversationMode,
   ConversationMessage,
   StartedEvent,
   StreamErrorEvent,
   StreamPhase,
   ThinkingEvent,
+  ToolCompletedEvent,
+  ToolExecution,
+  ToolStartedEvent,
   TokenEvent,
   UsageEvent
 } from "../types/chatTypes";
@@ -27,6 +33,8 @@ export type ChatStream = {
   streamingContent: string;
   usage: UsageEvent | null;
   errorMessage: string | null;
+  agentState: AgentState | null;
+  toolExecutions: ToolExecution[];
   isBusy: boolean;
   send: (content: string) => void;
   cancel: () => void;
@@ -70,7 +78,7 @@ export const cancelAllChatStreams = (): Promise<void> => {
 export const useChatStream = (
   conversationId: string | null,
   persistedMessages: ConversationMessage[] = [],
-  selectedVaultIds: string[] = []
+  mode: ConversationMode = "chat"
 ): ChatStream => {
   const queryClient = useQueryClient();
   const thinkingEnabled: boolean = usePreferenceStore((state: PreferenceState) => state.thinkingEnabled);
@@ -91,6 +99,8 @@ export const useChatStream = (
         phase: persistedPhase(latestAssistant),
         startedAt: stored?.startedAt ?? new Date(latestAssistant.createdAt).getTime(),
         assistantMessageId: latestAssistant.id,
+        agentState: latestAssistant.agentState ?? null,
+        toolExecutions: latestAssistant.toolExecutions ?? [],
         errorMessage: null
       });
       const refresh = window.setInterval((): void => {
@@ -107,7 +117,9 @@ export const useChatStream = (
         startedAt: null,
         thinkingContent: "",
         streamingContent: "",
-        assistantMessageId: null
+        assistantMessageId: null,
+        agentState: null,
+        toolExecutions: []
       });
     }
   }, [conversationId, latestAssistant, queryClient, updateStream]);
@@ -138,16 +150,17 @@ export const useChatStream = (
       streamingContent: "",
       usage: null,
       errorMessage: null,
-      assistantMessageId: null
+      assistantMessageId: null,
+      agentState: mode === "agent" ? "PLANNING" : null,
+      toolExecutions: []
     });
     // The backend persists the user message before opening the provider stream.
     // Refresh immediately so the message is visible while Ollama is still preparing output.
     queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
 
-    // Only a real, backend-persisted Vault (never the client-only preview catalog, whose ids are not
-    // UUIDs the backend can resolve) with an attached, readable source counts as selected for
-    // retrieval — a Vault with no attached excerpt is not implicitly searched.
-    streamMessage(conversationId, content, thinkingEnabled, selectedVaultIds, {
+    // The backend resolves the durable, owner-authorized Vault selection for this conversation.
+    // No Vault ids cross this request boundary, so transient client state is never an auth source.
+    streamMessage(conversationId, content, thinkingEnabled, mode, {
       onStarted: (event: StartedEvent): void => {
         updateStream(conversationId, { phase: "streaming", assistantMessageId: event.assistantMessageId });
         queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
@@ -156,6 +169,45 @@ export const useChatStream = (
         const current: ConversationStreamSnapshot = useChatStreamStore.getState().streams[conversationId]
           ?? idleConversationStream;
         updateStream(conversationId, { thinkingContent: current.thinkingContent + event.content });
+      },
+      onAgentState: (event: AgentStateEvent): void => {
+        updateStream(conversationId, { agentState: event.state });
+      },
+      onToolStarted: (event: ToolStartedEvent): void => {
+        const current: ConversationStreamSnapshot = useChatStreamStore.getState().streams[conversationId]
+          ?? idleConversationStream;
+        const started: ToolExecution = {
+          id: event.executionId,
+          toolName: event.toolName,
+          status: "RUNNING",
+          durationMs: null,
+          citations: [],
+          startedAt: event.startedAt,
+          completedAt: null
+        };
+        updateStream(conversationId, {
+          toolExecutions: [...current.toolExecutions.filter(
+            (execution: ToolExecution): boolean => execution.id !== event.executionId), started]
+        });
+      },
+      onToolCompleted: (event: ToolCompletedEvent): void => {
+        const current: ConversationStreamSnapshot = useChatStreamStore.getState().streams[conversationId]
+          ?? idleConversationStream;
+        const completed: ToolExecution = {
+          id: event.executionId,
+          toolName: event.toolName,
+          status: event.status,
+          durationMs: event.durationMs,
+          citations: event.citations,
+          startedAt: current.toolExecutions.find(
+            (execution: ToolExecution): boolean => execution.id === event.executionId
+          )?.startedAt ?? event.completedAt,
+          completedAt: event.completedAt
+        };
+        updateStream(conversationId, {
+          toolExecutions: [...current.toolExecutions.filter(
+            (execution: ToolExecution): boolean => execution.id !== event.executionId), completed]
+        });
       },
       onToken: (event: TokenEvent): void => {
         const current: ConversationStreamSnapshot = useChatStreamStore.getState().streams[conversationId]
@@ -193,7 +245,7 @@ export const useChatStream = (
         });
         settle(conversationId, error instanceof ApiError ? "failed" : "disconnected");
       });
-  }, [selectedVaultIds, conversationId, queryClient, settle, thinkingEnabled, updateStream]);
+  }, [conversationId, mode, queryClient, settle, thinkingEnabled, updateStream]);
 
   const cancel = useCallback((): void => {
     if (!conversationId || !snapshot.assistantMessageId) return;
@@ -210,6 +262,8 @@ export const useChatStream = (
     streamingContent: snapshot.streamingContent,
     usage: snapshot.usage,
     errorMessage: snapshot.errorMessage,
+    agentState: snapshot.agentState,
+    toolExecutions: snapshot.toolExecutions,
     isBusy: snapshot.phase === "starting" || snapshot.phase === "streaming" || snapshot.phase === "cancelling",
     send,
     cancel

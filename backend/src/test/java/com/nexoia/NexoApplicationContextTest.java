@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * Starts the whole application against a disposable PostgreSQL instance.
@@ -35,7 +36,9 @@ class NexoApplicationContextTest {
 
     @Container
     @ServiceConnection
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4");
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+            DockerImageName.parse("pgvector/pgvector:0.8.6-pg18-bookworm")
+                    .asCompatibleSubstituteFor("postgres"));
 
     @Autowired
     private ApplicationContext context;
@@ -44,7 +47,8 @@ class NexoApplicationContextTest {
 
     @Test
     void startsEveryBeanOfTheApplication() {
-        assertThat(context.getBean("ollamaChatCompletionClient")).isNotNull();
+        assertThat(context.getBean("springAiChatCompletionClient")).isNotNull();
+        assertThat(context.getBean("springAiModelFactory")).isNotNull();
         assertThat(context.getBean("modelRequestService")).isNotNull();
         assertThat(context.getBean("modelRequestStore")).isNotNull();
         assertThat(context.getBean("conversationContextAssembler")).isNotNull();
@@ -62,7 +66,7 @@ class NexoApplicationContextTest {
                 WHERE indexname = 'ux_conversation_message_active_request'
                 """, Integer.class);
 
-        assertThat(applied).isEqualTo(16);
+        assertThat(applied).isEqualTo(25);
         assertThat(activeRequestIndex).isEqualTo(1);
     }
 }

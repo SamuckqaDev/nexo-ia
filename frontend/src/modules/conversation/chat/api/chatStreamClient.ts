@@ -3,7 +3,7 @@ import { refreshAuthenticatedSession } from "../../../../shared/api/client";
 import { useSessionExpiredStore } from "../../../../shared/auth/sessionExpiredStore";
 import type { BaseResponse } from "../../../../shared/types/apiTypes";
 import { streamEventSchema } from "../schemas/streamEventSchemas";
-import type { ChatStreamHandlers, StreamEvent } from "../types/chatTypes";
+import type { ChatStreamHandlers, ConversationMode, StreamEvent } from "../types/chatTypes";
 
 /**
  * Reads the model response stream.
@@ -37,6 +37,9 @@ const parseFrame = (frame: string): StreamEvent | null => {
 const dispatch = (event: StreamEvent, handlers: ChatStreamHandlers): void => {
   if (event.event === "started") handlers.onStarted(event.data);
   else if (event.event === "thinking") handlers.onThinking(event.data);
+  else if (event.event === "agent_state") handlers.onAgentState(event.data);
+  else if (event.event === "tool_started") handlers.onToolStarted(event.data);
+  else if (event.event === "tool_completed") handlers.onToolCompleted(event.data);
   else if (event.event === "token") handlers.onToken(event.data);
   else if (event.event === "usage") handlers.onUsage(event.data);
   else if (event.event === "completed") handlers.onCompleted(event.data);
@@ -89,7 +92,7 @@ const requestStream = (
   conversationId: string,
   content: string,
   thinkingEnabled: boolean,
-  knowledgeVaultIds: string[],
+  mode: ConversationMode,
   handlers: ChatStreamHandlers,
   signal: AbortSignal,
   canRefresh: boolean
@@ -103,12 +106,12 @@ const requestStream = (
       Accept: "text/event-stream, application/json",
       "X-XSRF-TOKEN": csrfToken()
     },
-    body: JSON.stringify({ content, thinkingEnabled, knowledgeVaultIds })
+    body: JSON.stringify({ content, thinkingEnabled, mode })
   }).then((response: Response): Promise<void> => {
     if (response.status === 401 && canRefresh) {
       return refreshAuthenticatedSession().then(
         (): Promise<void> => requestStream(
-          conversationId, content, thinkingEnabled, knowledgeVaultIds, handlers, signal, false),
+          conversationId, content, thinkingEnabled, mode, handlers, signal, false),
         (): Promise<never> => rejectWithBackendError(response)
       );
     }
@@ -120,8 +123,8 @@ export const streamMessage = (
   conversationId: string,
   content: string,
   thinkingEnabled: boolean,
-  knowledgeVaultIds: string[],
+  mode: ConversationMode,
   handlers: ChatStreamHandlers,
   signal: AbortSignal
 ): Promise<void> => requestStream(
-  conversationId, content, thinkingEnabled, knowledgeVaultIds, handlers, signal, true);
+  conversationId, content, thinkingEnabled, mode, handlers, signal, true);

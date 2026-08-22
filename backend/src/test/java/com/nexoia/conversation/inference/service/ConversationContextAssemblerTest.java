@@ -12,6 +12,9 @@ import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.inference.context.CapabilityEnvelopeRenderer;
+import com.nexoia.conversation.inference.prompt.PromptResource;
+import com.nexoia.conversation.inference.prompt.PromptResourceService;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import java.util.List;
 import java.util.UUID;
@@ -112,14 +115,17 @@ class ConversationContextAssemblerTest {
                                 && !statuses.contains(MessageStatus.FAILED)));
     }
 
+    private final PromptResourceService prompts = new PromptResourceService();
+
     private ConversationContextAssembler assembler(int tokenBudget) {
         return new ConversationContextAssembler(
-                messages, new ConversationContextProperties(tokenBudget, 4));
+                messages, new ConversationContextProperties(tokenBudget, 4),
+                prompts, new CapabilityEnvelopeRenderer(prompts));
     }
 
     private int identityTokenCost() {
-        return new ConversationContextProperties(0, 4)
-                .estimateTokens(ConversationContextAssembler.NEXO_IDENTITY);
+        return new ConversationContextProperties(0, 4).estimateTokens(
+                prompts.get(PromptResource.IDENTITY) + "\n\n" + prompts.get(PromptResource.RULES));
     }
 
     private void given(List<ConversationMessage> history) {

@@ -1,7 +1,13 @@
 import { Brain, ChatCircleDots, Coins, Cpu, ShieldCheck, Sparkle, SlidersHorizontal } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
-import type { ConversationMessage, ConversationMode, StreamPhase } from "../../types/chatTypes";
+import type {
+  AgentState,
+  ConversationMessage,
+  ConversationMode,
+  StreamPhase,
+  ToolExecution
+} from "../../types/chatTypes";
 import { ChatLoading } from "../ChatLoading";
 import { MessageItem } from "./components/MessageItem";
 import {
@@ -33,6 +39,8 @@ type MessageListProps = {
   thinkingContent: string;
   streamingContent: string;
   errorMessage: string | null;
+  agentState?: AgentState | null;
+  toolExecutions?: ToolExecution[];
   accountTokenTotal?: number | null;
   mode: ConversationMode;
   onConfigureProvider: () => void;
@@ -97,6 +105,8 @@ export function MessageList({
   thinkingContent,
   streamingContent,
   errorMessage,
+  agentState = null,
+  toolExecutions = [],
   accountTokenTotal = null,
   mode,
   onConfigureProvider
@@ -173,6 +183,8 @@ export function MessageList({
           streamingContent={streamingContent}
           thinkingContent={thinkingContent}
           isStreaming={message.id === streamingId}
+          activeAgentState={message.id === streamingId ? agentState : null}
+          activeToolExecutions={message.id === streamingId ? toolExecutions : []}
         />
       ))}
 

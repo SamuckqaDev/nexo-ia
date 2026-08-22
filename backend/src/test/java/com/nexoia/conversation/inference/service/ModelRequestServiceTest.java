@@ -12,13 +12,17 @@ import static org.mockito.Mockito.when;
 
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
+import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
+import com.nexoia.conversation.inference.dto.event.ToolCompletedEvent;
+import com.nexoia.conversation.inference.dto.event.ToolStartedEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
 import com.nexoia.provider.dto.ChatCompletionCommand;
@@ -208,7 +212,9 @@ class ModelRequestServiceTest {
     }
 
     private void reservationIsAvailable(boolean thinkingEnabled) {
-        when(store.reserve(userId, conversationId, "hi", thinkingEnabled, List.of())).thenReturn(new ModelRequestReservation(
+        when(store.reserve(
+                userId, conversationId, "hi", thinkingEnabled, List.of(), ConversationMode.CHAT))
+                .thenReturn(new ModelRequestReservation(
                 userId,
                 userMessageId,
                 assistantMessageId,
@@ -237,6 +243,15 @@ class ModelRequestServiceTest {
         public void onThinking(ThinkingEvent event) {
             thinking.add(event);
         }
+
+        @Override
+        public void onAgentState(AgentStateEvent event) {}
+
+        @Override
+        public void onToolStarted(ToolStartedEvent event) {}
+
+        @Override
+        public void onToolCompleted(ToolCompletedEvent event) {}
 
         @Override
         public void onToken(TokenEvent event) {

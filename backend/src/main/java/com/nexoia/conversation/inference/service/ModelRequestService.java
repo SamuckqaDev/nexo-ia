@@ -5,18 +5,27 @@ import com.nexoia.audit.model.AuditAction;
 import com.nexoia.audit.model.AuditOutcome;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
+import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
+import com.nexoia.conversation.inference.dto.event.ToolCompletedEvent;
+import com.nexoia.conversation.inference.dto.event.ToolStartedEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
+import com.nexoia.conversation.inference.model.AgentState;
+import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
+import com.nexoia.provider.dto.ToolExecutionEvidence;
+import com.nexoia.provider.dto.ToolExecutionObserver;
+import com.nexoia.provider.dto.ToolExecutionStarted;
 import com.nexoia.provider.service.ChatCompletionClient;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
@@ -24,6 +33,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -70,7 +80,9 @@ public class ModelRequestService {
      */
     public ModelRequestReservation begin(
             UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
-        return begin(userId, conversationId, content, thinkingEnabled, List.of());
+        return begin(
+                userId, conversationId, content, thinkingEnabled,
+                List.of(), ConversationMode.CHAT);
     }
 
     /**
@@ -83,8 +95,21 @@ public class ModelRequestService {
     public ModelRequestReservation begin(
             UUID userId, UUID conversationId, String content, boolean thinkingEnabled,
             List<UUID> knowledgeVaultIds) {
+        return begin(
+                userId, conversationId, content, thinkingEnabled,
+                knowledgeVaultIds, ConversationMode.CHAT);
+    }
+
+    public ModelRequestReservation begin(
+            UUID userId,
+            UUID conversationId,
+            String content,
+            boolean thinkingEnabled,
+            List<UUID> knowledgeVaultIds,
+            ConversationMode mode) {
         ModelRequestReservation reservation =
-                store.reserve(userId, conversationId, content, thinkingEnabled, knowledgeVaultIds);
+                store.reserve(
+                        userId, conversationId, content, thinkingEnabled, knowledgeVaultIds, mode);
         clientFor(reservation.command());
 
         return reservation;
@@ -103,18 +128,26 @@ public class ModelRequestService {
                 reservation.command().model(),
                 reservation.processingLocation()));
 
+        if (reservation.command().mode() == ConversationMode.AGENT) {
+            listener.onAgentState(new AgentStateEvent(AgentState.PLANNING, clock.instant()));
+        }
         registry.register(messageId);
         store.markStreaming(messageId);
+        if (reservation.command().mode() == ConversationMode.AGENT) {
+            listener.onAgentState(new AgentStateEvent(AgentState.RUNNING, clock.instant()));
+        }
         auditModelRequest(reservation, AuditAction.MODEL_REQUEST_STARTED, AuditOutcome.SUCCESS,
                 reservation.command().model());
         AtomicInteger thinkingIndex = new AtomicInteger();
         AtomicInteger tokenIndex = new AtomicInteger();
 
         try {
+            ChatCompletionCommand executableCommand = reservation.command()
+                    .withToolExecutionObserver(toolObserver(reservation, listener));
             ChatCompletionOutcome outcome = client.stream(
-                    reservation.command(),
+                    executableCommand,
                     delta -> {
-                        if (reservation.command().thinkingEnabled()) {
+                        if (executableCommand.thinkingEnabled()) {
                             listener.onThinking(new ThinkingEvent(
                                     delta, thinkingIndex.getAndIncrement()));
                         }
@@ -126,12 +159,19 @@ public class ModelRequestService {
             if (outcome.cancelled()) {
                 Instant cancelledAt = store.recordCancellation(messageId, outcome.content(), latencyMs);
                 auditModelRequest(reservation, AuditAction.MODEL_REQUEST_CANCELLED, AuditOutcome.SUCCESS, null);
+                emitAgentState(reservation, listener, AgentState.CANCELLED);
                 listener.onCancelled(new CancelledEvent(messageId, outcome.content(), cancelledAt));
                 return;
             }
 
+            List<CitationResponse> citations = mergeCitations(
+                    reservation.citations(), outcome.toolExecutions());
+            if (reservation.command().mode() == ConversationMode.AGENT) {
+                store.markVerifying(messageId);
+                listener.onAgentState(new AgentStateEvent(AgentState.VERIFYING, clock.instant()));
+            }
             Instant completedAt =
-                    store.recordCompletion(messageId, outcome, latencyMs, reservation.citations());
+                    store.recordCompletion(messageId, outcome, latencyMs, citations);
             auditModelRequest(reservation, AuditAction.MODEL_REQUEST_COMPLETED, AuditOutcome.SUCCESS, null);
             listener.onUsage(new UsageEvent(
                     outcome.inputTokens(),
@@ -141,13 +181,15 @@ public class ModelRequestService {
                     contextProperties.tokenBudget(),
                     outcome.tokenSource(),
                     latencyMs));
+            emitAgentState(reservation, listener, AgentState.COMPLETED);
             listener.onCompleted(new CompletedEvent(
-                    messageId, outcome.content(), completedAt, reservation.citations()));
+                    messageId, outcome.content(), completedAt, citations));
         } catch (RuntimeException exception) {
             log.warn("[NEXO-BACK][INFERENCE] Model request failed correlationId={} reason={}",
                     reservation.correlationId(), exception.getClass().getSimpleName());
             store.recordFailure(messageId, STREAM_FAILURE, clock.millis() - startedAt);
             auditModelRequest(reservation, AuditAction.MODEL_REQUEST_FAILED, AuditOutcome.FAILURE, STREAM_FAILURE);
+            emitAgentState(reservation, listener, AgentState.FAILED);
             listener.onError(new StreamErrorEvent(messageId, STREAM_FAILURE,
                     "The model provider could not complete this request"));
         } finally {
@@ -190,6 +232,52 @@ public class ModelRequestService {
                 .filter(client -> client.supports(command.providerType()))
                 .findFirst()
                 .orElseThrow(UnsupportedProviderException::new);
+    }
+
+    private ToolExecutionObserver toolObserver(
+            ModelRequestReservation reservation,
+            ModelStreamListener listener) {
+        return new ToolExecutionObserver() {
+            @Override
+            public void onStarted(ToolExecutionStarted event) {
+                store.recordToolStarted(
+                        reservation.assistantMessageId(), reservation.correlationId(), event);
+                listener.onAgentState(new AgentStateEvent(AgentState.RUNNING, clock.instant()));
+                listener.onToolStarted(new ToolStartedEvent(
+                        event.executionId(), event.toolName(), event.startedAt()));
+            }
+
+            @Override
+            public void onCompleted(ToolExecutionEvidence event) {
+                store.recordToolCompleted(event);
+                listener.onToolCompleted(new ToolCompletedEvent(
+                        event.executionId(),
+                        event.toolName(),
+                        event.status(),
+                        event.durationMs(),
+                        event.citations(),
+                        event.completedAt()));
+            }
+        };
+    }
+
+    private List<CitationResponse> mergeCitations(
+            List<CitationResponse> deterministic,
+            List<ToolExecutionEvidence> toolExecutions) {
+        return Stream.concat(
+                        deterministic.stream(),
+                        toolExecutions.stream().flatMap(event -> event.citations().stream()))
+                .distinct()
+                .toList();
+    }
+
+    private void emitAgentState(
+            ModelRequestReservation reservation,
+            ModelStreamListener listener,
+            AgentState state) {
+        if (reservation.command().mode() == ConversationMode.AGENT) {
+            listener.onAgentState(new AgentStateEvent(state, clock.instant()));
+        }
     }
 
     private Long totalTokens(ChatCompletionOutcome outcome) {

@@ -8,7 +8,9 @@ export const idleConversationStream: ConversationStreamSnapshot = {
   streamingContent: "",
   usage: null,
   errorMessage: null,
-  assistantMessageId: null
+  assistantMessageId: null,
+  agentState: null,
+  toolExecutions: []
 };
 
 export const useChatStreamStore = create<ChatStreamState>((set) => ({

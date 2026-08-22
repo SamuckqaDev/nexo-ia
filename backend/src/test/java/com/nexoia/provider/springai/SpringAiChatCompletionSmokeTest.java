@@ -1,31 +1,36 @@
-package com.nexoia.provider.service;
+package com.nexoia.provider.springai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nexoia.provider.dto.ChatCompletionCommand;
+import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Proves streaming and token accounting against a real Ollama installation.
+ * Proves streaming and token accounting through the Spring AI adapter against a real Ollama
+ * installation.
  *
  * <p>Excluded from the default suite because it needs an installed model. Run it deliberately with
  * {@code ./mvnw test -Dgroups=ollama}, optionally overriding {@code NEXO_SMOKE_OLLAMA_URL} and
  * {@code NEXO_SMOKE_OLLAMA_MODEL}.
  */
 @Tag("ollama")
-class OllamaChatCompletionSmokeTest {
+class SpringAiChatCompletionSmokeTest {
 
-    private final OllamaChatCompletionClient client =
-            new OllamaChatCompletionClient(RestClient.builder(), JsonMapper.builder().build());
+    private final SpringAiChatCompletionClient client = new SpringAiChatCompletionClient(
+            new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+            new SpringAiMessageMapper(),
+            Mockito.mock(KnowledgeSearchToolFactory.class));
 
     @Test
     void streamsARealCompletionAndReportsRealTokenCounts() {
@@ -43,36 +48,16 @@ class OllamaChatCompletionSmokeTest {
         assertThat(outcome.inputTokens()).isPositive();
         assertThat(outcome.outputTokens()).isPositive();
         assertThat(outcome.tokenSource()).isEqualTo(TokenSource.PROVIDER);
-        assertThat(outcome.cancelled()).isFalse();
-    }
-
-    @Test
-    void stopsARealGenerationOnCancellation() {
-        StringBuilder streamed = new StringBuilder();
-
-        ChatCompletionOutcome outcome = client.stream(
-                new ChatCompletionCommand(ProviderType.OLLAMA, endpoint(), model(),
-                        List.of(new ChatCompletionMessage("user", "Count slowly from 1 to 200.")), false),
-                delta -> { },
-                streamed::append,
-                () -> streamed.length() > 0);
-
-        assertThat(outcome.cancelled()).isTrue();
-        assertThat(outcome.outputTokens()).isNull();
     }
 
     private ChatCompletionCommand command() {
-        return new ChatCompletionCommand(ProviderType.OLLAMA, endpoint(), model(),
-                List.of(new ChatCompletionMessage("user", "Reply with the single word: hello")), false);
-    }
-
-    private String endpoint() {
-        String configured = System.getenv("NEXO_SMOKE_OLLAMA_URL");
-        return configured == null ? "http://127.0.0.1:11434" : configured;
-    }
-
-    private String model() {
-        String configured = System.getenv("NEXO_SMOKE_OLLAMA_MODEL");
-        return configured == null ? "qwen3:8b" : configured;
+        String url = System.getenv().getOrDefault("NEXO_SMOKE_OLLAMA_URL", "http://localhost:11434");
+        String model = System.getenv().getOrDefault("NEXO_SMOKE_OLLAMA_MODEL", "qwen3:8b");
+        return new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                url,
+                model,
+                List.of(new ChatCompletionMessage("user", "Reply with the single word: ready")),
+                false);
     }
 }

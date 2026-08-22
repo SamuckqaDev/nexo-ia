@@ -39,6 +39,14 @@ export const selectConversationModel = (
     selectedModel
   }).then(({ data }) => first(data, (value) => conversationSchema.parse(value)));
 
+export const selectConversationKnowledge = (
+  conversationId: string,
+  vaultIds: string[]
+): Promise<Conversation> =>
+  apiClient.put<BaseResponse<unknown>>(`/conversations/${conversationId}/knowledge-vaults`, {
+    vaultIds
+  }).then(({ data }) => first(data, (value) => conversationSchema.parse(value)));
+
 export const cancelModelRequest = (conversationId: string, messageId: string): Promise<void> =>
   apiClient.post<BaseResponse<unknown>>(
     `/conversations/${conversationId}/messages/${messageId}/cancel`

@@ -19,6 +19,7 @@ import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import java.util.List;
@@ -38,9 +39,13 @@ class ConversationServiceTest {
     @Mock
     private ConversationMessageRepository messages;
     @Mock
+    private ToolExecutionRepository toolExecutions;
+    @Mock
     private ProviderConfigurationRepository providers;
     @Mock
     private com.nexoia.audit.service.AuditService audit;
+    @Mock
+    private ConversationKnowledgeService knowledge;
     private ConversationService service;
 
     private final UUID userId = UUID.randomUUID();
@@ -49,8 +54,8 @@ class ConversationServiceTest {
     @BeforeEach
     void setUp() {
         service = new ConversationService(
-                conversations, messages, providers, audit,
-                new ConversationContextProperties(8000, 4));
+                conversations, messages, toolExecutions, providers, audit,
+                new ConversationContextProperties(8000, 4), knowledge);
     }
 
     @Test

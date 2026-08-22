@@ -156,6 +156,35 @@ export const ContextBadge = styled.span`
   font-weight: 700;
 `;
 
+export const ToolActivityList = styled.div`
+  display: grid;
+  gap: 0.25rem;
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
+export const ToolActivity = styled.div`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.28rem 0.46rem;
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.control};
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 0.61rem;
+
+  > span { font-weight: 700; }
+  > small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.56rem; }
+  svg { color: ${({ theme }) => theme.colors.primary}; }
+  .tool-spinner { animation: tool-spin 1s linear infinite; }
+
+  @keyframes tool-spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
 export const Meta = styled.p`
   display: flex;
   flex-wrap: wrap;

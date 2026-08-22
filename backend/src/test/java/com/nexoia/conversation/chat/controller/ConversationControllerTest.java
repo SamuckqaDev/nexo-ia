@@ -74,6 +74,7 @@ class ConversationControllerTest {
     void listsOnlyTheAuthenticatedCallersConversations() throws Exception {
         when(service.list(userId)).thenReturn(List.of(new ConversationResponse(
                 conversationId, "First chat", null, null,
+                List.of(),
                 Instant.parse("2026-08-20T12:00:00Z"), Instant.parse("2026-08-20T12:00:00Z"))));
 
         mockMvc.perform(get("/api/v1/conversations").with(principal()))
@@ -87,6 +88,7 @@ class ConversationControllerTest {
     void createsAConversationOwnedByTheAuthenticatedCaller() throws Exception {
         when(service.create(eq(userId), any())).thenReturn(new ConversationResponse(
                 conversationId, "New chat", null, null,
+                List.of(),
                 Instant.parse("2026-08-20T12:00:00Z"), Instant.parse("2026-08-20T12:00:00Z")));
 
         mockMvc.perform(post("/api/v1/conversations").with(principal()).with(csrf())

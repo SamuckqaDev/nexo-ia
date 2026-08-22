@@ -1,7 +1,9 @@
 package com.nexoia.conversation.chat.dto;
 
 import com.nexoia.conversation.chat.model.ConversationRole;
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.chat.model.MessageStatus;
+import com.nexoia.conversation.inference.model.AgentState;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.TokenSource;
@@ -24,6 +26,9 @@ public record ConversationMessageResponse(
         Long latencyMs,
         ProcessingLocation processingLocation,
         String failureCode,
+        ConversationMode mode,
+        AgentState agentState,
         Instant createdAt,
         Instant completedAt,
-        List<CitationResponse> citations) {}
+        List<CitationResponse> citations,
+        List<ToolExecutionResponse> toolExecutions) {}

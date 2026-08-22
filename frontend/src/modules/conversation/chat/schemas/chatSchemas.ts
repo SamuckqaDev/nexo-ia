@@ -14,11 +14,42 @@ export const tokenSourceSchema = z.enum(["PROVIDER", "ESTIMATE"]);
 
 export const processingLocationSchema = z.enum(["LOCAL", "REMOTE"]);
 
+export const conversationModeSchema = z.enum(["CHAT", "AGENT"]);
+
+export const agentStateSchema = z.enum([
+  "PLANNING",
+  "RUNNING",
+  "VERIFYING",
+  "COMPLETED",
+  "FAILED",
+  "CANCELLED",
+  "BLOCKED"
+]);
+
+export const toolExecutionStatusSchema = z.enum([
+  "RUNNING",
+  "FOUND",
+  "NO_RESULTS",
+  "UNAVAILABLE",
+  "DENIED"
+]);
+
+export const toolExecutionSchema = z.object({
+  id: z.uuid(),
+  toolName: z.string(),
+  status: toolExecutionStatusSchema,
+  durationMs: z.number().int().nullable(),
+  citations: z.array(knowledgeCitationSchema),
+  startedAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable()
+});
+
 export const conversationSchema = z.object({
   id: z.uuid(),
   title: z.string(),
   providerConfigurationId: z.uuid().nullable(),
   selectedModel: z.string().nullable(),
+  knowledgeVaultIds: z.array(z.uuid()).default([]),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
 });
@@ -38,9 +69,12 @@ export const conversationMessageSchema = z.object({
   latencyMs: z.number().int().nullable(),
   processingLocation: processingLocationSchema.nullable(),
   failureCode: z.string().nullable(),
+  mode: conversationModeSchema.optional(),
+  agentState: agentStateSchema.nullable().optional(),
   createdAt: z.iso.datetime(),
   completedAt: z.iso.datetime().nullable(),
-  citations: z.array(knowledgeCitationSchema).nullable()
+  citations: z.array(knowledgeCitationSchema).nullable(),
+  toolExecutions: z.array(toolExecutionSchema).optional()
 });
 
 export const conversationTitleSchema = z.string().trim().min(1, "Name this conversation").max(160);

@@ -6,6 +6,7 @@ import {
   listConversations,
   listMessages,
   renameConversation,
+  selectConversationKnowledge,
   selectConversationModel
 } from "../api/chatApi";
 import type { Conversation, ConversationMessage } from "../types/chatTypes";
@@ -89,5 +90,45 @@ export const useSelectConversationModel = (
       if (context?.previous) queryClient.setQueryData(conversationsKey, context.previous);
     },
     onSettled: (): Promise<void> => queryClient.invalidateQueries({ queryKey: conversationsKey })
+  });
+};
+
+export const useSelectConversationKnowledge = (
+  conversationId: string | null
+): UseMutationResult<
+  Conversation,
+  Error,
+  string[],
+  { previous: Conversation[] | undefined }
+> => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    Conversation,
+    Error,
+    string[],
+    { previous: Conversation[] | undefined }
+  >({
+    mutationFn: (vaultIds: string[]): Promise<Conversation> =>
+      selectConversationKnowledge(conversationId ?? "", vaultIds),
+    onMutate: (vaultIds: string[]): Promise<{ previous: Conversation[] | undefined }> =>
+      queryClient.cancelQueries({ queryKey: conversationsKey }).then(() => {
+        const previous: Conversation[] | undefined =
+          queryClient.getQueryData<Conversation[]>(conversationsKey);
+        queryClient.setQueryData<Conversation[]>(
+          conversationsKey,
+          (current: Conversation[] | undefined): Conversation[] =>
+            (current ?? []).map((conversation: Conversation): Conversation =>
+              conversation.id === conversationId
+                ? { ...conversation, knowledgeVaultIds: vaultIds }
+                : conversation)
+        );
+        return { previous };
+      }),
+    onError: (_error, _variables, context): void => {
+      if (context?.previous) queryClient.setQueryData(conversationsKey, context.previous);
+    },
+    onSettled: (): Promise<void> =>
+      queryClient.invalidateQueries({ queryKey: conversationsKey })
   });
 };

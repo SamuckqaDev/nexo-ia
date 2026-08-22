@@ -1,5 +1,6 @@
 package com.nexoia.provider.dto;
 
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.provider.model.ProviderType;
 import java.util.List;
 
@@ -12,4 +13,24 @@ public record ChatCompletionCommand(
         String endpoint,
         String model,
         List<ChatCompletionMessage> messages,
-        boolean thinkingEnabled) {}
+        boolean thinkingEnabled,
+        ConversationMode mode,
+        KnowledgeToolScope knowledgeToolScope,
+        ToolExecutionObserver toolExecutionObserver) {
+
+    public ChatCompletionCommand(
+            ProviderType providerType,
+            String endpoint,
+            String model,
+            List<ChatCompletionMessage> messages,
+            boolean thinkingEnabled) {
+        this(providerType, endpoint, model, messages, thinkingEnabled,
+                ConversationMode.CHAT, null, ToolExecutionObserver.NOOP);
+    }
+
+    public ChatCompletionCommand withToolExecutionObserver(ToolExecutionObserver observer) {
+        return new ChatCompletionCommand(
+                providerType, endpoint, model, messages, thinkingEnabled,
+                mode, knowledgeToolScope, observer);
+    }
+}

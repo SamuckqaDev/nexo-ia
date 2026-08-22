@@ -1,6 +1,7 @@
 package com.nexoia.conversation.chat.model;
 
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
+import com.nexoia.conversation.inference.model.AgentState;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.TokenSource;
 import jakarta.persistence.Column;
@@ -78,6 +79,14 @@ public class ConversationMessage {
     @Column(name = "correlation_id")
     private UUID correlationId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "conversation_mode", nullable = false, length = 16)
+    private ConversationMode mode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "agent_state", length = 24)
+    private AgentState agentState;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private List<CitationResponse> citations;
@@ -91,6 +100,15 @@ public class ConversationMessage {
 
     public void markStreaming() {
         this.status = MessageStatus.STREAMING;
+        if (mode == ConversationMode.AGENT) {
+            this.agentState = AgentState.RUNNING;
+        }
+    }
+
+    public void markVerifying() {
+        if (mode == ConversationMode.AGENT) {
+            this.agentState = AgentState.VERIFYING;
+        }
     }
 
     public void markCancelling() {
@@ -113,6 +131,9 @@ public class ConversationMessage {
         this.latencyMs = latencyMs;
         this.completedAt = completedAt;
         this.citations = citations == null || citations.isEmpty() ? null : citations;
+        if (mode == ConversationMode.AGENT) {
+            this.agentState = AgentState.COMPLETED;
+        }
     }
 
     /**
@@ -124,6 +145,9 @@ public class ConversationMessage {
         this.content = partialContent;
         this.latencyMs = latencyMs;
         this.completedAt = cancelledAt;
+        if (mode == ConversationMode.AGENT) {
+            this.agentState = AgentState.CANCELLED;
+        }
     }
 
     public void fail(String failureCode, String partialContent, long latencyMs, Instant failedAt) {
@@ -132,5 +156,8 @@ public class ConversationMessage {
         this.failureCode = failureCode;
         this.latencyMs = latencyMs;
         this.completedAt = failedAt;
+        if (mode == ConversationMode.AGENT) {
+            this.agentState = AgentState.FAILED;
+        }
     }
 }

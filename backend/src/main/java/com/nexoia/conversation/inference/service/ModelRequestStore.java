@@ -6,20 +6,41 @@ import com.nexoia.conversation.chat.exception.ConversationBusyException;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
+import com.nexoia.conversation.chat.service.ConversationKnowledgeService;
+import com.nexoia.conversation.inference.context.CapabilityManifest;
+import com.nexoia.conversation.inference.context.ContextSourceSummary;
+import com.nexoia.conversation.inference.context.KnowledgeCapability;
+import com.nexoia.conversation.inference.context.KnowledgeSearchStatus;
+import com.nexoia.conversation.inference.context.ModelContextEnvelope;
+import com.nexoia.conversation.inference.context.ResolvedKnowledgeContext;
+import com.nexoia.conversation.inference.context.SkillCapability;
+import com.nexoia.conversation.inference.context.ToolCapability;
+import com.nexoia.conversation.inference.context.WorkspaceCapability;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
+import com.nexoia.conversation.inference.model.AgentState;
+import com.nexoia.conversation.inference.model.ToolExecutionRecord;
+import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
+import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
+import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
+import com.nexoia.provider.dto.KnowledgeToolScope;
+import com.nexoia.provider.dto.ToolExecutionEvidence;
+import com.nexoia.provider.dto.ToolExecutionObserver;
+import com.nexoia.provider.dto.ToolExecutionStarted;
+import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
@@ -53,8 +74,10 @@ public class ModelRequestStore {
 
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
+    private final ToolExecutionRepository toolExecutions;
     private final ProviderConfigurationRepository providers;
     private final UserAccountRepository users;
+    private final ConversationKnowledgeService conversationKnowledge;
     private final ConversationContextAssembler contextAssembler;
     private final ProviderEndpointGuard endpointGuard;
     private final RetrievalService retrievalService;
@@ -66,13 +89,17 @@ public class ModelRequestStore {
      */
     public ModelRequestReservation reserve(
             UUID userId, UUID conversationId, String content, boolean thinkingEnabled) {
-        return reserve(userId, conversationId, content, thinkingEnabled, List.of());
+        return reserve(
+                userId, conversationId, content, thinkingEnabled, List.of(), ConversationMode.CHAT);
     }
 
     /**
      * Appends the user message and reserves the assistant message, returning the values the
      * streaming stage needs. Holds the conversation write lock for the duration of this transaction
      * only.
+     *
+     * <p>The request-level Vault list is retained temporarily for wire compatibility and deliberately
+     * ignored. Only the durable, authorized conversation selection is trusted.
      *
      * <p>Retrieval failure (an unavailable embedding provider) never fails the request — chat must
      * keep working with zero citations, per D-026. Only an explicit isolation boundary (an
@@ -83,7 +110,20 @@ public class ModelRequestStore {
     @Transactional
     public ModelRequestReservation reserve(
             UUID userId, UUID conversationId, String content, boolean thinkingEnabled,
-            List<UUID> knowledgeVaultIds) {
+            List<UUID> ignoredKnowledgeVaultIds) {
+        return reserve(
+                userId, conversationId, content, thinkingEnabled,
+                ignoredKnowledgeVaultIds, ConversationMode.CHAT);
+    }
+
+    @Transactional
+    public ModelRequestReservation reserve(
+            UUID userId,
+            UUID conversationId,
+            String content,
+            boolean thinkingEnabled,
+            List<UUID> ignoredKnowledgeVaultIds,
+            ConversationMode mode) {
         Conversation conversation = conversations.findOwnedForUpdate(conversationId, userId)
                 .orElseThrow(ConversationNotFoundException::new);
 
@@ -108,6 +148,7 @@ public class ModelRequestStore {
                 .status(MessageStatus.COMPLETED)
                 .content(content.trim())
                 .correlationId(correlationId)
+                .mode(mode)
                 .build());
 
         ConversationMessage assistantMessage = ConversationMessage.builder()
@@ -121,6 +162,8 @@ public class ModelRequestStore {
                 .model(conversation.getSelectedModel())
                 .processingLocation(processingLocation)
                 .correlationId(correlationId)
+                .mode(mode)
+                .agentState(mode == ConversationMode.AGENT ? AgentState.PLANNING : null)
                 .build();
 
         try {
@@ -131,7 +174,13 @@ public class ModelRequestStore {
             throw new ConversationBusyException();
         }
 
-        List<CitationResponse> citations = retrieve(userId, knowledgeVaultIds, content);
+        String username = users.findById(userId).orElseThrow(UserNotFoundException::new).getUsername();
+        List<KnowledgeVault> selectedVaults = conversationKnowledge.selectedVaults(userId, conversationId);
+        List<UUID> selectedVaultIds = selectedVaults.stream().map(KnowledgeVault::getId).toList();
+        ResolvedKnowledgeContext resolvedKnowledge = mode == ConversationMode.CHAT
+                ? retrieve(userId, selectedVaultIds, content)
+                : ResolvedKnowledgeContext.notRequested();
+        List<CitationResponse> citations = resolvedKnowledge.citations();
 
         return new ModelRequestReservation(
                 userId,
@@ -143,30 +192,94 @@ public class ModelRequestStore {
                         provider.getEndpoint(),
                         conversation.getSelectedModel(),
                         contextAssembler.assemble(
-                                conversationId,
-                                users.findById(userId)
-                                        .orElseThrow(UserNotFoundException::new)
-                                        .getUsername(),
-                                citations),
-                        thinkingEnabled),
+                                conversationId, username, citations,
+                                capabilityEnvelope(username, conversation.getSelectedModel(),
+                                        processingLocation, selectedVaults, resolvedKnowledge, mode)),
+                        thinkingEnabled,
+                        mode,
+                        mode == ConversationMode.AGENT
+                                ? new KnowledgeToolScope(
+                                        userId, assistantMessage.getId(), correlationId, selectedVaultIds)
+                                : null,
+                        ToolExecutionObserver.NOOP),
                 processingLocation,
                 citations);
     }
 
-    private List<CitationResponse> retrieve(UUID userId, List<UUID> knowledgeVaultIds, String content) {
+    /**
+     * Builds the truthful per-request capability envelope. The knowledge numbers are derived from
+     * the deterministic retrieval that already ran, so the model cannot be told it searched or found
+     * more than it did. Workspace and Skill capabilities remain absent until their server-side
+     * access paths are connected; Agent mode exposes only the scoped knowledge search tool.
+     */
+    private ModelContextEnvelope capabilityEnvelope(
+            String username, String model,
+            ProcessingLocation processingLocation,
+            List<KnowledgeVault> selectedVaults,
+            ResolvedKnowledgeContext resolvedKnowledge,
+            ConversationMode mode) {
+        List<CitationResponse> citations = resolvedKnowledge.citations();
+        KnowledgeCapability knowledge = new KnowledgeCapability(
+                selectedVaults.stream().map(KnowledgeVault::getName).toList(),
+                selectedVaults.size(),
+                resolvedKnowledge.status(),
+                citations.size(),
+                citations.stream()
+                        .map(c -> new ContextSourceSummary(c.vaultName(), c.sourceDisplayName(), c.chunkOrdinal()))
+                        .toList());
+
+        ToolCapability tools = mode == ConversationMode.AGENT && !selectedVaults.isEmpty()
+                ? new ToolCapability(List.of(KnowledgeSearchToolFactory.TOOL_NAME))
+                : ToolCapability.none();
+        return new ModelContextEnvelope(username, mode.name().toLowerCase(),
+                new CapabilityManifest(model, processingLocation, knowledge,
+                        WorkspaceCapability.none(), SkillCapability.none(), tools));
+    }
+
+    private ResolvedKnowledgeContext retrieve(
+            UUID userId, List<UUID> knowledgeVaultIds, String content) {
+        if (knowledgeVaultIds.isEmpty()) {
+            return ResolvedKnowledgeContext.notRequested();
+        }
+
         try {
             RetrievalResult result = retrievalService.retrieve(userId, new RetrievalQuery(knowledgeVaultIds, content));
-            return result.citations();
+            return new ResolvedKnowledgeContext(result.citations(), KnowledgeSearchStatus.COMPLETED);
         } catch (EmbeddingProviderUnavailableException exception) {
             log.warn("[NEXO-BACK][KNOWLEDGE] Embedding provider unavailable; continuing without citations userId={}",
                     userId);
-            return List.of();
+            return ResolvedKnowledgeContext.unavailable();
         }
     }
 
     @Transactional
     public void markStreaming(UUID messageId) {
         messages.findById(messageId).ifPresent(ConversationMessage::markStreaming);
+    }
+
+    @Transactional
+    public void markVerifying(UUID messageId) {
+        messages.findById(messageId).ifPresent(ConversationMessage::markVerifying);
+    }
+
+    @Transactional
+    public void recordToolStarted(
+            UUID messageId, UUID correlationId, ToolExecutionStarted event) {
+        toolExecutions.save(ToolExecutionRecord.builder()
+                .id(event.executionId())
+                .assistantMessageId(messageId)
+                .correlationId(correlationId)
+                .toolName(event.toolName())
+                .argumentsDigest(event.argumentsDigest())
+                .status(ToolExecutionStatus.RUNNING)
+                .startedAt(event.startedAt())
+                .build());
+    }
+
+    @Transactional
+    public void recordToolCompleted(ToolExecutionEvidence event) {
+        toolExecutions.findById(event.executionId())
+                .ifPresent(record -> record.complete(event));
     }
 
     @Transactional

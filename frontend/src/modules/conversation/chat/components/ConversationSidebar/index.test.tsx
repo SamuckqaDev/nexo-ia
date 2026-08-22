@@ -11,6 +11,7 @@ const conversation: Conversation = {
   title: "Responsive Nexo",
   providerConfigurationId: null,
   selectedModel: null,
+  knowledgeVaultIds: [],
   createdAt: "2026-08-20T12:00:00Z",
   updatedAt: "2026-08-20T12:00:00Z"
 };

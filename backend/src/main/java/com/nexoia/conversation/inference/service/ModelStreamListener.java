@@ -1,11 +1,14 @@
 package com.nexoia.conversation.inference.service;
 
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
+import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
 import com.nexoia.conversation.inference.dto.event.TokenEvent;
+import com.nexoia.conversation.inference.dto.event.ToolCompletedEvent;
+import com.nexoia.conversation.inference.dto.event.ToolStartedEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 
 /**
@@ -19,6 +22,12 @@ public interface ModelStreamListener {
     void onStarted(StartedEvent event);
 
     void onThinking(ThinkingEvent event);
+
+    void onAgentState(AgentStateEvent event);
+
+    void onToolStarted(ToolStartedEvent event);
+
+    void onToolCompleted(ToolCompletedEvent event);
 
     void onToken(TokenEvent event);
 

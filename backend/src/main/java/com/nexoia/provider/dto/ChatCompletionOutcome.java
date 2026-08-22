@@ -1,6 +1,7 @@
 package com.nexoia.provider.dto;
 
 import com.nexoia.provider.model.TokenSource;
+import java.util.List;
 
 /**
  * The terminal result of a streamed completion. {@code cancelled} means the caller stopped reading
@@ -12,4 +13,20 @@ public record ChatCompletionOutcome(
         Integer outputTokens,
         TokenSource tokenSource,
         boolean cancelled,
-        String doneReason) {}
+        String doneReason,
+        List<ToolExecutionEvidence> toolExecutions) {
+
+    public ChatCompletionOutcome {
+        toolExecutions = List.copyOf(toolExecutions);
+    }
+
+    public ChatCompletionOutcome(
+            String content,
+            Integer inputTokens,
+            Integer outputTokens,
+            TokenSource tokenSource,
+            boolean cancelled,
+            String doneReason) {
+        this(content, inputTokens, outputTokens, tokenSource, cancelled, doneReason, List.of());
+    }
+}

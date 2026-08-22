@@ -36,7 +36,6 @@ import {
   PlanItem,
   PlanList,
   PlanMarker,
-  PreviewBadge,
   Rail,
   RailButton,
   ResourceCard,
@@ -74,10 +73,11 @@ const agentPreviewSteps: string[] = [
 type VaultContextCardProps = {
   vault: BackendVault;
   selected: boolean;
+  disabled: boolean;
   onToggle: () => void;
 };
 
-function VaultContextCard({ vault, selected, onToggle }: VaultContextCardProps): ReactElement {
+function VaultContextCard({ vault, selected, disabled, onToggle }: VaultContextCardProps): ReactElement {
   const sourceCatalog = useVaultSources(vault.id);
   const sources: BackendSource[] = sourceCatalog.sources.data ?? [];
 
@@ -91,6 +91,7 @@ function VaultContextCard({ vault, selected, onToggle }: VaultContextCardProps):
         type="button"
         $active={selected}
         aria-pressed={selected}
+        disabled={disabled}
         onClick={onToggle}
       >
         <Paperclip size={14} weight={selected ? "fill" : "regular"} />
@@ -124,6 +125,8 @@ export function ConversationContextPanel({
   open,
   vaults,
   selectedVaultIds,
+  isVaultSelectionPending,
+  vaultSelectionError,
   onOpenChange,
   onToggleVault,
   onManageVaults,
@@ -170,11 +173,14 @@ export function ConversationContextPanel({
       return (
         <ResourceList>
           <StatusCopy>Select the real Vaults Nexo may search for each new message. Retrieval stays isolated to your authenticated account.</StatusCopy>
+          {isVaultSelectionPending && <StatusCopy aria-live="polite">Saving this conversation's Vault selection…</StatusCopy>}
+          {vaultSelectionError && <StatusCopy role="alert">{vaultSelectionError}</StatusCopy>}
           {vaults.length ? vaults.map((vault: BackendVault) => (
             <VaultContextCard
               key={vault.id}
               vault={vault}
               selected={selectedVaultIds.includes(vault.id)}
+              disabled={!conversationId || isVaultSelectionPending}
               onToggle={(): void => onToggleVault(vault.id)}
             />
           )) : <StatusCopy>No Knowledge Vaults are available for this account.</StatusCopy>}
@@ -230,7 +236,6 @@ export function ConversationContextPanel({
     if (mode === "agent") {
       return (
         <>
-          <PreviewBadge>Runtime preview</PreviewBadge>
           <PlanList>
             {agentPreviewSteps.map((step: string, index: number) => (
               <PlanItem key={step}>
@@ -242,7 +247,7 @@ export function ConversationContextPanel({
             ))}
           </PlanList>
           <EmptyCopy>
-            <span>The plan becomes live when the governed Agent runtime is connected.</span>
+            <span>Agent mode may run the read-only Knowledge search tool inside this conversation's selected Vaults. Other tools remain unavailable.</span>
           </EmptyCopy>
         </>
       );

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { knowledgeCitationSchema } from "../../../knowledge/vault/schemas/citationSchema";
-import { processingLocationSchema, tokenSourceSchema } from "./chatSchemas";
+import {
+  agentStateSchema,
+  processingLocationSchema,
+  tokenSourceSchema,
+  toolExecutionStatusSchema
+} from "./chatSchemas";
 
 /**
  * Server-Sent Event payloads are untrusted at runtime, so every frame is validated before it can
@@ -22,6 +27,26 @@ export const tokenEventSchema = z.object({
 export const thinkingEventSchema = z.object({
   content: z.string(),
   index: z.number().int().nonnegative()
+});
+
+export const agentStateEventSchema = z.object({
+  state: agentStateSchema,
+  changedAt: z.iso.datetime()
+});
+
+export const toolStartedEventSchema = z.object({
+  executionId: z.uuid(),
+  toolName: z.string(),
+  startedAt: z.iso.datetime()
+});
+
+export const toolCompletedEventSchema = z.object({
+  executionId: z.uuid(),
+  toolName: z.string(),
+  status: toolExecutionStatusSchema,
+  durationMs: z.number().int().nonnegative(),
+  citations: z.array(knowledgeCitationSchema),
+  completedAt: z.iso.datetime()
 });
 
 export const usageEventSchema = z.object({
@@ -56,6 +81,9 @@ export const streamErrorEventSchema = z.object({
 export const streamEventSchema = z.discriminatedUnion("event", [
   z.object({ event: z.literal("started"), data: startedEventSchema }),
   z.object({ event: z.literal("thinking"), data: thinkingEventSchema }),
+  z.object({ event: z.literal("agent_state"), data: agentStateEventSchema }),
+  z.object({ event: z.literal("tool_started"), data: toolStartedEventSchema }),
+  z.object({ event: z.literal("tool_completed"), data: toolCompletedEventSchema }),
   z.object({ event: z.literal("token"), data: tokenEventSchema }),
   z.object({ event: z.literal("usage"), data: usageEventSchema }),
   z.object({ event: z.literal("completed"), data: completedEventSchema }),

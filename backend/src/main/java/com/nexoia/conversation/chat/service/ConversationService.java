@@ -8,19 +8,26 @@ import com.nexoia.conversation.chat.dto.ConversationMessageResponse;
 import com.nexoia.conversation.chat.dto.ConversationResponse;
 import com.nexoia.conversation.chat.dto.CreateConversationRequest;
 import com.nexoia.conversation.chat.dto.RenameConversationRequest;
+import com.nexoia.conversation.chat.dto.ToolExecutionResponse;
+import com.nexoia.conversation.chat.dto.UpdateConversationKnowledgeRequest;
 import com.nexoia.conversation.chat.dto.UpdateConversationModelRequest;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
+import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.inference.model.ToolExecutionRecord;
+import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,14 +38,20 @@ public class ConversationService {
 
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
+    private final ToolExecutionRepository toolExecutions;
     private final ProviderConfigurationRepository providers;
     private final AuditService audit;
     private final ConversationContextProperties contextProperties;
+    private final ConversationKnowledgeService knowledge;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> list(UUID userId) {
-        return conversations.findAllByUserIdAndArchivedFalseOrderByUpdatedAtDesc(userId).stream()
-                .map(this::conversationResponse)
+        List<Conversation> owned = conversations.findAllByUserIdAndArchivedFalseOrderByUpdatedAtDesc(userId);
+        Map<UUID, List<UUID>> selected = knowledge.selectionIdsByConversation(
+                owned.stream().map(Conversation::getId).toList());
+        return owned.stream()
+                .map(conversation -> conversationResponse(
+                        conversation, selected.getOrDefault(conversation.getId(), List.of())))
                 .toList();
     }
 
@@ -54,15 +67,24 @@ public class ConversationService {
                 AuditAction.CONVERSATION_CREATED, userId, null,
                 AuditTargetType.CONVERSATION, conversation.getId()));
 
-        return conversationResponse(conversation);
+        return conversationResponse(conversation, List.of());
     }
 
     @Transactional(readOnly = true)
     public List<ConversationMessageResponse> messages(UUID userId, UUID conversationId) {
         readableConversation(userId, conversationId);
 
-        return messages.findAllByConversationIdOrderBySequenceNumberAsc(conversationId).stream()
-                .map(this::messageResponse)
+        List<ConversationMessage> conversationMessages =
+                messages.findAllByConversationIdOrderBySequenceNumberAsc(conversationId);
+        Map<UUID, List<ToolExecutionRecord>> executionsByMessage = conversationMessages.isEmpty()
+                ? Map.of()
+                : toolExecutions.findAllByAssistantMessageIdInOrderByStartedAtAsc(
+                                conversationMessages.stream().map(ConversationMessage::getId).toList())
+                        .stream()
+                        .collect(Collectors.groupingBy(ToolExecutionRecord::getAssistantMessageId));
+        return conversationMessages.stream()
+                .map(message -> messageResponse(
+                        message, executionsByMessage.getOrDefault(message.getId(), List.of())))
                 .toList();
     }
 
@@ -78,6 +100,7 @@ public class ConversationService {
                 .role(ConversationRole.USER)
                 .status(MessageStatus.COMPLETED)
                 .content(content.trim())
+                .mode(ConversationMode.CHAT)
                 .build());
 
         return messageResponse(message);
@@ -91,7 +114,7 @@ public class ConversationService {
                 AuditAction.CONVERSATION_RENAMED, userId, null,
                 AuditTargetType.CONVERSATION, conversationId));
 
-        return conversationResponse(conversation);
+        return conversationResponse(conversation, knowledge.selectionIds(conversationId));
     }
 
     @Transactional
@@ -114,7 +137,16 @@ public class ConversationService {
                 userId, null, AuditTargetType.CONVERSATION, conversationId, null,
                 request.selectedModel().trim()));
 
-        return conversationResponse(conversation);
+        return conversationResponse(conversation, knowledge.selectionIds(conversationId));
+    }
+
+    @Transactional
+    public ConversationResponse selectKnowledge(
+            UUID userId, UUID conversationId, UpdateConversationKnowledgeRequest request) {
+        List<UUID> selected = knowledge.replace(userId, conversationId, request);
+        Conversation conversation = conversations.findByIdAndUserIdAndArchivedFalse(conversationId, userId)
+                .orElseThrow(ConversationNotFoundException::new);
+        return conversationResponse(conversation, selected);
     }
 
     private Conversation readableConversation(UUID userId, UUID conversationId) {
@@ -127,17 +159,25 @@ public class ConversationService {
                 .orElseThrow(ConversationNotFoundException::new);
     }
 
-    private ConversationResponse conversationResponse(Conversation value) {
+    private ConversationResponse conversationResponse(
+            Conversation value, List<UUID> knowledgeVaultIds) {
         return new ConversationResponse(
                 value.getId(),
                 value.getTitle(),
                 value.getProviderConfigurationId(),
                 value.getSelectedModel(),
+                knowledgeVaultIds,
                 value.getCreatedAt(),
                 value.getUpdatedAt());
     }
 
     private ConversationMessageResponse messageResponse(ConversationMessage value) {
+        return messageResponse(value, List.of());
+    }
+
+    private ConversationMessageResponse messageResponse(
+            ConversationMessage value,
+            List<ToolExecutionRecord> executions) {
         return new ConversationMessageResponse(
                 value.getId(),
                 value.getRole(),
@@ -155,9 +195,23 @@ public class ConversationService {
                 value.getLatencyMs(),
                 value.getProcessingLocation(),
                 value.getFailureCode(),
+                value.getMode() == null ? ConversationMode.CHAT : value.getMode(),
+                value.getAgentState(),
                 value.getCreatedAt(),
                 value.getCompletedAt(),
-                value.getCitations());
+                value.getCitations(),
+                executions.stream().map(this::toolExecutionResponse).toList());
+    }
+
+    private ToolExecutionResponse toolExecutionResponse(ToolExecutionRecord execution) {
+        return new ToolExecutionResponse(
+                execution.getId(),
+                execution.getToolName(),
+                execution.getStatus(),
+                execution.getDurationMs(),
+                execution.getCitations() == null ? List.of() : execution.getCitations(),
+                execution.getStartedAt(),
+                execution.getCompletedAt());
     }
 
     private Long totalTokens(ConversationMessage message) {
