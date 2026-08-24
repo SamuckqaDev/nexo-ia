@@ -3,6 +3,7 @@ package com.nexoia.conversation.inference.controller;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
+import com.nexoia.conversation.inference.dto.event.PlanUpdatedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
@@ -56,6 +57,11 @@ public class SseModelStreamListener implements ModelStreamListener {
     @Override
     public void onToolCompleted(ToolCompletedEvent event) {
         send("tool_completed", event);
+    }
+
+    @Override
+    public void onPlanUpdated(PlanUpdatedEvent event) {
+        send("plan_updated", event);
     }
 
     @Override

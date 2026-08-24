@@ -103,3 +103,9 @@ existence, or private model reasoning.
 
 Cross-user isolation, cache-key isolation, permission revocation, Skill sharing, scheduled-principal,
 and negative retrieval tests are release-blocking security tests.
+
+Agent tools follow the same boundary. The capability envelope lists only callbacks attached to the
+current Spring AI request. `update_plan` receives concise plan content but no identity or permission
+data. `search_knowledge` receives only a bounded query; authenticated user and Vault scope remain in
+server-created request context. Plans are operational progress, not private reasoning, and raw tool
+arguments are represented in persistence only by a SHA-256 digest.

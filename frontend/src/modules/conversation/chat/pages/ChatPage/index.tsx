@@ -370,6 +370,7 @@ export function ChatPage(): ReactElement {
                 streamingContent={stream.streamingContent}
                 errorMessage={stream.errorMessage}
                 agentState={stream.agentState}
+                agentPlan={stream.agentPlan}
                 toolExecutions={stream.toolExecutions}
                 accountTokenTotal={accountUsage.data?.totals.totalTokens ?? null}
                 mode={mode}

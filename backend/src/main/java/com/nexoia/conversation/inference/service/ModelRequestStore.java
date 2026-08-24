@@ -24,9 +24,13 @@ import com.nexoia.conversation.inference.context.WorkspaceCapability;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
+import com.nexoia.conversation.inference.model.AgentPlanRecord;
+import com.nexoia.conversation.inference.model.AgentPlanStep;
 import com.nexoia.conversation.inference.model.AgentState;
 import com.nexoia.conversation.inference.model.ToolExecutionRecord;
+import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
+import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
@@ -34,6 +38,9 @@ import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
+import com.nexoia.provider.dto.AgentPlanToolScope;
+import com.nexoia.provider.dto.AgentPlanUpdate;
+import com.nexoia.provider.dto.AgentPlanUpdateObserver;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
@@ -75,6 +82,7 @@ public class ModelRequestStore {
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
     private final ToolExecutionRepository toolExecutions;
+    private final AgentPlanRepository agentPlans;
     private final ProviderConfigurationRepository providers;
     private final UserAccountRepository users;
     private final ConversationKnowledgeService conversationKnowledge;
@@ -201,7 +209,12 @@ public class ModelRequestStore {
                                 ? new KnowledgeToolScope(
                                         userId, assistantMessage.getId(), correlationId, selectedVaultIds)
                                 : null,
-                        ToolExecutionObserver.NOOP),
+                        mode == ConversationMode.AGENT
+                                ? new AgentPlanToolScope(
+                                        userId, assistantMessage.getId(), correlationId)
+                                : null,
+                        ToolExecutionObserver.NOOP,
+                        AgentPlanUpdateObserver.NOOP),
                 processingLocation,
                 citations);
     }
@@ -228,9 +241,16 @@ public class ModelRequestStore {
                         .map(c -> new ContextSourceSummary(c.vaultName(), c.sourceDisplayName(), c.chunkOrdinal()))
                         .toList());
 
-        ToolCapability tools = mode == ConversationMode.AGENT && !selectedVaults.isEmpty()
-                ? new ToolCapability(List.of(KnowledgeSearchToolFactory.TOOL_NAME))
-                : ToolCapability.none();
+        ToolCapability tools;
+        if (mode != ConversationMode.AGENT) {
+            tools = ToolCapability.none();
+        } else if (selectedVaults.isEmpty()) {
+            tools = new ToolCapability(List.of(AgentPlanToolFactory.TOOL_NAME));
+        } else {
+            tools = new ToolCapability(List.of(
+                    AgentPlanToolFactory.TOOL_NAME,
+                    KnowledgeSearchToolFactory.TOOL_NAME));
+        }
         return new ModelContextEnvelope(username, mode.name().toLowerCase(),
                 new CapabilityManifest(model, processingLocation, knowledge,
                         WorkspaceCapability.none(), SkillCapability.none(), tools));
@@ -280,6 +300,26 @@ public class ModelRequestStore {
     public void recordToolCompleted(ToolExecutionEvidence event) {
         toolExecutions.findById(event.executionId())
                 .ifPresent(record -> record.complete(event));
+    }
+
+    @Transactional
+    public void recordPlanUpdated(UUID messageId, AgentPlanUpdate update) {
+        AgentPlanRecord plan = agentPlans.findByAssistantMessageId(messageId)
+                .orElseGet(() -> AgentPlanRecord.builder()
+                        .id(UUID.randomUUID())
+                        .assistantMessageId(messageId)
+                        .revision(update.revision())
+                        .explanation(update.explanation())
+                        .steps(update.steps().stream()
+                                .map(step -> new AgentPlanStep(step.step(), step.status()))
+                                .toList())
+                        .createdAt(update.updatedAt())
+                        .updatedAt(update.updatedAt())
+                        .build());
+        if (plan.getRevision() < update.revision()) {
+            plan.update(update);
+        }
+        agentPlans.save(plan);
     }
 
     @Transactional

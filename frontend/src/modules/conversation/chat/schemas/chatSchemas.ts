@@ -28,11 +28,27 @@ export const agentStateSchema = z.enum([
 
 export const toolExecutionStatusSchema = z.enum([
   "RUNNING",
+  "COMPLETED",
   "FOUND",
   "NO_RESULTS",
   "UNAVAILABLE",
-  "DENIED"
+  "DENIED",
+  "FAILED"
 ]);
+
+export const agentPlanStepStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]);
+
+export const agentPlanStepSchema = z.object({
+  step: z.string(),
+  status: agentPlanStepStatusSchema
+});
+
+export const agentPlanSchema = z.object({
+  revision: z.number().int().positive(),
+  explanation: z.string().nullable(),
+  steps: z.array(agentPlanStepSchema),
+  updatedAt: z.iso.datetime()
+});
 
 export const toolExecutionSchema = z.object({
   id: z.uuid(),
@@ -74,7 +90,8 @@ export const conversationMessageSchema = z.object({
   createdAt: z.iso.datetime(),
   completedAt: z.iso.datetime().nullable(),
   citations: z.array(knowledgeCitationSchema).nullable(),
-  toolExecutions: z.array(toolExecutionSchema).optional()
+  toolExecutions: z.array(toolExecutionSchema).optional(),
+  agentPlan: agentPlanSchema.nullable().optional()
 });
 
 export const conversationTitleSchema = z.string().trim().min(1, "Name this conversation").max(160);

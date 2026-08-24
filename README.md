@@ -52,6 +52,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 - [Governed project database access](docs/DATABASE_ACCESS.md)
 - [MVP and release strategy](docs/MVP_AND_RELEASE_STRATEGY.md)
 - [Agent capabilities](docs/AGENT_CAPABILITIES.md)
+- [Spring AI Agent runtime](docs/SPRING_AI_AGENT_RUNTIME.md)
 - [Execution plans](docs/EXECUTION_PLANS.md)
 - [Enterprise architecture](docs/ENTERPRISE_ARCHITECTURE.md)
 - [Device management and execution audit](docs/DEVICE_MANAGEMENT.md)

@@ -2,6 +2,15 @@
 
 This document defines Nexo IA's reusable agent concepts and keeps their responsibilities separate.
 
+## Current implemented runtime
+
+Agent mode currently uses Spring AI 2.0.1's `ChatClient` and `ToolCallingAdvisor`. It exposes two
+request-scoped tools: `update_plan`, which persists a bounded visible implementation plan, and
+`search_knowledge`, which is attached only when the active conversation has authorized Knowledge
+Vaults selected. Agent state, plan revisions, sanitized tool evidence, citations, limits, and timing
+are visible and survive chat navigation. This is the first read-only Agent increment, not the entire
+capability model below. See [Spring AI Agent runtime](SPRING_AI_AGENT_RUNTIME.md).
+
 ## Capability model
 
 ```text

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.dto.ConversationMessageResponse;
 import com.nexoia.conversation.chat.dto.CreateConversationRequest;
 import com.nexoia.conversation.chat.dto.RenameConversationRequest;
@@ -19,6 +20,7 @@ import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
@@ -41,9 +43,11 @@ class ConversationServiceTest {
     @Mock
     private ToolExecutionRepository toolExecutions;
     @Mock
+    private AgentPlanRepository agentPlans;
+    @Mock
     private ProviderConfigurationRepository providers;
     @Mock
-    private com.nexoia.audit.service.AuditService audit;
+    private AuditService audit;
     @Mock
     private ConversationKnowledgeService knowledge;
     private ConversationService service;
@@ -54,7 +58,7 @@ class ConversationServiceTest {
     @BeforeEach
     void setUp() {
         service = new ConversationService(
-                conversations, messages, toolExecutions, providers, audit,
+                conversations, messages, toolExecutions, agentPlans, providers, audit,
                 new ConversationContextProperties(8000, 4), knowledge);
     }
 

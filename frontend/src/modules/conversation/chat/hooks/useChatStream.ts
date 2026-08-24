@@ -9,9 +9,11 @@ import { idleConversationStream, useChatStreamStore } from "../stores/useChatStr
 import type { ChatStreamState, ConversationStreamSnapshot } from "../types/chatStreamTypes";
 import type {
   CancelledEvent,
+  AgentPlan,
   AgentState,
   AgentStateEvent,
   CompletedEvent,
+  PlanUpdatedEvent,
   ConversationMode,
   ConversationMessage,
   StartedEvent,
@@ -34,6 +36,7 @@ export type ChatStream = {
   usage: UsageEvent | null;
   errorMessage: string | null;
   agentState: AgentState | null;
+  agentPlan: AgentPlan | null;
   toolExecutions: ToolExecution[];
   isBusy: boolean;
   send: (content: string) => void;
@@ -100,6 +103,7 @@ export const useChatStream = (
         startedAt: stored?.startedAt ?? new Date(latestAssistant.createdAt).getTime(),
         assistantMessageId: latestAssistant.id,
         agentState: latestAssistant.agentState ?? null,
+        agentPlan: latestAssistant.agentPlan ?? null,
         toolExecutions: latestAssistant.toolExecutions ?? [],
         errorMessage: null
       });
@@ -119,6 +123,7 @@ export const useChatStream = (
         streamingContent: "",
         assistantMessageId: null,
         agentState: null,
+        agentPlan: null,
         toolExecutions: []
       });
     }
@@ -152,6 +157,7 @@ export const useChatStream = (
       errorMessage: null,
       assistantMessageId: null,
       agentState: mode === "agent" ? "PLANNING" : null,
+      agentPlan: null,
       toolExecutions: []
     });
     // The backend persists the user message before opening the provider stream.
@@ -209,6 +215,9 @@ export const useChatStream = (
             (execution: ToolExecution): boolean => execution.id !== event.executionId), completed]
         });
       },
+      onPlanUpdated: (event: PlanUpdatedEvent): void => {
+        updateStream(conversationId, { agentPlan: event });
+      },
       onToken: (event: TokenEvent): void => {
         const current: ConversationStreamSnapshot = useChatStreamStore.getState().streams[conversationId]
           ?? idleConversationStream;
@@ -263,6 +272,7 @@ export const useChatStream = (
     usage: snapshot.usage,
     errorMessage: snapshot.errorMessage,
     agentState: snapshot.agentState,
+    agentPlan: snapshot.agentPlan,
     toolExecutions: snapshot.toolExecutions,
     isBusy: snapshot.phase === "starting" || snapshot.phase === "streaming" || snapshot.phase === "cancelling",
     send,

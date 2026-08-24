@@ -54,6 +54,23 @@ describe("streamEventSchema", () => {
     expect(parsed.success).toBe(true);
   });
 
+  it("accepts a persisted Agent plan revision", () => {
+    const parsed = streamEventSchema.safeParse({
+      event: "plan_updated",
+      data: {
+        revision: 2,
+        explanation: "Implementation advanced",
+        steps: [
+          { step: "Inspect the Vaults", status: "COMPLETED" },
+          { step: "Implement the answer", status: "IN_PROGRESS" }
+        ],
+        updatedAt: "2026-08-24T12:00:00Z"
+      }
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
   it("rejects an unknown event name", () => {
     const parsed = streamEventSchema.safeParse({
       event: "provider_progress",

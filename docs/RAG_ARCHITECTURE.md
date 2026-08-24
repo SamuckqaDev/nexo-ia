@@ -46,9 +46,9 @@ into a Vault    -->  to plain text  --> ordered chunks  -->  Ollama · 768d     
 - **Normalize** extracts plain text according to the file type; an unrecognized type ends at
   `UNSUPPORTED`.
 - **Chunk** splits the normalized text into ordered, immutable pieces keyed by ordinal.
-- **Embed** calls local Ollama `POST /api/embed` with the default `nomic-embed-text` model, which
-  returns one 768-dimension vector per chunk. Embeddings run on the same local provider as chat, with
-  the same privacy posture.
+- **Embed** uses Spring AI 2.0.1 `OllamaEmbeddingModel` with the default `nomic-embed-text` model,
+  which calls the configured local provider and returns one 768-dimension vector per chunk.
+  Embeddings run on the same user-authorized provider boundary as chat.
 - **Store** persists each chunk's text and vector in `knowledge_chunk`; the source is then marked
   `READY` with its chunk count.
 
@@ -86,6 +86,13 @@ If the embedding provider is unavailable, retrieval yields **zero citations and 
 answers** — it degrades, it does not fail. Only an explicit isolation boundary (an unauthorized or
 archived Vault) is allowed to silently produce no citations; any other retrieval defect is treated as
 a bug, not a reason to answer without grounding.
+
+Agent mode does not run this deterministic retrieval before the first model call. Instead, it exposes
+the request-scoped `search_knowledge` Spring AI tool only when the conversation has selected Vaults.
+The tool accepts a query and bounded limit, while the authenticated user and Vault ids stay in server
+scope and never enter the model-facing schema. The same authorization-first repository query ranks
+the results. Returned citations are persisted with the assistant answer and displayed as evidence;
+no tool call means no claim that internal knowledge was searched.
 
 ## The authorization boundary
 

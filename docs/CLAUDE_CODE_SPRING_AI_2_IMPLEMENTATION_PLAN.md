@@ -1,5 +1,11 @@
 # Nexo IA — Claude Code implementation plan: Spring AI 2.0 orchestration
 
+> **Delivery status (2026-08-24): implemented and extended.** The manual Ollama adapters described in
+> the original baseline were removed. Production uses Spring AI 2.0.1. Agent mode now also includes
+> a persisted `update_plan` tool and typed `plan_updated` events in addition to the governed
+> `search_knowledge` tool. This document remains the implementation checklist and historical handoff;
+> current runtime behavior is documented in [SPRING_AI_AGENT_RUNTIME.md](SPRING_AI_AGENT_RUNTIME.md).
+
 ## Mission
 
 Replace Nexo IA's hand-written Ollama chat and embedding protocols with a real Spring AI 2.0
@@ -15,7 +21,8 @@ Codex will review, validate, document the final result, and create the delivery 
 
 ## Current verified reality
 
-- Backend baseline: Java 25, Spring Boot 4.1.0, Spring AI 2.0.0.
+- Backend baseline at planning time: Java 25, Spring Boot 4.1.0, Spring AI 2.0.0. Delivered runtime:
+  Spring AI 2.0.1.
 - `spring-ai-starter-model-ollama` is already declared in `backend/pom.xml`.
 - Production code currently has no `org.springframework.ai` imports.
 - `OllamaChatCompletionClient` manually posts to `/api/chat` and parses NDJSON.

@@ -3,6 +3,7 @@ package com.nexoia.conversation.inference.service;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
+import com.nexoia.conversation.inference.dto.event.PlanUpdatedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
@@ -28,6 +29,8 @@ public interface ModelStreamListener {
     void onToolStarted(ToolStartedEvent event);
 
     void onToolCompleted(ToolCompletedEvent event);
+
+    default void onPlanUpdated(PlanUpdatedEvent event) {}
 
     void onToken(TokenEvent event);
 

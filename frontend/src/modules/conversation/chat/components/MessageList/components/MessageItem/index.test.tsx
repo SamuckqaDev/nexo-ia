@@ -73,6 +73,37 @@ describe("MessageItem", () => {
     expect(screen.getByText("Thinking").closest("details")).not.toHaveAttribute("open");
   });
 
+  it("does not invent a Thinking trace when the provider emitted none", () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <MessageItem message={message({ content: "", status: "STREAMING" })} isStreaming />
+      </ThemeProvider>
+    );
+
+    expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
+  });
+
+  it("restores the visible implementation plan on an Agent answer", () => {
+    renderItem(message({
+      mode: "AGENT",
+      agentState: "RUNNING",
+      agentPlan: {
+        revision: 2,
+        explanation: "Implementation advanced",
+        steps: [
+          { step: "Inspect the Vaults", status: "COMPLETED" },
+          { step: "Implement the answer", status: "IN_PROGRESS" }
+        ],
+        updatedAt: "2026-08-24T12:00:00Z"
+      }
+    }));
+
+    expect(screen.getByLabelText("Agent implementation plan")).toBeVisible();
+    expect(screen.getByText("revision 2")).toBeVisible();
+    expect(screen.getByText("Inspect the Vaults")).toBeVisible();
+    expect(screen.getByText("Implement the answer")).toBeVisible();
+  });
+
   it("does not show execution metadata on a user message", () => {
     renderItem(message({ role: "USER", content: "hi" }));
 

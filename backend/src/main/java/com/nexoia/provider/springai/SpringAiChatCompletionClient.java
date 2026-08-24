@@ -1,20 +1,25 @@
 package com.nexoia.provider.springai;
 
 import com.nexoia.conversation.chat.model.ConversationMode;
+import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
+import com.nexoia.conversation.inference.tool.AgentPlanToolSession;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolSession;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
+import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
 import com.nexoia.provider.service.ChatCompletionClient;
+import io.micrometer.observation.ObservationRegistry;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -26,7 +31,10 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallLimitBehavior;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -52,14 +60,20 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final SpringAiModelFactory modelFactory;
     private final SpringAiMessageMapper messageMapper;
     private final KnowledgeSearchToolFactory knowledgeToolFactory;
+    private final AgentPlanToolFactory planToolFactory;
+    private final ObservationRegistry observationRegistry;
 
     public SpringAiChatCompletionClient(
             SpringAiModelFactory modelFactory,
             SpringAiMessageMapper messageMapper,
-            KnowledgeSearchToolFactory knowledgeToolFactory) {
+            KnowledgeSearchToolFactory knowledgeToolFactory,
+            AgentPlanToolFactory planToolFactory,
+            ObservationRegistry observationRegistry) {
         this.modelFactory = modelFactory;
         this.messageMapper = messageMapper;
         this.knowledgeToolFactory = knowledgeToolFactory;
+        this.planToolFactory = planToolFactory;
+        this.observationRegistry = observationRegistry;
     }
 
     @Override
@@ -111,7 +125,13 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 .toList();
         Prompt prompt = new Prompt(conversation);
         ChatClient chatClient = ChatClient.builder(model).build();
-        KnowledgeSearchToolSession toolSession = toolSession(command, cancelled);
+        KnowledgeSearchToolSession knowledgeSession = knowledgeToolSession(command, cancelled);
+        AgentPlanToolSession planSession = planToolSession(command, cancelled);
+        List<ToolCallback> callbacks = Stream.of(
+                        planSession == null ? null : planSession.callback(),
+                        knowledgeSession == null ? null : knowledgeSession.callback())
+                .filter(Objects::nonNull)
+                .toList();
 
         StringBuilder content = new StringBuilder();
         Integer inputTokens = null;
@@ -120,20 +140,18 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
         ChatClient.ChatClientRequestSpec request = chatClient.prompt(prompt)
                 .advisors(new SpringAiContextAdvisor(systemContext));
-        if (toolSession != null) {
-            AtomicInteger toolRounds = new AtomicInteger();
-            ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
-                    .toolExecutionEligibilityChecker(response -> {
-                        if (response == null || !response.hasToolCalls()) {
-                            return false;
-                        }
-                        if (toolRounds.incrementAndGet() > KnowledgeSearchToolFactory.MAX_CALLS) {
-                            throw new IllegalStateException("Governed tool call limit exceeded");
-                        }
-                        return true;
-                    })
+        if (!callbacks.isEmpty()) {
+            ToolCallingManager toolCallingManager = ToolCallingManager.builder()
+                    .observationRegistry(observationRegistry)
+                    .maxCallsPerTool(AgentPlanToolFactory.TOOL_NAME, AgentPlanToolFactory.MAX_UPDATES)
+                    .maxCallsPerTool(KnowledgeSearchToolFactory.TOOL_NAME, KnowledgeSearchToolFactory.MAX_CALLS)
+                    .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES + KnowledgeSearchToolFactory.MAX_CALLS)
+                    .onLimitExceeded(ToolCallLimitBehavior.THROW)
                     .build();
-            request = request.advisors(toolAdvisor).toolCallbacks(toolSession.callback());
+            ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
+                    .toolCallingManager(toolCallingManager)
+                    .build();
+            request = request.advisors(toolAdvisor).tools(callbacks.toArray());
         }
 
         try (Stream<ChatResponse> responses = request
@@ -147,7 +165,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 if (cancelled.getAsBoolean()) {
                     return new ChatCompletionOutcome(
                             content.toString(), null, null, null, true, CANCELLED_REASON,
-                            toolSession == null ? List.of() : toolSession.evidence());
+                            evidence(planSession, knowledgeSession));
                 }
 
                 ChatResponse response = iterator.next();
@@ -190,10 +208,10 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 inputTokens == null && outputTokens == null ? null : TokenSource.PROVIDER;
         return new ChatCompletionOutcome(
                 content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
-                toolSession == null ? List.of() : toolSession.evidence());
+                evidence(planSession, knowledgeSession));
     }
 
-    private KnowledgeSearchToolSession toolSession(
+    private KnowledgeSearchToolSession knowledgeToolSession(
             ChatCompletionCommand command,
             BooleanSupplier cancelled) {
         if (command.mode() != ConversationMode.AGENT
@@ -205,10 +223,37 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 command.knowledgeToolScope(), command.toolExecutionObserver(), cancelled);
     }
 
+    private AgentPlanToolSession planToolSession(
+            ChatCompletionCommand command,
+            BooleanSupplier cancelled) {
+        if (command.mode() != ConversationMode.AGENT || command.agentPlanToolScope() == null) {
+            return null;
+        }
+        return planToolFactory.open(
+                command.agentPlanToolScope(),
+                command.toolExecutionObserver(),
+                command.agentPlanUpdateObserver(),
+                cancelled);
+    }
+
+    private List<ToolExecutionEvidence> evidence(
+            AgentPlanToolSession planSession,
+            KnowledgeSearchToolSession knowledgeSession) {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        if (planSession != null) {
+            evidence.addAll(planSession.evidence());
+        }
+        if (knowledgeSession != null) {
+            evidence.addAll(knowledgeSession.evidence());
+        }
+        return evidence;
+    }
+
     private ChatCompletionCommand withoutThinking(ChatCompletionCommand command) {
         return new ChatCompletionCommand(
                 command.providerType(), command.endpoint(), command.model(), command.messages(), false,
-                command.mode(), command.knowledgeToolScope(), command.toolExecutionObserver());
+                command.mode(), command.knowledgeToolScope(), command.agentPlanToolScope(),
+                command.toolExecutionObserver(), command.agentPlanUpdateObserver());
     }
 
     private boolean thinkingUnsupported(ProviderStreamException exception) {

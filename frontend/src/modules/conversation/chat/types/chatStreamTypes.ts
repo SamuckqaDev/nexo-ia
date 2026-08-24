@@ -1,4 +1,4 @@
-import type { AgentState, StreamPhase, ToolExecution, UsageEvent } from "./chatTypes";
+import type { AgentPlan, AgentState, StreamPhase, ToolExecution, UsageEvent } from "./chatTypes";
 
 export type ConversationStreamSnapshot = {
   phase: StreamPhase;
@@ -9,6 +9,7 @@ export type ConversationStreamSnapshot = {
   errorMessage: string | null;
   assistantMessageId: string | null;
   agentState: AgentState | null;
+  agentPlan: AgentPlan | null;
   toolExecutions: ToolExecution[];
 };
 

@@ -59,7 +59,7 @@ public class ConversationContextAssembler {
     public List<ChatCompletionMessage> assemble(
             UUID conversationId, String username, List<CitationResponse> citations,
             ModelContextEnvelope envelope) {
-        String identity = identityFor(username);
+        String identity = identityFor(username, envelope);
         String envelopeMessage = envelope == null ? null : envelopeRenderer.render(envelope);
         String knowledgeMessage = citations == null || citations.isEmpty() ? null : retrievedContext(citations);
 
@@ -111,8 +111,11 @@ public class ConversationContextAssembler {
         return text == null ? 0 : properties.estimateTokens(text);
     }
 
-    private String identityFor(String username) {
+    private String identityFor(String username, ModelContextEnvelope envelope) {
         String base = prompts.get(PromptResource.IDENTITY) + "\n\n" + prompts.get(PromptResource.RULES);
+        if (envelope != null && "agent".equalsIgnoreCase(envelope.conversationMode())) {
+            base += "\n\n" + prompts.get(PromptResource.AGENT_RULES);
+        }
         if (username == null || username.isBlank()) {
             return base;
         }

@@ -16,7 +16,9 @@ public record ChatCompletionCommand(
         boolean thinkingEnabled,
         ConversationMode mode,
         KnowledgeToolScope knowledgeToolScope,
-        ToolExecutionObserver toolExecutionObserver) {
+        AgentPlanToolScope agentPlanToolScope,
+        ToolExecutionObserver toolExecutionObserver,
+        AgentPlanUpdateObserver agentPlanUpdateObserver) {
 
     public ChatCompletionCommand(
             ProviderType providerType,
@@ -25,12 +27,34 @@ public record ChatCompletionCommand(
             List<ChatCompletionMessage> messages,
             boolean thinkingEnabled) {
         this(providerType, endpoint, model, messages, thinkingEnabled,
-                ConversationMode.CHAT, null, ToolExecutionObserver.NOOP);
+                ConversationMode.CHAT, null, null,
+                ToolExecutionObserver.NOOP, AgentPlanUpdateObserver.NOOP);
+    }
+
+    public ChatCompletionCommand(
+            ProviderType providerType,
+            String endpoint,
+            String model,
+            List<ChatCompletionMessage> messages,
+            boolean thinkingEnabled,
+            ConversationMode mode,
+            KnowledgeToolScope knowledgeToolScope,
+            ToolExecutionObserver toolExecutionObserver) {
+        this(providerType, endpoint, model, messages, thinkingEnabled, mode,
+                knowledgeToolScope, null, toolExecutionObserver, AgentPlanUpdateObserver.NOOP);
     }
 
     public ChatCompletionCommand withToolExecutionObserver(ToolExecutionObserver observer) {
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
-                mode, knowledgeToolScope, observer);
+                mode, knowledgeToolScope, agentPlanToolScope, observer, agentPlanUpdateObserver);
+    }
+
+    public ChatCompletionCommand withExecutionObservers(
+            ToolExecutionObserver toolObserver,
+            AgentPlanUpdateObserver planObserver) {
+        return new ChatCompletionCommand(
+                providerType, endpoint, model, messages, thinkingEnabled,
+                mode, knowledgeToolScope, agentPlanToolScope, toolObserver, planObserver);
     }
 }

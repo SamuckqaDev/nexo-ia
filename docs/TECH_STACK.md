@@ -392,7 +392,7 @@ not open stack selections:
 
 - Java 25 LTS, without preview features.
 - Spring Boot 4.1.0 release line.
-- Spring AI 2.0.0 release line.
+- Spring AI 2.0.1 release line.
 - Apache Maven Wrapper pinned to Maven 3.9.16; Maven 4 remains pre-GA.
 - PostgreSQL 18, Node.js 24 LTS, React 19.2, TypeScript 6.0, and Vite 8.1.
 

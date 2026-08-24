@@ -31,4 +31,5 @@ public record ConversationMessageResponse(
         Instant createdAt,
         Instant completedAt,
         List<CitationResponse> citations,
-        List<ToolExecutionResponse> toolExecutions) {}
+        List<ToolExecutionResponse> toolExecutions,
+        AgentPlanResponse agentPlan) {}

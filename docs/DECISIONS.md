@@ -217,7 +217,7 @@ options considered, the selected approach, and its consequences.
 
 ## D-021 — Read the Ollama streaming protocol directly instead of a model abstraction
 
-- **Status:** accepted
+- **Status:** superseded by D-028
 - **Context:** Spring AI provides an Ollama chat model adapter, but it is configured from a single
   application-level `base-url`, while the Nexo IA Provider Registry is user-scoped: every user
   registers their own endpoint, and a conversation must reach that endpoint. The adapter also
@@ -387,3 +387,41 @@ options considered, the selected approach, and its consequences.
   response size using the index already required by RAG. This is a semantic graph, not an authored
   backlink graph: explicit wikilinks, tags, and approved relationships remain a later data-model
   increment, and an ANN index or graph database requires corpus benchmarks first.
+
+## D-028 — Use Spring AI 2.0.1 for dynamic Ollama inference and governed tools
+
+- **Status:** accepted
+- **Context:** D-021 selected a hand-written Ollama protocol adapter because early Spring AI releases
+  assumed application-wide provider configuration. Spring AI 2.0 makes tool calling a composable
+  `ChatClient` advisor loop and its Ollama model objects can be built for an already-authorized
+  endpoint. Keeping the manual protocol would duplicate streaming, tool, embedding, usage, and
+  provider compatibility logic now owned by the framework.
+- **Decision:** import the Spring AI 2.0.1 BOM and use `OllamaChatModel`, `OllamaEmbeddingModel`,
+  `ChatClient`, `StreamAdvisor`, `ToolCallingAdvisor`, `ToolCallingManager`, and request-scoped
+  `ToolCallback` objects. Build model objects per request from the authenticated user's normalized
+  Provider Registry endpoint and selected model. Keep `ChatCompletionClient` and `EmbeddingClient`
+  only as real provider-neutral Nexo boundaries. Keep authorization-first pgvector retrieval in Nexo
+  rather than replacing it with a generic vector-store query.
+- **Consequence:** Spring AI owns provider protocol, streaming aggregation, embeddings, advisor
+  composition, and recursive tool calls. Nexo still owns authentication, endpoint validation,
+  owner/Vault isolation, context limits, cancellation, persistence, SSE, evidence, and audit. A
+  browser disconnect never becomes model cancellation, and raw tool arguments/results remain absent
+  from observations and API responses.
+
+## D-029 — Make the first Agent runtime bounded, visible, and plan-driven
+
+- **Status:** accepted
+- **Context:** a mode label alone is not an Agent. A useful first increment needs model-directed tool
+  use and visible progress, while filesystem, terminal, Git, browser, MCP, and destructive actions do
+  not yet have permission and recovery contracts.
+- **Decision:** Agent mode exposes `update_plan` on every request and `search_knowledge` only when the
+  conversation has owner-authorized Vaults attached. `ToolCallingManager` caps `update_plan` at eight
+  calls, `search_knowledge` at three, and the complete request at eleven tool calls. Plan replacements
+  contain at most twelve concise steps and at most one `IN_PROGRESS` step. The latest revision is
+  persisted per assistant message, streamed as `plan_updated`, restored with conversation messages,
+  and rendered in a compact scroll-owning panel. Tool executions keep sanitized digests, status,
+  duration, citations, correlation, and audit records.
+- **Consequence:** Nexo can plan, revise a plan, search selected private knowledge, and return grounded
+  evidence without claiming general computer control. Unsupported or absent capabilities remain
+  unavailable rather than being simulated in text. Additional tools must reuse this request-scoped
+  registration, authorization, limits, evidence, and audit boundary.

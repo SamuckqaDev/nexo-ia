@@ -52,6 +52,7 @@ class NexoApplicationContextTest {
         assertThat(context.getBean("modelRequestService")).isNotNull();
         assertThat(context.getBean("modelRequestStore")).isNotNull();
         assertThat(context.getBean("conversationContextAssembler")).isNotNull();
+        assertThat(context.getBean("agentPlanToolFactory")).isNotNull();
         assertThat(context.getBean("auditService")).isNotNull();
     }
 
@@ -66,7 +67,7 @@ class NexoApplicationContextTest {
                 WHERE indexname = 'ux_conversation_message_active_request'
                 """, Integer.class);
 
-        assertThat(applied).isEqualTo(25);
+        assertThat(applied).isEqualTo(26);
         assertThat(activeRequestIndex).isEqualTo(1);
     }
 }

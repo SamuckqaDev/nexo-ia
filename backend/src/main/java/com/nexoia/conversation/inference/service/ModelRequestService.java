@@ -8,9 +8,11 @@ import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
-import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
+import com.nexoia.conversation.inference.dto.event.AgentPlanStepEvent;
+import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.CompletedEvent;
+import com.nexoia.conversation.inference.dto.event.PlanUpdatedEvent;
 import com.nexoia.conversation.inference.dto.event.StartedEvent;
 import com.nexoia.conversation.inference.dto.event.StreamErrorEvent;
 import com.nexoia.conversation.inference.dto.event.ThinkingEvent;
@@ -21,6 +23,8 @@ import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
 import com.nexoia.conversation.inference.model.AgentState;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
+import com.nexoia.provider.dto.AgentPlanUpdate;
+import com.nexoia.provider.dto.AgentPlanUpdateObserver;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
@@ -143,7 +147,9 @@ public class ModelRequestService {
 
         try {
             ChatCompletionCommand executableCommand = reservation.command()
-                    .withToolExecutionObserver(toolObserver(reservation, listener));
+                    .withExecutionObservers(
+                            toolObserver(reservation, listener),
+                            planObserver(reservation, listener));
             ChatCompletionOutcome outcome = client.stream(
                     executableCommand,
                     delta -> {
@@ -259,6 +265,25 @@ public class ModelRequestService {
                         event.completedAt()));
             }
         };
+    }
+
+    private AgentPlanUpdateObserver planObserver(
+            ModelRequestReservation reservation,
+            ModelStreamListener listener) {
+        return update -> {
+            store.recordPlanUpdated(reservation.assistantMessageId(), update);
+            listener.onPlanUpdated(planUpdatedEvent(update));
+        };
+    }
+
+    private PlanUpdatedEvent planUpdatedEvent(AgentPlanUpdate update) {
+        return new PlanUpdatedEvent(
+                update.revision(),
+                update.explanation(),
+                update.steps().stream()
+                        .map(step -> new AgentPlanStepEvent(step.step(), step.status()))
+                        .toList(),
+                update.updatedAt());
     }
 
     private List<CitationResponse> mergeCitations(

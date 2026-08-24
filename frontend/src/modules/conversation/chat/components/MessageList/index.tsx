@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import type {
   AgentState,
+  AgentPlan,
   ConversationMessage,
   ConversationMode,
   StreamPhase,
@@ -40,6 +41,7 @@ type MessageListProps = {
   streamingContent: string;
   errorMessage: string | null;
   agentState?: AgentState | null;
+  agentPlan?: AgentPlan | null;
   toolExecutions?: ToolExecution[];
   accountTokenTotal?: number | null;
   mode: ConversationMode;
@@ -106,6 +108,7 @@ export function MessageList({
   streamingContent,
   errorMessage,
   agentState = null,
+  agentPlan = null,
   toolExecutions = [],
   accountTokenTotal = null,
   mode,
@@ -184,6 +187,7 @@ export function MessageList({
           thinkingContent={thinkingContent}
           isStreaming={message.id === streamingId}
           activeAgentState={message.id === streamingId ? agentState : null}
+          activeAgentPlan={message.id === streamingId ? agentPlan : null}
           activeToolExecutions={message.id === streamingId ? toolExecutions : []}
         />
       ))}

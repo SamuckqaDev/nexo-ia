@@ -13,7 +13,8 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
-import type { AgentState, ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
+import type { AgentPlan as AgentPlanValue, AgentState, ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
+import { AgentPlan } from "./components/AgentPlan";
 import { MessageContent } from "./components/MessageContent";
 import {
   Avatar,
@@ -39,6 +40,7 @@ type MessageItemProps = {
   isStreaming?: boolean;
   thinkingContent?: string;
   activeAgentState?: AgentState | null;
+  activeAgentPlan?: AgentPlanValue | null;
   activeToolExecutions?: ToolExecution[];
 };
 
@@ -52,6 +54,7 @@ export function MessageItem({
   isStreaming = false,
   thinkingContent = "",
   activeAgentState = null,
+  activeAgentPlan = null,
   activeToolExecutions = []
 }: MessageItemProps): ReactElement {
   const isUser: boolean = message.role === "USER";
@@ -90,6 +93,9 @@ export function MessageItem({
   const toolExecutions: ToolExecution[] = isStreaming && activeToolExecutions.length > 0
     ? activeToolExecutions
     : message.toolExecutions ?? [];
+  const agentPlan: AgentPlanValue | null | undefined = isStreaming
+    ? activeAgentPlan ?? message.agentPlan
+    : message.agentPlan;
 
   useEffect((): void => setCopied(false), [content]);
 
@@ -119,12 +125,14 @@ export function MessageItem({
           </CopyButton>
         </Head>
 
-        {!isUser && isStreaming && (
+        {!isUser && isStreaming && thinkingContent.trim().length > 0 && (
           <ThinkingTrace>
             <summary><Brain size={14} weight="duotone" /> Thinking</summary>
-            <p>{thinkingContent || "Nexo is thinking through the request…"}</p>
+            <p>{thinkingContent}</p>
           </ThinkingTrace>
         )}
+
+        {!isUser && agentPlan && <AgentPlan plan={agentPlan} />}
 
         <MessageContent content={content} isStreaming={isStreaming} isUser={isUser} />
 
@@ -143,7 +151,7 @@ export function MessageItem({
                 {execution.status === "RUNNING"
                   ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
                   : <MagnifyingGlass size={13} weight="duotone" />}
-                <span>Knowledge search</span>
+                <span>{execution.toolName === "update_plan" ? "Implementation plan" : "Knowledge search"}</span>
                 <small>
                   {execution.status === "RUNNING"
                     ? "running"

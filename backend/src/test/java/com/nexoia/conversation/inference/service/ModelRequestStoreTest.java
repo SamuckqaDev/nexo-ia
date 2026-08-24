@@ -18,6 +18,7 @@ import com.nexoia.conversation.chat.service.ConversationKnowledgeService;
 import com.nexoia.conversation.inference.context.KnowledgeSearchStatus;
 import com.nexoia.conversation.inference.context.ModelContextEnvelope;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
+import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
@@ -50,6 +51,7 @@ class ModelRequestStoreTest {
     @Mock private ConversationRepository conversations;
     @Mock private ConversationMessageRepository messages;
     @Mock private ToolExecutionRepository toolExecutions;
+    @Mock private AgentPlanRepository agentPlans;
     @Mock private ProviderConfigurationRepository providers;
     @Mock private UserAccountRepository users;
     @Mock private ConversationKnowledgeService conversationKnowledge;
@@ -68,6 +70,7 @@ class ModelRequestStoreTest {
                 conversations,
                 messages,
                 toolExecutions,
+                agentPlans,
                 providers,
                 users,
                 conversationKnowledge,
@@ -160,6 +163,7 @@ class ModelRequestStoreTest {
         assertThat(envelope.getValue().manifest().knowledge().searchStatus())
                 .isEqualTo(KnowledgeSearchStatus.NOT_REQUESTED);
         assertThat(envelope.getValue().manifest().tools().exposedToolNames())
-                .containsExactly("search_knowledge");
+                .containsExactly("update_plan", "search_knowledge");
+        assertThat(reservation.command().agentPlanToolScope()).isNotNull();
     }
 }

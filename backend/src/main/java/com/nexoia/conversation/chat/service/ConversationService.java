@@ -2,8 +2,11 @@ package com.nexoia.conversation.chat.service;
 
 import com.nexoia.audit.dto.RecordAuditCommand;
 import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditOutcome;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.conversation.chat.dto.AgentPlanResponse;
+import com.nexoia.conversation.chat.dto.AgentPlanStepResponse;
 import com.nexoia.conversation.chat.dto.ConversationMessageResponse;
 import com.nexoia.conversation.chat.dto.ConversationResponse;
 import com.nexoia.conversation.chat.dto.CreateConversationRequest;
@@ -20,7 +23,9 @@ import com.nexoia.conversation.chat.model.MessageStatus;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.inference.model.AgentPlanRecord;
 import com.nexoia.conversation.inference.model.ToolExecutionRecord;
+import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
@@ -39,6 +44,7 @@ public class ConversationService {
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
     private final ToolExecutionRepository toolExecutions;
+    private final AgentPlanRepository agentPlans;
     private final ProviderConfigurationRepository providers;
     private final AuditService audit;
     private final ConversationContextProperties contextProperties;
@@ -82,9 +88,17 @@ public class ConversationService {
                                 conversationMessages.stream().map(ConversationMessage::getId).toList())
                         .stream()
                         .collect(Collectors.groupingBy(ToolExecutionRecord::getAssistantMessageId));
+        Map<UUID, AgentPlanRecord> plansByMessage = conversationMessages.isEmpty()
+                ? Map.of()
+                : agentPlans.findAllByAssistantMessageIdIn(
+                                conversationMessages.stream().map(ConversationMessage::getId).toList())
+                        .stream()
+                        .collect(Collectors.toMap(AgentPlanRecord::getAssistantMessageId, plan -> plan));
         return conversationMessages.stream()
                 .map(message -> messageResponse(
-                        message, executionsByMessage.getOrDefault(message.getId(), List.of())))
+                        message,
+                        executionsByMessage.getOrDefault(message.getId(), List.of()),
+                        plansByMessage.get(message.getId())))
                 .toList();
     }
 
@@ -133,7 +147,7 @@ public class ConversationService {
                 .orElseThrow(ProviderConfigurationNotFoundException::new);
         conversation.selectModel(request.providerConfigurationId(), request.selectedModel().trim());
         audit.record(new RecordAuditCommand(
-                AuditAction.CONVERSATION_MODEL_SELECTED, com.nexoia.audit.model.AuditOutcome.SUCCESS,
+                AuditAction.CONVERSATION_MODEL_SELECTED, AuditOutcome.SUCCESS,
                 userId, null, AuditTargetType.CONVERSATION, conversationId, null,
                 request.selectedModel().trim()));
 
@@ -172,12 +186,13 @@ public class ConversationService {
     }
 
     private ConversationMessageResponse messageResponse(ConversationMessage value) {
-        return messageResponse(value, List.of());
+        return messageResponse(value, List.of(), null);
     }
 
     private ConversationMessageResponse messageResponse(
             ConversationMessage value,
-            List<ToolExecutionRecord> executions) {
+            List<ToolExecutionRecord> executions,
+            AgentPlanRecord plan) {
         return new ConversationMessageResponse(
                 value.getId(),
                 value.getRole(),
@@ -200,7 +215,21 @@ public class ConversationService {
                 value.getCreatedAt(),
                 value.getCompletedAt(),
                 value.getCitations(),
-                executions.stream().map(this::toolExecutionResponse).toList());
+                executions.stream().map(this::toolExecutionResponse).toList(),
+                agentPlanResponse(plan));
+    }
+
+    private AgentPlanResponse agentPlanResponse(AgentPlanRecord plan) {
+        if (plan == null) {
+            return null;
+        }
+        return new AgentPlanResponse(
+                plan.getRevision(),
+                plan.getExplanation(),
+                plan.getSteps().stream()
+                        .map(step -> new AgentPlanStepResponse(step.step(), step.status()))
+                        .toList(),
+                plan.getUpdatedAt());
     }
 
     private ToolExecutionResponse toolExecutionResponse(ToolExecutionRecord execution) {

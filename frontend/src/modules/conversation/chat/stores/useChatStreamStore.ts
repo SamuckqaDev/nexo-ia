@@ -10,6 +10,7 @@ export const idleConversationStream: ConversationStreamSnapshot = {
   errorMessage: null,
   assistantMessageId: null,
   agentState: null,
+  agentPlan: null,
   toolExecutions: []
 };
 

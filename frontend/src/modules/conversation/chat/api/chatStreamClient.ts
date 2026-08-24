@@ -40,6 +40,7 @@ const dispatch = (event: StreamEvent, handlers: ChatStreamHandlers): void => {
   else if (event.event === "agent_state") handlers.onAgentState(event.data);
   else if (event.event === "tool_started") handlers.onToolStarted(event.data);
   else if (event.event === "tool_completed") handlers.onToolCompleted(event.data);
+  else if (event.event === "plan_updated") handlers.onPlanUpdated(event.data);
   else if (event.event === "token") handlers.onToken(event.data);
   else if (event.event === "usage") handlers.onUsage(event.data);
   else if (event.event === "completed") handlers.onCompleted(event.data);

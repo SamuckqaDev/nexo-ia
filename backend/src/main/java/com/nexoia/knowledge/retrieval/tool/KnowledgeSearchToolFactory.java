@@ -28,10 +28,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
 
 /** Builds one request-scoped, read-only Spring AI knowledge tool. */
+@Slf4j
 @Component
 public class KnowledgeSearchToolFactory {
 
@@ -61,7 +64,7 @@ public class KnowledgeSearchToolFactory {
         Set<String> seenQueries = new HashSet<>();
 
         var callback = FunctionToolCallback
-                .builder(TOOL_NAME, (SearchKnowledgeInput input, org.springframework.ai.chat.model.ToolContext ignored) ->
+                .builder(TOOL_NAME, (SearchKnowledgeInput input, ToolContext ignored) ->
                         execute(scope, observer, cancelled, evidence, callCount, seenQueries, input))
                 .description("Search only the Knowledge Vaults already attached and authorized for this conversation")
                 .inputType(SearchKnowledgeInput.class)
@@ -117,6 +120,12 @@ public class KnowledgeSearchToolFactory {
             return finish(scope, observer, evidence, startedAt, executionId,
                     ToolExecutionStatus.UNAVAILABLE, List.of(),
                     "Knowledge search is temporarily unavailable.");
+        } catch (RuntimeException exception) {
+            log.warn("[NEXO-BACK][KNOWLEDGE] Agent search failed messageId={} reason={}",
+                    scope.assistantMessageId(), exception.getClass().getSimpleName());
+            return finish(scope, observer, evidence, startedAt, executionId,
+                    ToolExecutionStatus.FAILED, List.of(),
+                    "Knowledge search failed safely and returned no source.");
         }
     }
 
@@ -141,11 +150,12 @@ public class KnowledgeSearchToolFactory {
         observer.onCompleted(completed);
         AuditAction action = switch (status) {
             case DENIED -> AuditAction.TOOL_CALL_DENIED;
-            case UNAVAILABLE -> AuditAction.TOOL_CALL_FAILED;
+            case FAILED, UNAVAILABLE -> AuditAction.TOOL_CALL_FAILED;
             default -> AuditAction.TOOL_CALL_COMPLETED;
         };
         audit(scope, action,
-                status == ToolExecutionStatus.UNAVAILABLE ? AuditOutcome.FAILURE : AuditOutcome.SUCCESS,
+                status == ToolExecutionStatus.UNAVAILABLE || status == ToolExecutionStatus.FAILED
+                        ? AuditOutcome.FAILURE : AuditOutcome.SUCCESS,
                 TOOL_NAME + ":" + status.name());
         return new SearchKnowledgeResult(status, citations, message);
     }

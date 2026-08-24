@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { knowledgeCitationSchema } from "../../../knowledge/vault/schemas/citationSchema";
 import {
+  agentPlanSchema,
   agentStateSchema,
   processingLocationSchema,
   tokenSourceSchema,
@@ -49,6 +50,8 @@ export const toolCompletedEventSchema = z.object({
   completedAt: z.iso.datetime()
 });
 
+export const planUpdatedEventSchema = agentPlanSchema;
+
 export const usageEventSchema = z.object({
   inputTokens: z.number().int().nullable(),
   outputTokens: z.number().int().nullable(),
@@ -84,6 +87,7 @@ export const streamEventSchema = z.discriminatedUnion("event", [
   z.object({ event: z.literal("agent_state"), data: agentStateEventSchema }),
   z.object({ event: z.literal("tool_started"), data: toolStartedEventSchema }),
   z.object({ event: z.literal("tool_completed"), data: toolCompletedEventSchema }),
+  z.object({ event: z.literal("plan_updated"), data: planUpdatedEventSchema }),
   z.object({ event: z.literal("token"), data: tokenEventSchema }),
   z.object({ event: z.literal("usage"), data: usageEventSchema }),
   z.object({ event: z.literal("completed"), data: completedEventSchema }),

@@ -2,6 +2,7 @@ package com.nexoia.knowledge.retrieval.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,7 +58,7 @@ class KnowledgeSearchToolFactoryTest {
         String result = session.callback().call("{\"query\":\"Nexo identity\",\"limit\":2}");
 
         ArgumentCaptor<RetrievalQuery> query = ArgumentCaptor.forClass(RetrievalQuery.class);
-        verify(retrieval).retrieve(org.mockito.ArgumentMatchers.eq(userId), query.capture());
+        verify(retrieval).retrieve(eq(userId), query.capture());
         assertThat(query.getValue().vaultIds()).containsExactly(vaultId);
         assertThat(result).contains("FOUND").contains("Nexo is truthful");
         assertThat(observer.started.argumentsDigest()).hasSize(64).doesNotContain("Nexo identity");

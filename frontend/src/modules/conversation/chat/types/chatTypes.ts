@@ -2,6 +2,8 @@ import type { z } from "zod";
 import type {
   conversationMessageSchema,
   conversationSchema,
+  agentPlanSchema,
+  agentPlanStepStatusSchema,
   agentStateSchema,
   messageStatusSchema,
   processingLocationSchema,
@@ -17,6 +19,7 @@ import type {
   streamEventSchema,
   thinkingEventSchema,
   toolCompletedEventSchema,
+  planUpdatedEventSchema,
   toolStartedEventSchema,
   tokenEventSchema,
   usageEventSchema
@@ -28,6 +31,8 @@ export type MessageStatus = z.infer<typeof messageStatusSchema>;
 export type TokenSource = z.infer<typeof tokenSourceSchema>;
 export type ProcessingLocation = z.infer<typeof processingLocationSchema>;
 export type AgentState = z.infer<typeof agentStateSchema>;
+export type AgentPlan = z.infer<typeof agentPlanSchema>;
+export type AgentPlanStepStatus = z.infer<typeof agentPlanStepStatusSchema>;
 export type ToolExecution = z.infer<typeof toolExecutionSchema>;
 
 export type StartedEvent = z.infer<typeof startedEventSchema>;
@@ -35,6 +40,7 @@ export type ThinkingEvent = z.infer<typeof thinkingEventSchema>;
 export type AgentStateEvent = z.infer<typeof agentStateEventSchema>;
 export type ToolStartedEvent = z.infer<typeof toolStartedEventSchema>;
 export type ToolCompletedEvent = z.infer<typeof toolCompletedEventSchema>;
+export type PlanUpdatedEvent = z.infer<typeof planUpdatedEventSchema>;
 export type TokenEvent = z.infer<typeof tokenEventSchema>;
 export type UsageEvent = z.infer<typeof usageEventSchema>;
 export type CompletedEvent = z.infer<typeof completedEventSchema>;
@@ -59,6 +65,7 @@ export type ChatStreamHandlers = {
   onAgentState: (event: AgentStateEvent) => void;
   onToolStarted: (event: ToolStartedEvent) => void;
   onToolCompleted: (event: ToolCompletedEvent) => void;
+  onPlanUpdated: (event: PlanUpdatedEvent) => void;
   onToken: (event: TokenEvent) => void;
   onUsage: (event: UsageEvent) => void;
   onCompleted: (event: CompletedEvent) => void;

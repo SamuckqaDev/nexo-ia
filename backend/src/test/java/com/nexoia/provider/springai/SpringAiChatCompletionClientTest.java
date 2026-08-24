@@ -8,18 +8,22 @@ import static org.mockito.Mockito.when;
 
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.model.ConversationMode;
+import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
+import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
+import com.nexoia.provider.dto.AgentPlanToolScope;
+import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
 import com.nexoia.provider.dto.ToolExecutionObserver;
+import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
-import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
@@ -71,7 +75,9 @@ class SpringAiChatCompletionClientTest {
         client = new SpringAiChatCompletionClient(
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
-                mock(KnowledgeSearchToolFactory.class));
+                mock(KnowledgeSearchToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                ObservationRegistry.NOOP);
     }
 
     @AfterEach
@@ -159,7 +165,9 @@ class SpringAiChatCompletionClientTest {
         SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
-                new KnowledgeSearchToolFactory(retrieval, mock(AuditService.class), Clock.systemUTC()));
+                new KnowledgeSearchToolFactory(retrieval, mock(AuditService.class), Clock.systemUTC()),
+                mock(AgentPlanToolFactory.class),
+                ObservationRegistry.NOOP);
         AtomicInteger requests = new AtomicInteger();
         List<String> requestBodies = new ArrayList<>();
         server.createContext("/api/chat", exchange -> {
@@ -204,6 +212,65 @@ class SpringAiChatCompletionClientTest {
         assertThat(outcome.toolExecutions().getFirst().citations()).hasSize(1);
         assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst()).contains("\"tools\"").contains("search_knowledge");
+        assertThat(requestBodies.get(1)).contains("\"role\":\"tool\"");
+    }
+
+    @Test
+    void executesTheVisiblePlanToolThroughTheSpringAiAdvisorLoop() {
+        AtomicReference<AgentPlanUpdate> planUpdate = new AtomicReference<>();
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
+                ObservationRegistry.NOOP);
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(
+                    exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            String body = requests.incrementAndGet() == 1
+                    ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-plan","function":{"name":"update_plan",\
+                      "arguments":{"explanation":"Work visibly","plan":[\
+                      {"step":"Inspect","status":"IN_PROGRESS"},\
+                      {"step":"Answer","status":"PENDING"}]}}}]},"done":true,\
+                      "done_reason":"stop","prompt_eval_count":20,"eval_count":1}
+                      """
+                    : """
+                      {"model":"qwen3:8b","message":{"role":"assistant",\
+                      "content":"Plan created."},"done":true,"done_reason":"stop",\
+                      "prompt_eval_count":30,"eval_count":4}
+                      """;
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+        ChatCompletionCommand agentCommand = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage("user", "Plan this task")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                new AgentPlanToolScope(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                ToolExecutionObserver.NOOP,
+                planUpdate::set);
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                agentCommand, delta -> {}, delta -> {}, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("Plan created.");
+        assertThat(outcome.toolExecutions()).singleElement()
+                .satisfies(execution -> assertThat(execution.status()).isEqualTo(ToolExecutionStatus.COMPLETED));
+        assertThat(planUpdate.get()).isNotNull();
+        assertThat(planUpdate.get().steps()).hasSize(2);
+        assertThat(requestBodies.getFirst()).contains("update_plan").doesNotContain("userId");
         assertThat(requestBodies.get(1)).contains("\"role\":\"tool\"");
     }
 

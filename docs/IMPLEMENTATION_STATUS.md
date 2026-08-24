@@ -209,10 +209,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   and completion time. A partial unique index lets a conversation hold at most one non-terminal
   request, so a concurrent submission is rejected by the database rather than by an optimistic check.
 - `ChatCompletionClient` is the provider boundary for streamed inference, with Ollama as the first
-  adapter. It reads the newline-delimited JSON of `POST /api/chat` and takes `prompt_eval_count` and
-  `eval_count` as provider-reported token counts. Ollama requests carry the explicit `think`
-  preference, and its `message.thinking` stream is kept separate from final `message.content`. An
-  unsupported provider type fails explicitly; Nexo IA never falls back to another provider.
+  adapter. `SpringAiChatCompletionClient` builds a request-local `OllamaChatModel` and streams through
+  Spring AI 2.0.1 `ChatClient`; `SpringAiOllamaEmbeddingClient` uses `OllamaEmbeddingModel`. Spring AI
+  reads the provider protocol and reports usage/finish metadata, while Nexo preserves the explicit
+  `think` preference and keeps `message.thinking` separate from final content. An unsupported provider
+  fails explicitly; Nexo never falls back to another endpoint, model, or provider.
 - `ProviderEndpointGuard` resolves a registered endpoint before the server dereferences it and blocks
   a managed vendor type pointed at a loopback, link-local, or private address, while self-hosted
   Ollama and OpenAI-compatible servers may stay on a private network. It also reports whether
@@ -229,8 +230,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   provider model only as its inference engine, following the user's language, and forbidding
   invented access or permissions. Provider reasoning is never persisted in conversation messages,
   so it cannot enter a later request's history even when its temporary display is enabled.
-- `POST /conversations/{id}/messages/stream` streams typed `started`, `thinking`, `token`, `usage`,
-  `completed`, `cancelled`, and `error` events over SSE, with a companion cancel endpoint. A
+- `POST /conversations/{id}/messages/stream` streams typed `started`, `thinking`, `agent_state`,
+  `tool_started`, `tool_completed`, `plan_updated`, `token`, `usage`, `completed`, `cancelled`, and
+  `error` events over SSE, with a companion cancel endpoint. A
   `thinking` event is emitted only for a request that opted in. The request is reserved before the
   emitter opens, so a missing conversation, an unselected model, a busy conversation, or an invalid
   body still answers with the normal `BaseResponse` envelope and status. Authenticated initial
@@ -336,7 +338,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   Owner filtering happens in the repository joins before graph assembly, vectors never reach the
   browser, and the movable/resizable/maximizable frontend Workbench adds search, zoom, chunk detail,
   document-only collapse, and indexed-excerpt inspection. See D-027.
-- One hundred and thirty-six passing default backend tests and one hundred and four passing frontend tests,
+- One hundred and fifty-three passing default backend tests and one hundred and seven passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -346,10 +348,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   migrations, bootstrap, login, authenticated profile, and logout. Every migration through V21 was
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
-  The local Compose runtime also started successfully on Java 25 against PostgreSQL 18.6 with all 23
-  Flyway migrations validated and the pgvector-backed user corpus preserved.
-- A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.4
-  instance and asserts that every migration applied and that the active-request index exists. It
+  A Testcontainers run also started the complete Java 25 application context against PostgreSQL 18.6,
+  applied all 26 Flyway migrations through the durable Agent-plan schema, and verified the active-request
+  index. The pgvector-backed local corpus remains migration-compatible.
+- A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.6
+  instance and asserts that every migration applied, the Agent plan tool bean exists, and the
+  active-request index exists. It
   exists because unit tests construct their collaborators directly and therefore cannot prove that
   the container is able to supply them. It carries the `docker` tag: the container image builds
   itself inside a builder with no Docker daemon, so that build runs the remaining tests
@@ -371,9 +375,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - The organization-level audit *view* that unions session and domain trails is a later increment.
-- Agent mode remains a visible choice without a runtime: it must expose its plan, tools, limits,
-  approvals, evidence, and stop reason before it can be enabled. Image jobs remain pending the local
-  ComfyUI runtime.
+- Agent mode has its first bounded runtime. Spring AI's `ToolCallingAdvisor` executes only the
+  request-scoped `update_plan` tool and, when authorized Vaults are selected, `search_knowledge`.
+  Plans and sanitized tool evidence persist on the assistant message, stream live, and restore after
+  navigation or reload. Filesystem, terminal, Git, browser, MCP, write actions, approvals, resumable
+  backend-restart execution, and multi-agent workers remain intentionally unavailable. Image jobs
+  remain pending the local ComfyUI runtime.
 - Knowledge Vault scopes `project`, `team`, and `organization` are contract-complete but always
   rejected — no backend project/team/organization entity exists yet to authorize against.
 - No lexical/full-text fallback exists for retrieval; below-threshold or provider-unavailable
