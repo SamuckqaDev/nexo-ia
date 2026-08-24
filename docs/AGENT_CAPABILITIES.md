@@ -4,9 +4,12 @@ This document defines Nexo IA's reusable agent concepts and keeps their responsi
 
 ## Current implemented runtime
 
-Agent mode currently uses Spring AI 2.0.1's `ChatClient` and `ToolCallingAdvisor`. It exposes
-`update_plan`, the conditional `search_knowledge`, and explicitly enabled tools from the current
-user's Docker or personal MCP connections. Agent state, plan revisions, sanitized tool evidence,
+Agent mode currently uses Spring AI 2.0.1's `ChatClient` and `ToolSearchToolCallingAdvisor`. It
+initially exposes `toolSearchTool`, then progressively reveals only matching callbacks from the
+current request's isolated index. `inspect_capabilities` reports that request's exact safe catalog;
+action tools include `update_plan`, `remember`, conditional `search_knowledge`, and explicitly
+enabled tools from the current user's Docker or personal MCP connections. Agent state, plan
+revisions, sanitized tool evidence,
 citations, limits, and timing are visible and survive chat navigation. MCP does not yet imply the
 full approval Permission Engine, Secret Store, or arbitrary computer control. See
 [Spring AI Agent runtime](SPRING_AI_AGENT_RUNTIME.md) and

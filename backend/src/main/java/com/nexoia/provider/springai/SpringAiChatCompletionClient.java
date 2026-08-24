@@ -3,6 +3,9 @@ package com.nexoia.provider.springai;
 import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.conversation.inference.tool.AgentPlanToolSession;
+import com.nexoia.conversation.inference.tool.CapabilityInspectionInput;
+import com.nexoia.conversation.inference.tool.CapabilityInspectionResult;
+import com.nexoia.conversation.inference.tool.CapabilityInspectionTool;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSession;
@@ -21,24 +24,28 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
+import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallLimitBehavior;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.ai.tool.toolsearch.index.regex.RegexToolIndex;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -60,6 +67,20 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
     private static final String THINKING_KEY = "thinking";
     private static final String CANCELLED_REASON = "cancelled";
+    private static final String TOOL_DISCOVERY_SESSION_ID = "nexoToolDiscoverySessionId";
+    private static final String TOOL_SEARCH_NAME = "toolSearchTool";
+    private static final String CAPABILITY_INSPECTION_NAME = "inspect_capabilities";
+    private static final int MAX_TOOL_SEARCH_CALLS = 3;
+    private static final int MAX_CAPABILITY_INSPECTION_CALLS = 2;
+    private static final String TOOL_DISCOVERY_INSTRUCTIONS = """
+
+            Nexo uses progressive tool discovery for this request. Before saying that a capability,
+            MCP tool, Knowledge tool, plan tool, or memory tool is unavailable, call
+            `toolSearchTool` with a description of the required capability. Tool search only reveals
+            tools authorized for this authenticated request. After discovery, invoke the matching
+            tool before claiming that an action succeeded. For questions about which tools are
+            available, search broadly and answer from the returned tool names; never invent tools.
+            """;
 
     private final SpringAiModelFactory modelFactory;
     private final SpringAiMessageMapper messageMapper;
@@ -151,6 +172,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         if (mcpSession != null) {
             callbacks.addAll(mcpSession.callbacks());
         }
+        if (!callbacks.isEmpty()) {
+            callbacks.add(capabilityInspectionCallback(callbacks));
+        }
 
         try {
             StringBuilder content = new StringBuilder();
@@ -167,16 +191,29 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         .maxCallsPerTool(AgentPlanToolFactory.TOOL_NAME, AgentPlanToolFactory.MAX_UPDATES)
                         .maxCallsPerTool(RememberToolFactory.TOOL_NAME, RememberToolFactory.MAX_CALLS)
                         .maxCallsPerTool(KnowledgeSearchToolFactory.TOOL_NAME, KnowledgeSearchToolFactory.MAX_CALLS)
+                        .maxCallsPerTool(TOOL_SEARCH_NAME, MAX_TOOL_SEARCH_CALLS)
+                        .maxCallsPerTool(CAPABILITY_INSPECTION_NAME, MAX_CAPABILITY_INSPECTION_CALLS)
                         .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES
                                 + RememberToolFactory.MAX_CALLS
                                 + KnowledgeSearchToolFactory.MAX_CALLS
-                                + McpToolSessionFactory.MAX_CALLS)
+                                + McpToolSessionFactory.MAX_CALLS
+                                + MAX_TOOL_SEARCH_CALLS
+                                + MAX_CAPABILITY_INSPECTION_CALLS)
                         .onLimitExceeded(ToolCallLimitBehavior.THROW)
                         .build();
-                ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
+                ToolSearchToolCallingAdvisor toolAdvisor = ToolSearchToolCallingAdvisor.builder()
                         .toolCallingManager(toolCallingManager)
+                        .toolIndex(new RegexToolIndex())
+                        .sessionIdKeyName(TOOL_DISCOVERY_SESSION_ID)
+                        .maxResults(10)
+                        .systemMessageSuffix(TOOL_DISCOVERY_INSTRUCTIONS)
                         .build();
-                request = request.advisors(toolAdvisor).tools(callbacks.toArray());
+                request = request
+                        .advisors(toolAdvisor)
+                        .advisors(spec -> spec.param(
+                                TOOL_DISCOVERY_SESSION_ID,
+                                toolDiscoverySessionId(command)))
+                        .tools(callbacks.toArray());
             }
 
             try (Stream<ChatResponse> responses = request
@@ -345,5 +382,44 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             cause = cause.getCause();
         }
         return false;
+    }
+
+    private String toolDiscoverySessionId(ChatCompletionCommand command) {
+        if (command.agentPlanToolScope() != null) {
+            return command.agentPlanToolScope().assistantMessageId().toString();
+        }
+        if (command.memoryToolScope() != null) {
+            return command.memoryToolScope().assistantMessageId().toString();
+        }
+        if (command.knowledgeToolScope() != null) {
+            return command.knowledgeToolScope().assistantMessageId().toString();
+        }
+        if (command.mcpToolScope() != null) {
+            return command.mcpToolScope().assistantMessageId().toString();
+        }
+        return UUID.randomUUID().toString();
+    }
+
+    private ToolCallback capabilityInspectionCallback(List<ToolCallback> authorizedCallbacks) {
+        List<CapabilityInspectionTool> tools = new ArrayList<>();
+        tools.add(new CapabilityInspectionTool(
+                CAPABILITY_INSPECTION_NAME,
+                "Inspect the exact tools authorized for this request"));
+        authorizedCallbacks.stream()
+                .map(ToolCallback::getToolDefinition)
+                .map(definition -> new CapabilityInspectionTool(
+                        definition.name(), definition.description()))
+                .forEach(tools::add);
+        CapabilityInspectionResult result = new CapabilityInspectionResult(
+                tools,
+                "Only these tools are callable in this request. Discover a matching tool, invoke it, "
+                        + "and rely on its result before claiming success. A missing tool is unavailable.");
+        return FunctionToolCallback
+                .builder(CAPABILITY_INSPECTION_NAME,
+                        (CapabilityInspectionInput ignored, ToolContext context) -> result)
+                .description("Inspect and list the exact Nexo tools, MCP connections, Knowledge, plan, "
+                        + "and memory capabilities authorized for this request")
+                .inputType(CapabilityInspectionInput.class)
+                .build();
     }
 }

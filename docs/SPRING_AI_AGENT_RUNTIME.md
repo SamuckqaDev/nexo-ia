@@ -11,12 +11,15 @@ Workspace, edit files, run arbitrary terminal commands, write Git state, or dele
 
 The implementation was checked against the current
 [Spring AI Tool Calling reference](https://docs.spring.io/spring-ai/reference/api/tools.html),
+[Tool Search reference](https://docs.spring.io/spring-ai/reference/2.0-SNAPSHOT/api/tools/tool-search-tool.html),
 [ChatClient reference](https://docs.spring.io/spring-ai/reference/api/chatclient.html),
 [Advisors reference](https://docs.spring.io/spring-ai/reference/api/advisors.html), and
 [RAG reference](https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html).
-Spring AI 2.0 moves the tool loop into the `ChatClient` advisor chain: `ToolCallingAdvisor` asks the
-model, `ToolCallingManager` executes an attached callback, the result becomes a tool response, and
-the advisor repeats until the model returns an ordinary answer or a limit stops the run.
+Spring AI 2.0 moves the tool loop into the `ChatClient` advisor chain. Nexo uses
+`ToolSearchToolCallingAdvisor`: the model initially sees only `toolSearchTool`, discovers a relevant
+request-owned callback, receives that callback's full schema, and can then invoke it.
+`ToolCallingManager` executes the callback, its result becomes a tool response, and the advisor
+repeats until the model returns an ordinary answer or a limit stops the run.
 
 Ollama model compatibility is read from the capability metadata reported by the local catalog, with
 the official [`/api/show`](https://docs.ollama.com/api-reference/show-model-details) endpoint as a
@@ -40,7 +43,9 @@ authenticated message
   -> assemble Markdown identity + rules + truthful capability envelope
   -> build request-local OllamaChatModel and ChatClient
   -> SpringAiContextAdvisor injects the authorized system context
-  -> ToolCallingAdvisor drives the bounded loop
+  -> ToolSearchToolCallingAdvisor drives the bounded discovery and execution loop
+       toolSearchTool     progressive discovery; initially the only visible schema
+       inspect_capabilities exact safe catalog for the current authenticated request
        update_plan       always in Agent mode
        remember          personal memory, owned by the authenticated account
        search_knowledge  only with authorized selected Vaults
@@ -61,7 +66,7 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Selected Vaults | Deterministic retrieval before generation | Available through `search_knowledge` |
 | Personal memory | Most recent owned memories in context | Same context plus explicit `remember` tool |
 | Visible plan | None | Persisted `update_plan` revisions |
-| Tool loop | None | Spring AI `ToolCallingAdvisor` |
+| Tool loop | None | Spring AI `ToolSearchToolCallingAdvisor` |
 | External MCP tools | None | Explicitly selected, governed callbacks |
 | Native write/system tools | None | None |
 
@@ -82,6 +87,14 @@ is `available_on_demand` instead of incorrectly describing it as not requested. 
 to call `search_knowledge` for a focused query. Enabled `mcp_*` names are separately identified as
 callable external tools, while tool results remain the only acceptable evidence of execution.
 
+Every Agent execution creates a fresh regex tool index and keys it with the server-created assistant
+message id. Only callbacks resolved for that authenticated request are indexed. The first provider
+call therefore contains `toolSearchTool`, not every native and MCP JSON schema. After a search, only
+matching definitions are disclosed. `inspect_capabilities` returns the exact safe names and
+descriptions from that same callback list, so questions such as “which tools can you use?” can be
+answered from runtime state instead of prompt claims. Ownership ids, Vault ids, endpoints, secrets,
+and raw MCP configuration are never part of that result.
+
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
 Nexo publishes a deterministic three-step plan as soon as every Agent request starts. A model may
@@ -92,7 +105,9 @@ The same latest revision is rendered in the assistant turn and in the conversati
 **Plan** section. The workspace follows live `plan_updated` events and falls back to the newest
 persisted assistant plan after navigation or reload; it never substitutes preview-only steps.
 
-`search_knowledge` accepts only a bounded query and result count, searches only server-captured Vault
+`toolSearchTool` is capped at three calls and `inspect_capabilities` at two calls per request. These
+internal discovery calls are included in the combined tool-call budget. `search_knowledge` accepts
+only a bounded query and result count, searches only server-captured Vault
 scope, rejects repeated identical queries, and is capped at three calls. MCP tools share a six-call
 request cap, two calls per tool, duplicate-argument denial, bounded output, evidence, audit, and
 cancellation. `ToolCallingManager` caps the combined loop and throws on exhaustion rather than

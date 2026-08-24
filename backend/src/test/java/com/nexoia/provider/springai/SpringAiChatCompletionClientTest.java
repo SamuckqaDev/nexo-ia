@@ -186,8 +186,15 @@ class SpringAiChatCompletionClientTest {
         server.createContext("/api/chat", exchange -> {
             requestBodies.add(new String(
                     exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            String body = requests.incrementAndGet() == 1
+            int requestNumber = requests.incrementAndGet();
+            String body = requestNumber == 1
                     ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-search","function":{"name":"toolSearchTool",\
+                      "arguments":{"query":"search knowledge vault","maxResults":5}}}]},"done":true,\
+                      "done_reason":"stop","prompt_eval_count":10,"eval_count":1}
+                      """
+                    : requestNumber == 2 ? """
                       {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
                       "tool_calls":[{"id":"call-1","function":{"name":"search_knowledge",\
                       "arguments":{"query":"Nexo identity","limit":2}}}]},"done":true,\
@@ -223,9 +230,15 @@ class SpringAiChatCompletionClientTest {
         assertThat(outcome.content()).isEqualTo("Nexo is truthful.");
         assertThat(outcome.toolExecutions()).hasSize(1);
         assertThat(outcome.toolExecutions().getFirst().citations()).hasSize(1);
-        assertThat(requestBodies).hasSize(2);
-        assertThat(requestBodies.getFirst()).contains("\"tools\"").contains("search_knowledge");
-        assertThat(requestBodies.get(1)).contains("\"role\":\"tool\"");
+        assertThat(requestBodies).hasSize(3);
+        assertThat(requestBodies.getFirst())
+                .contains("\"tools\"")
+                .contains("toolSearchTool")
+                .doesNotContain("\"name\":\"search_knowledge\"");
+        assertThat(requestBodies.get(1))
+                .contains("\"role\":\"tool\"")
+                .contains("search_knowledge");
+        assertThat(requestBodies.get(2)).contains("\"role\":\"tool\"");
     }
 
     @Test
@@ -244,8 +257,15 @@ class SpringAiChatCompletionClientTest {
         server.createContext("/api/chat", exchange -> {
             requestBodies.add(new String(
                     exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            String body = requests.incrementAndGet() == 1
+            int requestNumber = requests.incrementAndGet();
+            String body = requestNumber == 1
                     ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-search-plan","function":{"name":"toolSearchTool",\
+                      "arguments":{"query":"create update implementation plan","maxResults":5}}}]},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":10,"eval_count":1}
+                      """
+                    : requestNumber == 2 ? """
                       {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
                       "tool_calls":[{"id":"call-plan","function":{"name":"update_plan",\
                       "arguments":{"explanation":"Work visibly","plan":[\
@@ -286,8 +306,92 @@ class SpringAiChatCompletionClientTest {
                 .satisfies(execution -> assertThat(execution.status()).isEqualTo(ToolExecutionStatus.COMPLETED));
         assertThat(planUpdate.get()).isNotNull();
         assertThat(planUpdate.get().steps()).hasSize(2);
-        assertThat(requestBodies.getFirst()).contains("update_plan").doesNotContain("userId");
-        assertThat(requestBodies.get(1)).contains("\"role\":\"tool\"");
+        assertThat(requestBodies).hasSize(3);
+        assertThat(requestBodies.getFirst())
+                .contains("toolSearchTool")
+                .doesNotContain("\"name\":\"update_plan\"")
+                .doesNotContain("userId");
+        assertThat(requestBodies.get(1))
+                .contains("\"role\":\"tool\"")
+                .contains("update_plan")
+                .doesNotContain("userId");
+        assertThat(requestBodies.get(2)).contains("\"role\":\"tool\"");
+    }
+
+    @Test
+    void discoversAndInspectsOnlyTheToolsAuthorizedForTheCurrentRequest() {
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
+                mock(RememberToolFactory.class),
+                mock(McpToolSessionFactory.class),
+                ObservationRegistry.NOOP);
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(
+                    exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            int requestNumber = requests.incrementAndGet();
+            String body = requestNumber == 1
+                    ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-search-capabilities","function":{\
+                      "name":"toolSearchTool","arguments":{"query":"inspect capabilities",\
+                      "maxResults":5}}}]},"done":true,"done_reason":"stop",\
+                      "prompt_eval_count":10,"eval_count":1}
+                      """
+                    : requestNumber == 2 ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-inspect","function":{\
+                      "name":"inspect_capabilities","arguments":{"focus":"tools"}}}]},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":20,"eval_count":1}
+                      """
+                    : """
+                      {"model":"qwen3:8b","message":{"role":"assistant",\
+                      "content":"I can inspect capabilities and update the plan."},"done":true,\
+                      "done_reason":"stop","prompt_eval_count":30,"eval_count":5}
+                      """;
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+        ChatCompletionCommand agentCommand = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage("user", "Which tools can you use?")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                new AgentPlanToolScope(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                null,
+                ToolExecutionObserver.NOOP,
+                update -> { });
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                agentCommand, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("I can inspect capabilities and update the plan.");
+        assertThat(requestBodies).hasSize(3);
+        assertThat(requestBodies.getFirst())
+                .contains("toolSearchTool")
+                .doesNotContain("\"name\":\"inspect_capabilities\"")
+                .doesNotContain("\"name\":\"update_plan\"");
+        assertThat(requestBodies.get(1))
+                .contains("inspect_capabilities")
+                .doesNotContain("\"name\":\"update_plan\"");
+        assertThat(requestBodies.get(2))
+                .contains("\"role\":\"tool\"")
+                .contains("inspect_capabilities")
+                .contains("update_plan")
+                .doesNotContain("search_knowledge")
+                .doesNotContain("\"name\":\"remember\"")
+                .doesNotContain("mcp_");
     }
 
     @Test

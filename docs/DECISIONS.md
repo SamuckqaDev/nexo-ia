@@ -397,13 +397,16 @@ options considered, the selected approach, and its consequences.
   endpoint. Keeping the manual protocol would duplicate streaming, tool, embedding, usage, and
   provider compatibility logic now owned by the framework.
 - **Decision:** import the Spring AI 2.0.1 BOM and use `OllamaChatModel`, `OllamaEmbeddingModel`,
-  `ChatClient`, `StreamAdvisor`, `ToolCallingAdvisor`, `ToolCallingManager`, and request-scoped
-  `ToolCallback` objects. Build model objects per request from the authenticated user's normalized
+  `ChatClient`, `StreamAdvisor`, `ToolSearchToolCallingAdvisor`, `ToolCallingManager`, and
+  request-scoped `ToolCallback` objects. Build a fresh tool-search index for each execution and seed
+  it only with callbacks authorized for that authenticated request. Build model objects per request
+  from the authenticated user's normalized
   Provider Registry endpoint and selected model. Keep `ChatCompletionClient` and `EmbeddingClient`
   only as real provider-neutral Nexo boundaries. Keep authorization-first pgvector retrieval in Nexo
   rather than replacing it with a generic vector-store query.
-- **Consequence:** Spring AI owns provider protocol, streaming aggregation, embeddings, advisor
-  composition, and recursive tool calls. Nexo still owns authentication, endpoint validation,
+- **Consequence:** Spring AI owns provider protocol, streaming aggregation, embeddings, progressive
+  tool-schema disclosure, advisor composition, and recursive tool calls. Nexo still owns
+  authentication, endpoint validation,
   owner/Vault isolation, context limits, cancellation, persistence, SSE, evidence, and audit. A
   browser disconnect never becomes model cancellation, and raw tool arguments/results remain absent
   from observations and API responses.
@@ -415,8 +418,9 @@ options considered, the selected approach, and its consequences.
   use and visible progress, while filesystem, terminal, Git, browser, MCP, and destructive actions do
   not yet have permission and recovery contracts.
 - **Decision:** Agent mode exposes `update_plan` on every request and `search_knowledge` only when the
-  conversation has owner-authorized Vaults attached. `ToolCallingManager` caps `update_plan` at eight
-  calls, `search_knowledge` at three, and the complete request at eleven tool calls. Plan replacements
+  conversation has owner-authorized Vaults attached. `ToolCallingManager` caps `update_plan` at
+  eight calls, `search_knowledge` at three, progressive discovery at three, capability inspection at
+  two, personal memory at two, MCP at six, and the complete superset at twenty-four calls. Plan replacements
   contain at most twelve concise steps and at most one `IN_PROGRESS` step. The latest revision is
   persisted per assistant message, streamed as `plan_updated`, restored with conversation messages,
   and rendered in a compact scroll-owning panel. Tool executions keep sanitized digests, status,
