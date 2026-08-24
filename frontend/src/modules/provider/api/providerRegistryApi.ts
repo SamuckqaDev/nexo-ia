@@ -8,7 +8,8 @@ const providerModelSchema = z.object({
   name: z.string(),
   modifiedAt: z.iso.datetime().nullable(),
   size: z.number().nullable(),
-  toolCallingSupported: z.boolean().nullable()
+  toolCallingSupported: z.boolean().nullable(),
+  thinkingSupported: z.boolean().nullable()
 });
 const responseSchema = z.object({ id: z.uuid(), providerType: providerTypeSchema, displayName: z.string(), endpoint: z.string(), selectedModel: z.string().nullable(), enabled: z.boolean(), lastConnectedAt: z.iso.datetime().nullable() });
 const modelCatalogSchema = z.object({

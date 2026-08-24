@@ -29,6 +29,8 @@ export type AgentContextSummary = {
   mcpLoading: boolean;
   mcpError: boolean;
   modelToolCallingSupported: boolean | null;
+  modelThinkingSupported: boolean | null;
+  thinkingEnabled: boolean;
 };
 
 export type ChatComposerProps = {

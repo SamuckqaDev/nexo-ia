@@ -139,6 +139,16 @@ export function McpHubPage(): ReactElement {
       ? current.filter((value: string) => value !== name)
       : [...current, name]);
   };
+  const enableForAgent = (connection: McpConnection): void => {
+    if (toolSelectionDirty) {
+      hub.selectTools.mutate(
+        { id: connection.id, enabledToolNames: selectedTools },
+        { onSuccess: (): void => hub.setEnabled.mutate({ id: connection.id, enabled: true }) }
+      );
+      return;
+    }
+    hub.setEnabled.mutate({ id: connection.id, enabled: true });
+  };
   const remove = (connection: McpConnection): void => {
     ask({
       title: "Remove this MCP server?",
@@ -274,7 +284,11 @@ export function McpHubPage(): ReactElement {
                     : <Cloud size={19} weight="duotone" />}
                   <ConnectionCopy>
                     <strong>{connection.displayName}</strong>
-                    <span>{statusLabel[connection.status]} · {connection.tools.length} tools</span>
+                    <span>
+                      {statusLabel[connection.status]}
+                      {connection.status === "CONNECTED" && !connection.enabled ? " · Off in Agent" : ""}
+                      {` · ${connection.tools.length} tools`}
+                    </span>
                   </ConnectionCopy>
                   {connection.enabled
                     ? <CheckCircle size={16} weight="fill" />
@@ -302,7 +316,9 @@ export function McpHubPage(): ReactElement {
               <DetailHeader>
                 <div>
                   <WorkspaceBadge tone={selected.enabled ? "positive" : selected.status === "UNAVAILABLE" ? "attention" : "default"}>
-                    {selected.enabled ? "Active in Agent" : statusLabel[selected.status]}
+                    {selected.enabled
+                      ? "Active in Agent"
+                      : selected.status === "CONNECTED" ? "Ready · Off in Agent" : statusLabel[selected.status]}
                   </WorkspaceBadge>
                   <span>{selected.serverName ?? selected.catalogServerId ?? selected.endpoint}</span>
                   {selected.serverVersion && <small>Version {selected.serverVersion}</small>}
@@ -325,6 +341,14 @@ export function McpHubPage(): ReactElement {
 
               {selected.lastErrorCode && (
                 <InlineNotice><WarningCircle size={17} />The server could not be reached. Check Docker or the endpoint and inspect again.</InlineNotice>
+              )}
+
+              {!selected.enabled && selected.status === "CONNECTED" && selectedTools.length > 0 && (
+                <InlineNotice>
+                  <WarningCircle size={17} />
+                  {selectedTools.length} allowed tool{selectedTools.length === 1 ? " is" : "s are"} selected,
+                  but {selected.displayName} is still off in Agent. Enable it below before returning to Chat.
+                </InlineNotice>
               )}
 
               {selected.tools.length ? (
@@ -361,13 +385,20 @@ export function McpHubPage(): ReactElement {
                     <Button
                       size="compact"
                       type="button"
-                      disabled={toolSelectionDirty || (!selected.enabled && selectedTools.length === 0) || hub.setEnabled.isPending}
-                      aria-busy={hub.setEnabled.isPending}
-                      onClick={(): void => hub.setEnabled.mutate({ id: selected.id, enabled: !selected.enabled })}
+                      disabled={(!selected.enabled && selectedTools.length === 0)
+                        || hub.setEnabled.isPending || hub.selectTools.isPending}
+                      aria-busy={hub.setEnabled.isPending || hub.selectTools.isPending}
+                      onClick={(): void => selected.enabled
+                        ? hub.setEnabled.mutate({ id: selected.id, enabled: false })
+                        : enableForAgent(selected)}
                     >
-                      {hub.setEnabled.isPending
+                      {hub.setEnabled.isPending || (hub.selectTools.isPending && !selected.enabled)
                         ? selected.enabled ? "Disabling…" : "Enabling…"
-                        : toolSelectionDirty ? "Save tools first" : selected.enabled ? "Disable" : "Enable in Agent"}
+                        : selected.enabled
+                          ? "Disable in Agent"
+                          : toolSelectionDirty
+                            ? `Save & enable ${selectedTools.length} tool${selectedTools.length === 1 ? "" : "s"}`
+                            : `Enable ${selectedTools.length} tool${selectedTools.length === 1 ? "" : "s"} in Agent`}
                     </Button>
                   </DetailActions>
                 </>

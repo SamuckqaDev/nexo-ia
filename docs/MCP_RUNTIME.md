@@ -45,6 +45,9 @@ Docker-maintained catalog source remains available in the
 - A newly discovered tool is off by default.
 - The owner selects an exact subset of discovered external names and separately enables the
   connection.
+- The Hub labels a discovered but disabled connection as **Off in Agent**, and its primary action can
+  save a changed allow-list and enable that exact subset in one explicit click. Discovery or tool
+  selection alone never appears as active access in Chat.
 - The MCP Hub exposes cost, risk hint, setup requirements, health, transport, real tool descriptions,
   and read/destructive/open-world annotations when the server provides them.
 

@@ -60,7 +60,9 @@ class OllamaProviderServiceTest {
                 .containsExactly("qwen3:8b", "nomic-embed-text");
         assertThat(models.getFirst().modifiedAt()).isNotNull();
         assertThat(models.getFirst().toolCallingSupported()).isTrue();
+        assertThat(models.getFirst().thinkingSupported()).isFalse();
         assertThat(models.getLast().toolCallingSupported()).isTrue();
+        assertThat(models.getLast().thinkingSupported()).isTrue();
     }
 
     @Test
@@ -83,7 +85,10 @@ class OllamaProviderServiceTest {
         var models = service.models(endpoint());
 
         assertThat(models).singleElement()
-                .satisfies(model -> assertThat(model.toolCallingSupported()).isNull());
+                .satisfies(model -> {
+                    assertThat(model.toolCallingSupported()).isNull();
+                    assertThat(model.thinkingSupported()).isNull();
+                });
     }
 
     @Test

@@ -6,18 +6,50 @@ import { ApiError } from "../../../../shared/api/ApiError";
 import type { ChatStreamHandlers } from "../types/chatTypes";
 import { resetChatStreams, useChatStream } from "./useChatStream";
 
-const { streamMessageMock } = vi.hoisted(() => ({ streamMessageMock: vi.fn() }));
+const { preference, streamMessageMock } = vi.hoisted(() => ({
+  preference: { thinkingEnabled: false },
+  streamMessageMock: vi.fn()
+}));
 
 vi.mock("../api/chatStreamClient", () => ({ streamMessage: streamMessageMock }));
 vi.mock("../api/chatApi", () => ({ cancelModelRequest: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("../../../settings/stores/usePreferenceStore", () => ({
+  usePreferenceStore: (selector: (state: { thinkingEnabled: boolean }) => boolean): boolean =>
+    selector(preference)
+}));
 
 const firstConversation = "10000000-0000-4000-8000-000000000001";
 const secondConversation = "20000000-0000-4000-8000-000000000002";
 
 describe("useChatStream", () => {
   afterEach(() => {
+    preference.thinkingEnabled = false;
     resetChatStreams();
     vi.clearAllMocks();
+  });
+
+  it("does not request Thinking when the selected model declares it unsupported", () => {
+    preference.thinkingEnabled = true;
+    streamMessageMock.mockReturnValue(new Promise<void>(() => undefined));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => useChatStream(firstConversation, [], "chat", false),
+      { wrapper }
+    );
+
+    act((): void => result.current.send("Answer directly"));
+
+    expect(streamMessageMock).toHaveBeenCalledWith(
+      firstConversation,
+      "Answer directly",
+      false,
+      "chat",
+      expect.any(Object),
+      expect.any(AbortSignal)
+    );
   });
 
   it("keeps a request alive and restores its local progress after another chat is opened", () => {

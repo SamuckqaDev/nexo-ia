@@ -10,6 +10,7 @@ export type ProviderModel = {
   modifiedAt: string | null;
   size: number | null;
   toolCallingSupported: boolean | null;
+  thinkingSupported: boolean | null;
 };
 export type ProviderModelCatalog = {
   providerConfigurationId: string;

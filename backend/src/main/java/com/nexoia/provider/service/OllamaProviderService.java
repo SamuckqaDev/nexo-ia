@@ -39,19 +39,23 @@ public class OllamaProviderService {
                     ? List.of()
                     : response.models().stream()
                             .filter(model -> model.name() != null && !model.name().isBlank())
-                            .map(model -> new ProviderModelResponse(
-                                    model.name(), model.modifiedAt(), model.size(),
-                                    toolCallingSupport(client, model.name(), model.capabilities())))
+                            .map(model -> {
+                                CapabilitySupport support = capabilitySupport(
+                                        client, model.name(), model.capabilities());
+                                return new ProviderModelResponse(
+                                        model.name(), model.modifiedAt(), model.size(),
+                                        support.tools(), support.thinking());
+                            })
                             .toList();
         } catch (RestClientException exception) {
             throw new ProviderUnavailableException();
         }
     }
 
-    private Boolean toolCallingSupport(
+    private CapabilitySupport capabilitySupport(
             RestClient client, String model, List<String> listedCapabilities) {
         if (listedCapabilities != null) {
-            return supportsTools(listedCapabilities);
+            return supports(listedCapabilities);
         }
         try {
             OllamaShowResponse response = client.post()
@@ -61,18 +65,30 @@ public class OllamaProviderService {
                     .retrieve()
                     .body(OllamaShowResponse.class);
             if (response == null || response.capabilities() == null) {
-                return null;
+                return CapabilitySupport.unknown();
             }
-            return supportsTools(response.capabilities());
+            return supports(response.capabilities());
         } catch (RestClientException exception) {
             // Older Ollama servers may not expose model capabilities. Catalog discovery remains
             // available, while the frontend presents Agent tool support as unknown.
-            return null;
+            return CapabilitySupport.unknown();
         }
     }
 
-    private boolean supportsTools(List<String> capabilities) {
-        return capabilities.stream()
-                .anyMatch(capability -> "tools".equalsIgnoreCase(capability));
+    private CapabilitySupport supports(List<String> capabilities) {
+        return new CapabilitySupport(
+                hasCapability(capabilities, "tools"),
+                hasCapability(capabilities, "thinking"));
+    }
+
+    private boolean hasCapability(List<String> capabilities, String expected) {
+        return capabilities.stream().anyMatch(expected::equalsIgnoreCase);
+    }
+
+    private record CapabilitySupport(Boolean tools, Boolean thinking) {
+
+        private static CapabilitySupport unknown() {
+            return new CapabilitySupport(null, null);
+        }
     }
 }

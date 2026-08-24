@@ -6,5 +6,6 @@ public record ProviderModelResponse(
         String name,
         Instant modifiedAt,
         Long size,
-        Boolean toolCallingSupported) {
+        Boolean toolCallingSupported,
+        Boolean thinkingSupported) {
 }

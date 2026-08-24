@@ -21,7 +21,9 @@ the advisor repeats until the model returns an ordinary answer or a limit stops 
 Ollama model compatibility is read from the capability metadata reported by the local catalog, with
 the official [`/api/show`](https://docs.ollama.com/api-reference/show-model-details) endpoint as a
 fallback. Only a model advertising `tools` is presented as **Agent ready**; the behavior follows
-Ollama's [tool-calling contract](https://docs.ollama.com/capabilities/tool-calling).
+Ollama's [tool-calling contract](https://docs.ollama.com/capabilities/tool-calling). Thinking is a
+separate advertised capability: the model picker identifies it independently, and Nexo does not send
+the opt-in Thinking request when the selected model explicitly reports that it is unsupported.
 
 Baeldung's guides on
 [recursive Advisors](https://www.baeldung.com/spring-ai-recursive-advisors) and
@@ -69,6 +71,11 @@ states, and the selected model's tool compatibility before a request is sent. Th
 composer share the same bounded width. A model explicitly reporting no tool calling keeps the
 textarea editable but blocks the invalid Agent submission and points the user back to the model
 picker; unknown capability metadata remains usable with an explicit warning.
+
+The model picker does not equate Agent support with Thinking support. For example, a model may
+advertise tool calling and therefore be Agent-ready while explicitly lacking provider reasoning.
+When the user's Thinking preference is enabled for such a model, the composer says **no Thinking**
+instead of presenting an ordinary fast answer as hidden reasoning.
 
 For an Agent request with selected Vaults, the initial capability envelope now says that Knowledge
 is `available_on_demand` instead of incorrectly describing it as not requested. It tells the model

@@ -43,7 +43,7 @@ export function AgentContextIndicator({
       ? "MCP status unavailable"
       : mcpReady
         ? `${context.enabledMcpToolCount} tool${context.enabledMcpToolCount === 1 ? "" : "s"} from ${context.enabledMcpConnectionNames.join(", ")}`
-        : "No MCP connected — open Hub";
+        : "No MCP enabled — open Hub";
 
   return (
     <ContextPanel aria-label="Agent context" $blocked={modelBlocked}>
@@ -54,7 +54,11 @@ export function AgentContextIndicator({
           {modelBlocked ? <WarningCircle size={12} /> : <CheckCircle size={12} weight="fill" />}
           {modelBlocked
             ? "Selected model has no tool calling"
-            : context.modelToolCallingSupported === null ? "Tool support unknown" : "Agent ready"}
+            : context.modelToolCallingSupported === null
+              ? "Tool support unknown"
+              : context.thinkingEnabled && context.modelThinkingSupported === false
+                ? "Agent ready · no Thinking"
+                : "Agent ready"}
         </ContextStatus>
       </ContextHeading>
       <ContextGrid>

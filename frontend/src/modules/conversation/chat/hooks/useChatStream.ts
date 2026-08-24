@@ -82,7 +82,8 @@ export const cancelAllChatStreams = (): Promise<void> => {
 export const useChatStream = (
   conversationId: string | null,
   persistedMessages: ConversationMessage[] = [],
-  mode: ConversationMode = "chat"
+  mode: ConversationMode = "chat",
+  modelThinkingSupported: boolean | null = null
 ): ChatStream => {
   const queryClient = useQueryClient();
   const thinkingEnabled: boolean = usePreferenceStore((state: PreferenceState) => state.thinkingEnabled);
@@ -167,7 +168,8 @@ export const useChatStream = (
 
     // The backend resolves the durable, owner-authorized Vault selection for this conversation.
     // No Vault ids cross this request boundary, so transient client state is never an auth source.
-    streamMessage(conversationId, content, thinkingEnabled, mode, {
+    const effectiveThinkingEnabled: boolean = thinkingEnabled && modelThinkingSupported !== false;
+    streamMessage(conversationId, content, effectiveThinkingEnabled, mode, {
       onStarted: (event: StartedEvent): void => {
         updateStream(conversationId, { phase: "streaming", assistantMessageId: event.assistantMessageId });
         queryClient.invalidateQueries({ queryKey: messagesKey(conversationId) });
@@ -258,7 +260,7 @@ export const useChatStream = (
         });
         settle(conversationId, error instanceof ApiError ? "failed" : "disconnected");
       });
-  }, [conversationId, mode, queryClient, settle, thinkingEnabled, updateStream]);
+  }, [conversationId, mode, modelThinkingSupported, queryClient, settle, thinkingEnabled, updateStream]);
 
   const cancel = useCallback((): void => {
     if (!conversationId || !snapshot.assistantMessageId) return;

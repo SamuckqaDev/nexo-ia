@@ -195,6 +195,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   Thinking. Thinking is off by default and applies to new requests; the preference is sent explicitly
   instead of relying on a provider default. Theme changes are applied immediately; the saved language
   choice is ready to drive the localization layer as translated interface content is introduced.
+- Ollama model discovery records tool calling and Thinking as separate advertised capabilities. The
+  model picker identifies both, and an explicitly unsupported Thinking request is suppressed instead
+  of silently retrying an ordinary answer while the interface implies that reasoning is active.
 - Authenticated users can edit their own name, username, email, and date of birth from Profile;
   the frontend derives and displays age from that date instead of persisting a manually entered age.
   Username uniqueness is checked by the service and enforced case-insensitively by PostgreSQL;

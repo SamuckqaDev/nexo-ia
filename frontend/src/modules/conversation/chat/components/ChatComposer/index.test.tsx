@@ -15,7 +15,9 @@ const defaultAgentContext: AgentContextSummary = {
   knowledgeError: false,
   mcpLoading: false,
   mcpError: false,
-  modelToolCallingSupported: true
+  modelToolCallingSupported: true,
+  modelThinkingSupported: true,
+  thinkingEnabled: false
 };
 
 const renderComposer = (

@@ -36,7 +36,13 @@ const catalogModels = (
 
   [fallback, current].forEach((name: string | null): void => {
     if (name && !models.some((model: ProviderModel) => model.name === name)) {
-      models.push({ name, modifiedAt: null, size: null, toolCallingSupported: null });
+      models.push({
+        name,
+        modifiedAt: null,
+        size: null,
+        toolCallingSupported: null,
+        thinkingSupported: null
+      });
     }
   });
   return models;
@@ -118,7 +124,9 @@ export function ModelPicker({
                 >
                   {model.name}{model.toolCallingSupported === true
                     ? " · Agent ready"
-                    : model.toolCallingSupported === false ? " · no tools" : ""}{model.name === catalog.selectedModel
+                    : model.toolCallingSupported === false ? " · no tools" : ""}{model.thinkingSupported === true
+                    ? " · Thinking"
+                    : model.thinkingSupported === false ? " · no Thinking" : ""}{model.name === catalog.selectedModel
                     ? catalog.status === "AVAILABLE" ? " · default" : " · configured fallback"
                     : ""}
                 </option>

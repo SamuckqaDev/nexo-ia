@@ -13,6 +13,8 @@ import type { BackendVault } from "../../../../knowledge/vault/types/backendVaul
 import { useMcpConnections } from "../../../../mcp/catalog/hooks/useMcpConnections";
 import type { McpConnection, McpTool } from "../../../../mcp/catalog/types/mcpTypes";
 import type { ProviderConfiguration, ProviderModel } from "../../../../provider/types/providerConfigurationTypes";
+import { usePreferenceStore } from "../../../../settings/stores/usePreferenceStore";
+import type { PreferenceState } from "../../../../settings/types/preferenceTypes";
 import { useUsage } from "../../../../usage/hooks/useUsage";
 import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
@@ -97,6 +99,7 @@ export function ChatPage(): ReactElement {
   const [renameTitle, setRenameTitle] = useState<string>("");
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
   const clearDraft: ChatDraftState["clear"] = useChatDraftStore((state: ChatDraftState) => state.clear);
+  const thinkingEnabled: boolean = usePreferenceStore((state: PreferenceState) => state.thinkingEnabled);
 
   const messages = useConversationMessages(selectedId);
   const selectModel = useSelectConversationModel(selectedId);
@@ -104,17 +107,11 @@ export function ChatPage(): ReactElement {
     ?.find((item: Conversation) => item.id === selectedId);
   const selectedVaultIds: string[] = selected?.knowledgeVaultIds ?? [];
   const selectKnowledge = useSelectConversationKnowledge(selectedId);
-  const stream = useChatStream(selectedId, messages.data ?? [], mode);
   const mcpConnections = useMcpConnections(mode === "agent");
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
     .filter((message: ConversationMessage): boolean => message.role === "USER")
     .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
     .filter((content: string): boolean => Boolean(content.trim())), [messages.data]);
-  const persistedAgentPlan: AgentPlan | null = useMemo<AgentPlan | null>(() =>
-    (messages.data ?? []).findLast((message: ConversationMessage): boolean =>
-      message.role === "ASSISTANT" && Boolean(message.agentPlan))?.agentPlan ?? null,
-  [messages.data]);
-  const visibleAgentPlan: AgentPlan | null = stream.agentPlan ?? persistedAgentPlan;
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
 
   useEffect((): void => {
@@ -163,6 +160,17 @@ export function ChatPage(): ReactElement {
   const effectiveModelDetails: ProviderModel | undefined = modelCatalogs
     .find((catalog) => catalog.providerConfigurationId === effectiveModel?.providerConfigurationId)
     ?.models.find((model: ProviderModel) => model.name === effectiveModel?.selectedModel);
+  const stream = useChatStream(
+    selectedId,
+    messages.data ?? [],
+    mode,
+    effectiveModelDetails?.thinkingSupported ?? null
+  );
+  const persistedAgentPlan: AgentPlan | null = useMemo<AgentPlan | null>(() =>
+    (messages.data ?? []).findLast((message: ConversationMessage): boolean =>
+      message.role === "ASSISTANT" && Boolean(message.agentPlan))?.agentPlan ?? null,
+  [messages.data]);
+  const visibleAgentPlan: AgentPlan | null = stream.agentPlan ?? persistedAgentPlan;
   const selectedVaultNames: string[] = (backendVaults.vaults.data ?? [])
     .filter((vault: BackendVault) => selectedVaultIds.includes(vault.id))
     .map((vault: BackendVault) => vault.name);
@@ -177,7 +185,9 @@ export function ChatPage(): ReactElement {
     knowledgeError: backendVaults.vaults.isError,
     mcpLoading: mcpConnections.isLoading,
     mcpError: mcpConnections.isError,
-    modelToolCallingSupported: effectiveModelDetails?.toolCallingSupported ?? null
+    modelToolCallingSupported: effectiveModelDetails?.toolCallingSupported ?? null,
+    modelThinkingSupported: effectiveModelDetails?.thinkingSupported ?? null,
+    thinkingEnabled
   };
 
   useEffect((): void => {

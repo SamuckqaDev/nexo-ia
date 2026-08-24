@@ -16,7 +16,13 @@ describe("getProviderModelCatalog", () => {
           displayName: "Local Ollama",
           selectedModel: "qwen3:8b",
           status: "AVAILABLE",
-          models: [{ name: "qwen3:8b", modifiedAt: null, size: 123, toolCallingSupported: true }],
+          models: [{
+            name: "qwen3:8b",
+            modifiedAt: null,
+            size: 123,
+            toolCallingSupported: true,
+            thinkingSupported: true
+          }],
           message: null
         }]
       }
@@ -29,6 +35,7 @@ describe("getProviderModelCatalog", () => {
     );
     expect(catalog.models.map((model) => model.name)).toEqual(["qwen3:8b"]);
     expect(catalog.models[0].toolCallingSupported).toBe(true);
+    expect(catalog.models[0].thinkingSupported).toBe(true);
   });
 
   it("rejects malformed model data instead of trusting the transport", async () => {
@@ -42,7 +49,13 @@ describe("getProviderModelCatalog", () => {
           displayName: "Local Ollama",
           selectedModel: null,
           status: "AVAILABLE",
-          models: [{ name: 42, modifiedAt: null, size: null, toolCallingSupported: null }],
+          models: [{
+            name: 42,
+            modifiedAt: null,
+            size: null,
+            toolCallingSupported: null,
+            thinkingSupported: null
+          }],
           message: null
         }]
       }
