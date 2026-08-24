@@ -7,6 +7,7 @@ import {
   House,
   FolderOpen,
   List,
+  PlugsConnected,
   Sparkle,
   Vault,
   X
@@ -63,6 +64,8 @@ const VaultsPage = lazy(() => import("../../../modules/knowledge/vault/pages/Vau
   .then((module) => ({ default: module.VaultsPage })));
 const SkillsPage = lazy(() => import("../../../modules/skill/catalog/pages/SkillsPage")
   .then((module) => ({ default: module.SkillsPage })));
+const McpHubPage = lazy(() => import("../../../modules/mcp/catalog/pages/McpHubPage")
+  .then((module) => ({ default: module.McpHubPage })));
 
 const featureNavigation: NavigationItem[] = [
   { id: "home", label: "Home", icon: House },
@@ -71,7 +74,8 @@ const featureNavigation: NavigationItem[] = [
   { id: "cowork", label: "Cowork", icon: Brain },
   { id: "tasks", label: "Tasks & calendar", icon: CalendarCheck },
   { id: "vaults", label: "Vaults", icon: Vault },
-  { id: "skills", label: "Skills", icon: Sparkle }
+  { id: "skills", label: "Skills", icon: Sparkle },
+  { id: "mcp", label: "MCP Hub", icon: PlugsConnected }
 ];
 
 const sectionPaths: Record<AppSection, string> = {
@@ -82,6 +86,7 @@ const sectionPaths: Record<AppSection, string> = {
   tasks: "/tasks",
   vaults: "/vaults",
   skills: "/skills",
+  mcp: "/mcp",
   settings: "/settings/profile",
   administration: "/administration"
 };
@@ -217,6 +222,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
               <Route path="/tasks" element={<CalendarPage />} />
               <Route path="/vaults" element={<VaultsPage />} />
               <Route path="/skills" element={<SkillsPage />} />
+              <Route path="/mcp" element={<McpHubPage />} />
               <Route path="/settings/:settingsSection" element={<SettingsPage user={user} section={settingsSection} onSectionChange={openSettings} />} />
               <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
               <Route path="/administration" element={<UserManagement />} />

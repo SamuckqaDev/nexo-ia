@@ -5,6 +5,7 @@ public enum AuditTargetType {
     PROVIDER,
     CONVERSATION,
     MESSAGE,
+    MCP_SERVER,
     SESSION,
     KNOWLEDGE_VAULT,
     KNOWLEDGE_SOURCE

@@ -44,6 +44,20 @@ type MessageItemProps = {
   activeToolExecutions?: ToolExecution[];
 };
 
+const toolActivityLabel = (toolName: string): string => {
+  if (toolName === "update_plan") return "Implementation plan";
+  if (toolName === "search_knowledge") return "Knowledge search";
+
+  if (toolName.startsWith("mcp_")) {
+    const externalToolName: string = toolName
+      .replace(/^mcp_[a-f0-9]{8}_/, "")
+      .replaceAll("_", " ");
+    return `MCP · ${externalToolName}`;
+  }
+
+  return toolName;
+};
+
 /**
  * Renders one full-width conversation turn. A cancelled or failed generation always states what
  * happened, so a partial or missing answer is never presented as a normal reply.
@@ -151,7 +165,7 @@ export function MessageItem({
                 {execution.status === "RUNNING"
                   ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
                   : <MagnifyingGlass size={13} weight="duotone" />}
-                <span>{execution.toolName === "update_plan" ? "Implementation plan" : "Knowledge search"}</span>
+                <span title={execution.toolName}>{toolActivityLabel(execution.toolName)}</span>
                 <small>
                   {execution.status === "RUNNING"
                     ? "running"

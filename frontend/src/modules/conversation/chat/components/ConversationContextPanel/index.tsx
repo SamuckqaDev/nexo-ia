@@ -247,7 +247,7 @@ export function ConversationContextPanel({
             ))}
           </PlanList>
           <EmptyCopy>
-            <span>Agent mode may run the read-only Knowledge search tool inside this conversation's selected Vaults. Other tools remain unavailable.</span>
+            <span>Agent mode may search the selected Vaults and run tools you explicitly enabled in MCP Hub. Workspace and native system tools remain unavailable.</span>
           </EmptyCopy>
         </>
       );

@@ -38,12 +38,15 @@ import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
+import com.nexoia.mcp.connection.service.McpConnectionService;
+import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.AgentPlanUpdateObserver;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
+import com.nexoia.provider.dto.McpToolScope;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStarted;
@@ -55,6 +58,7 @@ import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.provider.service.ProviderEndpointGuard;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -89,6 +93,7 @@ public class ModelRequestStore {
     private final ConversationContextAssembler contextAssembler;
     private final ProviderEndpointGuard endpointGuard;
     private final RetrievalService retrievalService;
+    private final McpConnectionService mcpConnections;
     private final Clock clock;
 
     /**
@@ -189,6 +194,9 @@ public class ModelRequestStore {
                 ? retrieve(userId, selectedVaultIds, content)
                 : ResolvedKnowledgeContext.notRequested();
         List<CitationResponse> citations = resolvedKnowledge.citations();
+        List<McpRuntimeConnection> enabledMcpConnections = mode == ConversationMode.AGENT
+                ? mcpConnections.enabledRuntimeConnections(userId)
+                : List.of();
 
         return new ModelRequestReservation(
                 userId,
@@ -202,7 +210,8 @@ public class ModelRequestStore {
                         contextAssembler.assemble(
                                 conversationId, username, citations,
                                 capabilityEnvelope(username, conversation.getSelectedModel(),
-                                        processingLocation, selectedVaults, resolvedKnowledge, mode)),
+                                        processingLocation, selectedVaults, resolvedKnowledge,
+                                        enabledMcpConnections, mode)),
                         thinkingEnabled,
                         mode,
                         mode == ConversationMode.AGENT
@@ -212,6 +221,11 @@ public class ModelRequestStore {
                         mode == ConversationMode.AGENT
                                 ? new AgentPlanToolScope(
                                         userId, assistantMessage.getId(), correlationId)
+                                : null,
+                        mode == ConversationMode.AGENT && !enabledMcpConnections.isEmpty()
+                                ? new McpToolScope(
+                                        userId, assistantMessage.getId(), correlationId,
+                                        enabledMcpConnections)
                                 : null,
                         ToolExecutionObserver.NOOP,
                         AgentPlanUpdateObserver.NOOP),
@@ -223,13 +237,15 @@ public class ModelRequestStore {
      * Builds the truthful per-request capability envelope. The knowledge numbers are derived from
      * the deterministic retrieval that already ran, so the model cannot be told it searched or found
      * more than it did. Workspace and Skill capabilities remain absent until their server-side
-     * access paths are connected; Agent mode exposes only the scoped knowledge search tool.
+     * access paths are connected. Agent mode additionally exposes only the user's enabled,
+     * explicitly selected MCP tools.
      */
     private ModelContextEnvelope capabilityEnvelope(
             String username, String model,
             ProcessingLocation processingLocation,
             List<KnowledgeVault> selectedVaults,
             ResolvedKnowledgeContext resolvedKnowledge,
+            List<McpRuntimeConnection> enabledMcpConnections,
             ConversationMode mode) {
         List<CitationResponse> citations = resolvedKnowledge.citations();
         KnowledgeCapability knowledge = new KnowledgeCapability(
@@ -244,12 +260,17 @@ public class ModelRequestStore {
         ToolCapability tools;
         if (mode != ConversationMode.AGENT) {
             tools = ToolCapability.none();
-        } else if (selectedVaults.isEmpty()) {
-            tools = new ToolCapability(List.of(AgentPlanToolFactory.TOOL_NAME));
         } else {
-            tools = new ToolCapability(List.of(
-                    AgentPlanToolFactory.TOOL_NAME,
-                    KnowledgeSearchToolFactory.TOOL_NAME));
+            List<String> exposedTools = new ArrayList<>();
+            exposedTools.add(AgentPlanToolFactory.TOOL_NAME);
+            if (!selectedVaults.isEmpty()) {
+                exposedTools.add(KnowledgeSearchToolFactory.TOOL_NAME);
+            }
+            enabledMcpConnections.stream()
+                    .flatMap(connection -> connection.enabledTools().stream())
+                    .map(tool -> tool.exposedName())
+                    .forEach(exposedTools::add);
+            tools = new ToolCapability(List.copyOf(exposedTools));
         }
         return new ModelContextEnvelope(username, mode.name().toLowerCase(),
                 new CapabilityManifest(model, processingLocation, knowledge,

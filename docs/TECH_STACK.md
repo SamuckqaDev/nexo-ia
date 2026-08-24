@@ -100,6 +100,10 @@ knowledge behavior must remain testable without HTTP, JPA, Ollama, or an MCP ser
   authorized context envelope rather than conversation identifier alone.
 - Use JSON Schema-compatible contracts for tool input and structured results.
 - Use the official MCP Java SDK through Spring AI's MCP integration where appropriate.
+- Use programmatic request-owned MCP clients for the dynamic user registry instead of static
+  application-wide starter configuration. Docker catalog servers use the fixed Gateway STDIO
+  transport; personal servers begin with validated Streamable HTTP. See
+  [MCP runtime and implementation plan](MCP_RUNTIME.md).
 - Do not add LangChain4j beside Spring AI in the foundation. Re-evaluate it later through an isolated
   experiment if it offers a capability we can measure.
 

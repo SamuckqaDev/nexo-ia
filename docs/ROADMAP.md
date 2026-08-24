@@ -71,12 +71,13 @@ administration UI. It does not pull later-phase capabilities forward. See
 
 ## Phase 6 — MCP
 
-- Study the protocol, transports, and lifecycle.
-- Connect a simple MCP server.
-- Discover tools progressively.
-- Apply the same permission rules to MCP tools.
-- Add the MCP Hub with provenance, license, locality, data-exposure, health, scope, usage, and cost
-  inspection.
+- **Implemented first slice:** official SDK lifecycle, STDIO Docker Gateway and Streamable HTTP
+  transports, live/fallback catalog, user-owned registry, bounded tool discovery, explicit tool
+  selection, Agent callbacks, evidence, audit, and call limits.
+- **Implemented first slice:** MCP Hub with provenance, license/cost/risk/setup metadata, connection
+  health, transport, tool annotations, and free-first filtering.
+- Add Secret Store/OAuth, typed per-user Docker configuration, the full approval Permission Engine,
+  per-conversation scope, usage history, and the Companion Docker broker.
 - Build the Nexo MCP toolkit and validate one free, maintained tool integration end to end.
 
 ## Phase 7 — Agent

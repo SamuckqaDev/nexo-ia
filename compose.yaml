@@ -27,6 +27,7 @@ services:
       NEXO_SECURE_COOKIE: ${NEXO_SECURE_COOKIE:-false}
       NEXO_SMTP_HOST: ${NEXO_CONTAINER_SMTP_HOST:-host.containers.internal}
       NEXO_SMTP_PORT: ${NEXO_CONTAINER_SMTP_PORT:-1025}
+      NEXO_MCP_ALLOW_PRIVATE_ENDPOINTS: ${NEXO_MCP_ALLOW_PRIVATE_ENDPOINTS:-false}
     extra_hosts:
       - "host.containers.internal:host-gateway"
     depends_on:

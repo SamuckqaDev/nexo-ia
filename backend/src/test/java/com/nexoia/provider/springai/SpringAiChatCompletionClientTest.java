@@ -13,6 +13,7 @@ import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
+import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.ChatCompletionCommand;
@@ -77,6 +78,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 mock(AgentPlanToolFactory.class),
+                mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
     }
 
@@ -167,6 +169,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 new KnowledgeSearchToolFactory(retrieval, mock(AuditService.class), Clock.systemUTC()),
                 mock(AgentPlanToolFactory.class),
+                mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
         AtomicInteger requests = new AtomicInteger();
         List<String> requestBodies = new ArrayList<>();
@@ -223,6 +226,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
+                mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
         AtomicInteger requests = new AtomicInteger();
         List<String> requestBodies = new ArrayList<>();
@@ -259,6 +263,7 @@ class SpringAiChatCompletionClientTest {
                 ConversationMode.AGENT,
                 null,
                 new AgentPlanToolScope(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                null,
                 ToolExecutionObserver.NOOP,
                 planUpdate::set);
 

@@ -2,9 +2,9 @@
 
 Nexo uses Spring AI 2.0.1 as the orchestration layer for Ollama chat, embeddings, Advisors, and
 request-scoped tools. This is a real but deliberately bounded Agent runtime: the selected model can
-revise a visible implementation plan and search the conversation's authorized Knowledge Vaults. It
-cannot yet read a Workspace, edit files, run a terminal, write Git state, browse, call MCP servers,
-or delegate to subagents.
+revise a visible implementation plan, search the conversation's authorized Knowledge Vaults, and
+call explicitly enabled tools from the authenticated user's MCP registry. It cannot yet read a
+Workspace, edit files, run arbitrary terminal commands, write Git state, or delegate to subagents.
 
 ## Source-backed framework choices
 
@@ -35,6 +35,7 @@ authenticated message
   -> ToolCallingAdvisor drives the bounded loop
        update_plan       always in Agent mode
        search_knowledge  only with authorized selected Vaults
+       mcp_*              only from the owner's enabled, explicitly selected MCP snapshot
   -> stream typed Agent/tool/plan/token/usage events
   -> persist answer, plan, citations, tool evidence, usage, and terminal state
 ```
@@ -51,13 +52,16 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Selected Vaults | Deterministic retrieval before generation | Available through `search_knowledge` |
 | Visible plan | None | Persisted `update_plan` revisions |
 | Tool loop | None | Spring AI `ToolCallingAdvisor` |
-| Write/system tools | None | None |
+| External MCP tools | None | Explicitly selected, governed callbacks |
+| Native write/system tools | None | None |
 
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
 `search_knowledge` accepts only a bounded query and result count, searches only server-captured Vault
-scope, rejects repeated identical queries, and is capped at three calls. `ToolCallingManager` caps the
-combined request at eleven tool calls and throws on limit exhaustion rather than looping forever.
+scope, rejects repeated identical queries, and is capped at three calls. MCP tools share a six-call
+request cap, two calls per tool, duplicate-argument denial, bounded output, evidence, audit, and
+cancellation. `ToolCallingManager` caps the combined loop and throws on exhaustion rather than
+looping forever. See [MCP runtime and implementation plan](MCP_RUNTIME.md).
 
 ## Knowledge and isolation
 
@@ -80,7 +84,9 @@ future context.
 
 - model-capability discovery before enabling Agent mode;
 - Workspace/file read and write tools;
-- terminal, Git, browser, email, database, and external MCP tools;
+- native terminal, Git, browser, email, and database tools;
+- MCP credentials/OAuth, configuration-dependent Docker entries, resources/prompts, and a Companion
+  bridge for a containerized backend;
 - approval gates and reversible write transactions;
 - resumable intermediate tool/model state across backend restarts;
 - evaluator/optimizer loops and multi-agent orchestrator/worker execution;

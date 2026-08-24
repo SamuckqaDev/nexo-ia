@@ -4,7 +4,7 @@ import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../../../app/styles/theme";
 import { builtInSkills } from "../../../../../../skill/catalog/stores/useSkillCatalogStore";
 import { buildContextualChatMessage } from "../../../../services/chatContextService";
-import type { ConversationMessage } from "../../../../types/chatTypes";
+import type { ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
 import { MessageItem } from "./index";
 
 const message = (overrides: Partial<ConversationMessage> = {}): ConversationMessage => ({
@@ -30,6 +30,16 @@ const message = (overrides: Partial<ConversationMessage> = {}): ConversationMess
 
 const renderItem = (value: ConversationMessage) =>
   render(<ThemeProvider theme={darkTheme}><MessageItem message={value} /></ThemeProvider>);
+
+const toolExecution = (toolName: string): ToolExecution => ({
+  id: `tool-${toolName}`,
+  toolName,
+  status: "COMPLETED",
+  durationMs: 450,
+  citations: [],
+  startedAt: "2026-08-24T12:00:00Z",
+  completedAt: "2026-08-24T12:00:00.450Z"
+});
 
 describe("MessageItem", () => {
   it("shows the model, token usage and latency of a completed answer", () => {
@@ -102,6 +112,19 @@ describe("MessageItem", () => {
     expect(screen.getByText("revision 2")).toBeVisible();
     expect(screen.getByText("Inspect the Vaults")).toBeVisible();
     expect(screen.getByText("Implement the answer")).toBeVisible();
+  });
+
+  it("distinguishes MCP activity from native Agent tools", () => {
+    renderItem(message({
+      mode: "AGENT",
+      toolExecutions: [
+        toolExecution("search_knowledge"),
+        toolExecution("mcp_a1b2c3d4_fetch_url")
+      ]
+    }));
+
+    expect(screen.getByText("Knowledge search")).toBeVisible();
+    expect(screen.getByText("MCP · fetch url")).toHaveAttribute("title", "mcp_a1b2c3d4_fetch_url");
   });
 
   it("does not show execution metadata on a user message", () => {

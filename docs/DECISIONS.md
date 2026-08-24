@@ -425,3 +425,21 @@ options considered, the selected approach, and its consequences.
   evidence without claiming general computer control. Unsupported or absent capabilities remain
   unavailable rather than being simulated in text. Additional tools must reuse this request-scoped
   registration, authorization, limits, evidence, and audit boundary.
+
+## D-030 — Separate Docker MCP and personal MCP behind one governed registry
+
+- **Status:** accepted
+- **Context:** Nexo needs both Docker's maintained MCP ecosystem and servers created or operated by
+  an individual. Static application-wide Spring configuration would mix users, while accepting raw
+  commands, shared Docker settings, or plaintext credentials would bypass the unfinished Permission
+  Engine and Secret Store.
+- **Decision:** persist user-owned MCP connections and discovered tool snapshots. Use the official
+  MCP Java SDK plus Spring AI's programmatic callback adapter: Docker catalog servers launch only
+  through a fixed Docker Gateway command, and personal servers use validated Streamable HTTP.
+  Discover first, keep every tool disabled by default, and attach only explicitly selected tools to
+  Agent requests. Reject catalog entries that currently require secrets or configuration, and reject
+  arbitrary custom STDIO commands.
+- **Consequence:** the first MCP slice is useful, dynamic, free-first, audited, and isolated without
+  pretending the later security subsystems exist. A containerized Nexo backend cannot use a host
+  Docker Desktop Gateway until the Companion/broker boundary exists. See
+  [MCP runtime and implementation plan](MCP_RUNTIME.md).

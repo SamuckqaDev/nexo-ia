@@ -26,6 +26,11 @@ import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.model.VaultScope;
+import com.nexoia.mcp.connection.model.McpConnectionKind;
+import com.nexoia.mcp.connection.model.McpTransportType;
+import com.nexoia.mcp.connection.service.McpConnectionService;
+import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
+import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
@@ -58,6 +63,7 @@ class ModelRequestStoreTest {
     @Mock private ConversationContextAssembler contextAssembler;
     @Mock private ProviderEndpointGuard endpointGuard;
     @Mock private RetrievalService retrieval;
+    @Mock private McpConnectionService mcpConnections;
 
     private ModelRequestStore store;
     private final UUID userId = UUID.randomUUID();
@@ -77,6 +83,7 @@ class ModelRequestStoreTest {
                 contextAssembler,
                 endpointGuard,
                 retrieval,
+                mcpConnections,
                 Clock.fixed(Instant.parse("2026-08-21T12:00:00Z"), ZoneOffset.UTC));
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(Conversation.builder()
@@ -136,7 +143,7 @@ class ModelRequestStoreTest {
     }
 
     @Test
-    void agentModeExposesOnlyTheAuthorizedKnowledgeToolWithoutPreRetrieval() {
+    void agentModeExposesAuthorizedKnowledgePlanAndOwnedMcpToolsWithoutPreRetrieval() {
         KnowledgeVault vault = KnowledgeVault.builder()
                 .id(UUID.randomUUID())
                 .ownerId(userId)
@@ -144,6 +151,11 @@ class ModelRequestStoreTest {
                 .scope(VaultScope.PERSONAL)
                 .build();
         when(conversationKnowledge.selectedVaults(userId, conversationId)).thenReturn(List.of(vault));
+        McpRuntimeConnection mcp = new McpRuntimeConnection(
+                UUID.randomUUID(), "Fetch", McpConnectionKind.DOCKER_CATALOG,
+                McpTransportType.DOCKER_GATEWAY, "fetch", null,
+                List.of(new McpRuntimeTool("fetch", "mcp_12345678_fetch")));
+        when(mcpConnections.enabledRuntimeConnections(userId)).thenReturn(List.of(mcp));
 
         ModelRequestReservation reservation = store.reserve(
                 userId,
@@ -163,7 +175,8 @@ class ModelRequestStoreTest {
         assertThat(envelope.getValue().manifest().knowledge().searchStatus())
                 .isEqualTo(KnowledgeSearchStatus.NOT_REQUESTED);
         assertThat(envelope.getValue().manifest().tools().exposedToolNames())
-                .containsExactly("update_plan", "search_knowledge");
+                .containsExactly("update_plan", "search_knowledge", "mcp_12345678_fetch");
         assertThat(reservation.command().agentPlanToolScope()).isNotNull();
+        assertThat(reservation.command().mcpToolScope().connections()).containsExactly(mcp);
     }
 }

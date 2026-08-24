@@ -5,6 +5,8 @@ import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.conversation.inference.tool.AgentPlanToolSession;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolSession;
+import com.nexoia.mcp.runtime.service.McpToolSession;
+import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
@@ -61,6 +63,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final SpringAiMessageMapper messageMapper;
     private final KnowledgeSearchToolFactory knowledgeToolFactory;
     private final AgentPlanToolFactory planToolFactory;
+    private final McpToolSessionFactory mcpToolSessionFactory;
     private final ObservationRegistry observationRegistry;
 
     public SpringAiChatCompletionClient(
@@ -68,11 +71,13 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             SpringAiMessageMapper messageMapper,
             KnowledgeSearchToolFactory knowledgeToolFactory,
             AgentPlanToolFactory planToolFactory,
+            McpToolSessionFactory mcpToolSessionFactory,
             ObservationRegistry observationRegistry) {
         this.modelFactory = modelFactory;
         this.messageMapper = messageMapper;
         this.knowledgeToolFactory = knowledgeToolFactory;
         this.planToolFactory = planToolFactory;
+        this.mcpToolSessionFactory = mcpToolSessionFactory;
         this.observationRegistry = observationRegistry;
     }
 
@@ -127,88 +132,102 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         ChatClient chatClient = ChatClient.builder(model).build();
         KnowledgeSearchToolSession knowledgeSession = knowledgeToolSession(command, cancelled);
         AgentPlanToolSession planSession = planToolSession(command, cancelled);
-        List<ToolCallback> callbacks = Stream.of(
+        McpToolSession mcpSession = mcpToolSession(command, cancelled);
+        List<ToolCallback> callbacks = new ArrayList<>(Stream.of(
                         planSession == null ? null : planSession.callback(),
                         knowledgeSession == null ? null : knowledgeSession.callback())
                 .filter(Objects::nonNull)
-                .toList();
-
-        StringBuilder content = new StringBuilder();
-        Integer inputTokens = null;
-        Integer outputTokens = null;
-        String finishReason = null;
-
-        ChatClient.ChatClientRequestSpec request = chatClient.prompt(prompt)
-                .advisors(new SpringAiContextAdvisor(systemContext));
-        if (!callbacks.isEmpty()) {
-            ToolCallingManager toolCallingManager = ToolCallingManager.builder()
-                    .observationRegistry(observationRegistry)
-                    .maxCallsPerTool(AgentPlanToolFactory.TOOL_NAME, AgentPlanToolFactory.MAX_UPDATES)
-                    .maxCallsPerTool(KnowledgeSearchToolFactory.TOOL_NAME, KnowledgeSearchToolFactory.MAX_CALLS)
-                    .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES + KnowledgeSearchToolFactory.MAX_CALLS)
-                    .onLimitExceeded(ToolCallLimitBehavior.THROW)
-                    .build();
-            ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
-                    .toolCallingManager(toolCallingManager)
-                    .build();
-            request = request.advisors(toolAdvisor).tools(callbacks.toArray());
+                .toList());
+        if (mcpSession != null) {
+            callbacks.addAll(mcpSession.callbacks());
         }
 
-        try (Stream<ChatResponse> responses = request
-                .stream()
-                .chatResponse()
-                .toStream()) {
-            Iterator<ChatResponse> iterator = responses.iterator();
-            while (iterator.hasNext()) {
-                // Consult cancellation before consuming each delta, matching the streaming contract:
-                // closing the Stream disposes the underlying reactive subscription.
-                if (cancelled.getAsBoolean()) {
-                    return new ChatCompletionOutcome(
-                            content.toString(), null, null, null, true, CANCELLED_REASON,
-                            evidence(planSession, knowledgeSession));
-                }
+        try {
+            StringBuilder content = new StringBuilder();
+            Integer inputTokens = null;
+            Integer outputTokens = null;
+            String finishReason = null;
 
-                ChatResponse response = iterator.next();
-                Generation generation = response.getResult();
-                if (generation != null) {
-                    AssistantMessage message = generation.getOutput();
-                    if (message.getMetadata().get(THINKING_KEY) instanceof String reasoning
-                            && !reasoning.isEmpty()) {
-                        onThinking.accept(reasoning);
-                    }
-                    String delta = message.getText();
-                    if (delta != null && !delta.isEmpty()) {
-                        content.append(delta);
-                        onToken.accept(delta);
-                    }
-                    if (generation.getMetadata() != null && generation.getMetadata().getFinishReason() != null) {
-                        finishReason = generation.getMetadata().getFinishReason();
-                    }
-                }
-
-                Usage usage = response.getMetadata().getUsage();
-                if (usage != null) {
-                    if (usage.getPromptTokens() != null) {
-                        inputTokens = usage.getPromptTokens();
-                    }
-                    if (usage.getCompletionTokens() != null) {
-                        outputTokens = usage.getCompletionTokens();
-                    }
-                }
+            ChatClient.ChatClientRequestSpec request = chatClient.prompt(prompt)
+                    .advisors(new SpringAiContextAdvisor(systemContext));
+            if (!callbacks.isEmpty()) {
+                ToolCallingManager toolCallingManager = ToolCallingManager.builder()
+                        .observationRegistry(observationRegistry)
+                        .maxCallsPerTool(2)
+                        .maxCallsPerTool(AgentPlanToolFactory.TOOL_NAME, AgentPlanToolFactory.MAX_UPDATES)
+                        .maxCallsPerTool(KnowledgeSearchToolFactory.TOOL_NAME, KnowledgeSearchToolFactory.MAX_CALLS)
+                        .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES
+                                + KnowledgeSearchToolFactory.MAX_CALLS
+                                + McpToolSessionFactory.MAX_CALLS)
+                        .onLimitExceeded(ToolCallLimitBehavior.THROW)
+                        .build();
+                ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
+                        .toolCallingManager(toolCallingManager)
+                        .build();
+                request = request.advisors(toolAdvisor).tools(callbacks.toArray());
             }
-        } catch (ProviderStreamException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            log.warn("[NEXO-BACK][PROVIDER] Ollama stream failed model={} reason={}",
-                    command.model(), exception.getClass().getSimpleName());
-            throw new ProviderStreamException(exception);
-        }
 
-        TokenSource tokenSource =
-                inputTokens == null && outputTokens == null ? null : TokenSource.PROVIDER;
-        return new ChatCompletionOutcome(
-                content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
-                evidence(planSession, knowledgeSession));
+            try (Stream<ChatResponse> responses = request
+                    .stream()
+                    .chatResponse()
+                    .toStream()) {
+                Iterator<ChatResponse> iterator = responses.iterator();
+                while (iterator.hasNext()) {
+                    // Consult cancellation before consuming each delta, matching the streaming contract:
+                    // closing the Stream disposes the underlying reactive subscription.
+                    if (cancelled.getAsBoolean()) {
+                        return new ChatCompletionOutcome(
+                                content.toString(), null, null, null, true, CANCELLED_REASON,
+                                evidence(planSession, knowledgeSession, mcpSession));
+                    }
+
+                    ChatResponse response = iterator.next();
+                    Generation generation = response.getResult();
+                    if (generation != null) {
+                        AssistantMessage message = generation.getOutput();
+                        if (message.getMetadata().get(THINKING_KEY) instanceof String reasoning
+                                && !reasoning.isEmpty()) {
+                            onThinking.accept(reasoning);
+                        }
+                        String delta = message.getText();
+                        if (delta != null && !delta.isEmpty()) {
+                            content.append(delta);
+                            onToken.accept(delta);
+                        }
+                        if (generation.getMetadata() != null
+                                && generation.getMetadata().getFinishReason() != null) {
+                            finishReason = generation.getMetadata().getFinishReason();
+                        }
+                    }
+
+                    Usage usage = response.getMetadata().getUsage();
+                    if (usage != null) {
+                        if (usage.getPromptTokens() != null) {
+                            inputTokens = usage.getPromptTokens();
+                        }
+                        if (usage.getCompletionTokens() != null) {
+                            outputTokens = usage.getCompletionTokens();
+                        }
+                    }
+                }
+            } catch (ProviderStreamException exception) {
+                throw exception;
+            } catch (RuntimeException exception) {
+                log.warn("[NEXO-BACK][PROVIDER] Ollama stream failed model={} reason={}",
+                        command.model(), exception.getClass().getSimpleName());
+                throw new ProviderStreamException(exception);
+            }
+
+            TokenSource tokenSource =
+                    inputTokens == null && outputTokens == null ? null : TokenSource.PROVIDER;
+            return new ChatCompletionOutcome(
+                    content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
+                    evidence(planSession, knowledgeSession, mcpSession));
+        } finally {
+            if (mcpSession != null) {
+                mcpSession.close();
+            }
+        }
     }
 
     private KnowledgeSearchToolSession knowledgeToolSession(
@@ -236,15 +255,31 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 cancelled);
     }
 
+    private McpToolSession mcpToolSession(
+            ChatCompletionCommand command,
+            BooleanSupplier cancelled) {
+        if (command.mode() != ConversationMode.AGENT
+                || command.mcpToolScope() == null
+                || !command.mcpToolScope().available()) {
+            return null;
+        }
+        return mcpToolSessionFactory.open(
+                command.mcpToolScope(), command.toolExecutionObserver(), cancelled);
+    }
+
     private List<ToolExecutionEvidence> evidence(
             AgentPlanToolSession planSession,
-            KnowledgeSearchToolSession knowledgeSession) {
+            KnowledgeSearchToolSession knowledgeSession,
+            McpToolSession mcpSession) {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
         if (planSession != null) {
             evidence.addAll(planSession.evidence());
         }
         if (knowledgeSession != null) {
             evidence.addAll(knowledgeSession.evidence());
+        }
+        if (mcpSession != null) {
+            evidence.addAll(mcpSession.evidence());
         }
         return evidence;
     }
@@ -253,7 +288,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         return new ChatCompletionCommand(
                 command.providerType(), command.endpoint(), command.model(), command.messages(), false,
                 command.mode(), command.knowledgeToolScope(), command.agentPlanToolScope(),
-                command.toolExecutionObserver(), command.agentPlanUpdateObserver());
+                command.mcpToolScope(), command.toolExecutionObserver(), command.agentPlanUpdateObserver());
     }
 
     private boolean thinkingUnsupported(ProviderStreamException exception) {

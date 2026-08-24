@@ -65,12 +65,12 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText(/switch to agent/i)).toBeInTheDocument();
   });
 
-  it("states the live read-only boundary of Agent mode", () => {
+  it("states the live governed tool boundary of Agent mode", () => {
     renderPanel("agent");
 
     fireEvent.click(screen.getByRole("tab", { name: /plan/i }));
     expect(screen.getByText("Execute and verify")).toBeInTheDocument();
-    expect(screen.getByText(/read-only Knowledge search tool/i)).toBeInTheDocument();
+    expect(screen.getByText(/tools you explicitly enabled in MCP Hub/i)).toBeInTheDocument();
     expect(screen.queryByText(/preview/i)).not.toBeInTheDocument();
   });
 

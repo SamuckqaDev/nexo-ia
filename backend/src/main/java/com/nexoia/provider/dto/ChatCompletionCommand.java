@@ -17,6 +17,7 @@ public record ChatCompletionCommand(
         ConversationMode mode,
         KnowledgeToolScope knowledgeToolScope,
         AgentPlanToolScope agentPlanToolScope,
+        McpToolScope mcpToolScope,
         ToolExecutionObserver toolExecutionObserver,
         AgentPlanUpdateObserver agentPlanUpdateObserver) {
 
@@ -27,7 +28,7 @@ public record ChatCompletionCommand(
             List<ChatCompletionMessage> messages,
             boolean thinkingEnabled) {
         this(providerType, endpoint, model, messages, thinkingEnabled,
-                ConversationMode.CHAT, null, null,
+                ConversationMode.CHAT, null, null, null,
                 ToolExecutionObserver.NOOP, AgentPlanUpdateObserver.NOOP);
     }
 
@@ -41,13 +42,14 @@ public record ChatCompletionCommand(
             KnowledgeToolScope knowledgeToolScope,
             ToolExecutionObserver toolExecutionObserver) {
         this(providerType, endpoint, model, messages, thinkingEnabled, mode,
-                knowledgeToolScope, null, toolExecutionObserver, AgentPlanUpdateObserver.NOOP);
+                knowledgeToolScope, null, null, toolExecutionObserver, AgentPlanUpdateObserver.NOOP);
     }
 
     public ChatCompletionCommand withToolExecutionObserver(ToolExecutionObserver observer) {
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
-                mode, knowledgeToolScope, agentPlanToolScope, observer, agentPlanUpdateObserver);
+                mode, knowledgeToolScope, agentPlanToolScope, mcpToolScope,
+                observer, agentPlanUpdateObserver);
     }
 
     public ChatCompletionCommand withExecutionObservers(
@@ -55,6 +57,7 @@ public record ChatCompletionCommand(
             AgentPlanUpdateObserver planObserver) {
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
-                mode, knowledgeToolScope, agentPlanToolScope, toolObserver, planObserver);
+                mode, knowledgeToolScope, agentPlanToolScope, mcpToolScope,
+                toolObserver, planObserver);
     }
 }

@@ -338,7 +338,18 @@ minimal vertical connection plus the first release `0.1` identity slice.
   Owner filtering happens in the repository joins before graph assembly, vectors never reach the
   browser, and the movable/resizable/maximizable frontend Workbench adds search, zoom, chunk detail,
   document-only collapse, and indexed-excerpt inspection. See D-027.
-- One hundred and fifty-three passing default backend tests and one hundred and seven passing frontend tests,
+- The authenticated MCP registry now persists Docker catalog and personal Streamable HTTP
+  connections per user through migration V27. The backend reads Docker's live catalog with a
+  reviewed free-first fallback, discovers real server tools through the official MCP Java SDK,
+  preserves explicit selections, and rejects secrets, shared configuration, arbitrary STDIO, and
+  private endpoints unless the operator deliberately opts into the last boundary.
+- Agent mode attaches only the authenticated user's enabled MCP tools through Spring AI
+  `SyncMcpToolCallback`. Request-owned clients close after inference; governance caps external calls,
+  denies duplicate arguments, bounds results, honors cancellation, persists safe tool evidence, and
+  writes correlated audits. The responsive MCP Hub separates Docker and personal servers, owns its
+  internal scrolling, validates API payloads, and requires discover → select tools → enable. See
+  D-030 and [MCP runtime and implementation plan](MCP_RUNTIME.md).
+- One hundred and sixty-three passing default backend tests and one hundred and ten passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -349,7 +360,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
   A Testcontainers run also started the complete Java 25 application context against PostgreSQL 18.6,
-  applied all 26 Flyway migrations through the durable Agent-plan schema, and verified the active-request
+  applied all 27 Flyway migrations through the MCP registry schema, and verified the active-request
   index. The pgvector-backed local corpus remains migration-compatible.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.6
   instance and asserts that every migration applied, the Agent plan tool bean exists, and the
@@ -375,12 +386,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - The organization-level audit *view* that unions session and domain trails is a later increment.
-- Agent mode has its first bounded runtime. Spring AI's `ToolCallingAdvisor` executes only the
-  request-scoped `update_plan` tool and, when authorized Vaults are selected, `search_knowledge`.
-  Plans and sanitized tool evidence persist on the assistant message, stream live, and restore after
-  navigation or reload. Filesystem, terminal, Git, browser, MCP, write actions, approvals, resumable
-  backend-restart execution, and multi-agent workers remain intentionally unavailable. Image jobs
-  remain pending the local ComfyUI runtime.
+- Agent mode has its first bounded runtime. Spring AI's `ToolCallingAdvisor` executes `update_plan`,
+  conditional `search_knowledge`, and explicitly selected tools from the authenticated user's MCP
+  registry. Plans and sanitized tool evidence persist on the assistant message, stream live, and
+  restore after navigation or reload. Native filesystem, terminal, Git, browser, write actions, the
+  complete approval Permission Engine, MCP secrets/configuration, resumable backend-restart
+  execution, and multi-agent workers remain intentionally unavailable. Image jobs remain pending the
+  local ComfyUI runtime.
 - Knowledge Vault scopes `project`, `team`, and `organization` are contract-complete but always
   rejected — no backend project/team/organization entity exists yet to authorize against.
 - No lexical/full-text fallback exists for retrieval; below-threshold or provider-unavailable
