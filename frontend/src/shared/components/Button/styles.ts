@@ -10,10 +10,12 @@ export const Button = styled.button<{
   gap: ${({ theme, $size }) => $size === "compact" ? theme.spacing.xs : theme.spacing.sm};
   border: 1px solid ${({ theme }) => theme.colors.primary};
   border-radius: ${({ theme }) => theme.radius.control};
-  padding: ${({ $size }) => $size === "compact" ? "0.46rem 0.66rem" : "0.65rem 0.82rem"};
+  padding: ${({ $size }) => $size === "compact" ? "0.36rem 0.55rem" : "0.65rem 0.82rem"};
   font: inherit;
-  font-size: ${({ $size }) => $size === "compact" ? "0.7rem" : "0.78rem"};
+  font-size: ${({ $size }) => $size === "compact" ? "0.64rem" : "0.78rem"};
   font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 

@@ -102,7 +102,7 @@ export const CatalogCard = styled.article`
     -webkit-line-clamp: 3;
   }
 
-  > button { justify-self: stretch; }
+  > button { justify-self: start; max-width: 100%; }
 `;
 
 export const ServerIdentity = styled.div`
@@ -190,8 +190,8 @@ export const DetailActions = styled.div`
   flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.md};
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.sm};
 `;
 
 export const InlineNotice = styled.div`

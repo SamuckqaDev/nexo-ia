@@ -37,8 +37,9 @@ describe("Button", () => {
     );
 
     expect(screen.getByRole("button", { name: "Inspect" })).toHaveStyle({
-      padding: "0.46rem 0.66rem",
-      fontSize: "0.7rem"
+      padding: "0.36rem 0.55rem",
+      fontSize: "0.64rem",
+      whiteSpace: "nowrap"
     });
   });
 });

@@ -3,7 +3,7 @@ package com.nexoia.mcp.connection.dto;
 import java.time.Instant;
 
 public record McpToolResponse(
-        String name,
+        String externalName,
         String exposedName,
         String title,
         String description,

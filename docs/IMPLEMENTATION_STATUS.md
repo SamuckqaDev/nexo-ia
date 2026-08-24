@@ -357,6 +357,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   instead of occasionally arriving as `null`. Shared buttons use a smaller default footprint and
   MCP actions use the dedicated compact size, including connection, inspection, selection, and
   enablement actions.
+- MCP tool snapshots now serialize the public tool identifier consistently as `externalName`, matching
+  the strict frontend schema and preventing one discovered tool from breaking the owned-connection
+  list. Contract failures render a controlled recovery message instead of raw Zod diagnostics, while
+  catalog and inspector actions remain content-sized and single-line in the compact layout.
 - Agent mode is usable directly from the chat composer. Its compact context inspector shows the
   selected backend Vaults, enabled owned MCP servers/tools, query failures, and whether the selected
   Ollama model advertises tool calling. Model discovery reads capability metadata and falls back to
@@ -379,7 +383,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   as non-authoritative context in later Chat and Agent requests; exact duplicates are reused and a
   50-memory account cap prevents unbounded context growth. Authenticated APIs and the conversation
   workspace's Memory section provide inspection and deletion. See D-031.
-- One hundred and eighty-four passing default backend tests and one hundred and sixteen passing frontend tests,
+- One hundred and eighty-five passing default backend tests and one hundred and seventeen passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is

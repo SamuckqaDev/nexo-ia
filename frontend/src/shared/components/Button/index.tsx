@@ -11,7 +11,7 @@ export function Button({
 }: ButtonProps): ReactElement {
   return (
     <StyledButton $variant={variant} $size={size} {...props}>
-      {LeadingIcon && <LeadingIcon aria-hidden size={size === "compact" ? 14 : 16} weight="bold" />}
+      {LeadingIcon && <LeadingIcon aria-hidden size={size === "compact" ? 13 : 16} weight="bold" />}
       {children}
     </StyledButton>
   );
