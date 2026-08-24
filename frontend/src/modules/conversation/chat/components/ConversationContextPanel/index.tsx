@@ -1,12 +1,14 @@
 import {
   CaretDoubleLeft,
   CaretDoubleRight,
+  Brain,
   ClipboardText,
   FileText,
   FolderOpen,
   ImageSquare,
   ListChecks,
   Paperclip,
+  Trash,
   Vault,
   type Icon
 } from "@phosphor-icons/react";
@@ -18,6 +20,8 @@ import { useImageGenerationStore } from "../../../media/stores/useImageGeneratio
 import type { ImageGenerationJob, ImageGenerationState } from "../../../media/types/imageGenerationTypes";
 import { useVaultSources } from "../../../../knowledge/vault/hooks/useVaultSources";
 import type { BackendSource, BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
+import { usePersonalMemories } from "../../../../memory/personal/hooks/usePersonalMemories";
+import type { PersonalMemory } from "../../../../memory/personal/types/personalMemoryTypes";
 import { WorkspaceTree } from "../../../../project/workspace/components/WorkspaceTree";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { useWorkspaceSnapshot } from "../../../../project/workspace/hooks/useWorkspaceSnapshot";
@@ -30,6 +34,8 @@ import {
   EmptyCopy,
   EmptyIcon,
   EmptyState,
+  MemoryCard,
+  MemoryRemoveButton,
   Panel,
   PanelHeader,
   PanelTitle,
@@ -55,6 +61,7 @@ type ContextTab = {
 const contextTabs: ContextTab[] = [
   { id: "workspace", label: "Project", icon: FolderOpen },
   { id: "vaults", label: "Vaults", icon: Vault },
+  { id: "memory", label: "Memory", icon: Brain },
   { id: "plan", label: "Plan", icon: ClipboardText },
   { id: "tasks", label: "Tasks", icon: ListChecks },
   { id: "artifacts", label: "Artifacts", icon: FileText },
@@ -127,6 +134,7 @@ export function ConversationContextPanel({
   const [section, setSection] = useState<ConversationContextSection>("workspace");
   const activeWorkspace = useActiveWorkspace();
   const workspaceSnapshot = useWorkspaceSnapshot(activeWorkspace?.id ?? null);
+  const personalMemories = usePersonalMemories(Boolean(conversationId));
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
     .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId);
@@ -177,6 +185,44 @@ export function ConversationContextPanel({
             />
           )) : <StatusCopy>No Knowledge Vaults are available for this account.</StatusCopy>}
           <SectionAction><Button type="button" variant="outline" onClick={onManageVaults}>Open Vault Explorer</Button></SectionAction>
+        </ResourceList>
+      );
+    }
+
+    if (section === "memory") {
+      if (personalMemories.memories.isLoading) {
+        return <StatusCopy>Loading your personal memories…</StatusCopy>;
+      }
+      if (personalMemories.memories.isError) {
+        return <StatusCopy role="alert">Nexo could not load your personal memories.</StatusCopy>;
+      }
+      const memories: PersonalMemory[] = personalMemories.memories.data ?? [];
+      return (
+        <ResourceList>
+          <StatusCopy>
+            These notes belong only to your account and may follow you across conversations.
+            In Agent mode, ask Nexo to remember a stable preference or fact.
+          </StatusCopy>
+          {memories.length ? memories.map((memory: PersonalMemory) => (
+            <MemoryCard key={memory.id}>
+              <Brain size={15} weight="duotone" aria-hidden />
+              <span>{memory.content}</span>
+              <MemoryRemoveButton
+                type="button"
+                aria-label={`Remove memory: ${memory.content}`}
+                title="Remove memory"
+                disabled={personalMemories.remove.isPending}
+                onClick={(): void => personalMemories.remove.mutate(memory.id)}
+              >
+                <Trash size={13} />
+              </MemoryRemoveButton>
+            </MemoryCard>
+          )) : (
+            <EmptyState>
+              <EmptyIcon><Brain size={22} weight="duotone" /></EmptyIcon>
+              <EmptyCopy><strong>No personal memories yet</strong><span>Use Agent and explicitly ask Nexo to remember something for future chats.</span></EmptyCopy>
+            </EmptyState>
+          )}
         </ResourceList>
       );
     }

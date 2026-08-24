@@ -7,6 +7,8 @@ import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
+import com.nexoia.memory.personal.tool.RememberToolFactory;
+import com.nexoia.memory.personal.tool.RememberToolSession;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
@@ -63,6 +65,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final SpringAiMessageMapper messageMapper;
     private final KnowledgeSearchToolFactory knowledgeToolFactory;
     private final AgentPlanToolFactory planToolFactory;
+    private final RememberToolFactory rememberToolFactory;
     private final McpToolSessionFactory mcpToolSessionFactory;
     private final ObservationRegistry observationRegistry;
 
@@ -71,12 +74,14 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             SpringAiMessageMapper messageMapper,
             KnowledgeSearchToolFactory knowledgeToolFactory,
             AgentPlanToolFactory planToolFactory,
+            RememberToolFactory rememberToolFactory,
             McpToolSessionFactory mcpToolSessionFactory,
             ObservationRegistry observationRegistry) {
         this.modelFactory = modelFactory;
         this.messageMapper = messageMapper;
         this.knowledgeToolFactory = knowledgeToolFactory;
         this.planToolFactory = planToolFactory;
+        this.rememberToolFactory = rememberToolFactory;
         this.mcpToolSessionFactory = mcpToolSessionFactory;
         this.observationRegistry = observationRegistry;
     }
@@ -132,12 +137,14 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         ChatClient chatClient = ChatClient.builder(model).build();
         KnowledgeSearchToolSession knowledgeSession = knowledgeToolSession(command, cancelled);
         AgentPlanToolSession planSession = planToolSession(command, cancelled);
+        RememberToolSession rememberSession = rememberToolSession(command, cancelled);
         McpToolSession mcpSession = mcpToolSession(command, cancelled);
         if (mcpSession != null) {
             systemContext.add(new SystemMessage(mcpRuntimeStatus(mcpSession)));
         }
         List<ToolCallback> callbacks = new ArrayList<>(Stream.of(
                         planSession == null ? null : planSession.callback(),
+                        rememberSession == null ? null : rememberSession.callback(),
                         knowledgeSession == null ? null : knowledgeSession.callback())
                 .filter(Objects::nonNull)
                 .toList());
@@ -158,8 +165,10 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         .observationRegistry(observationRegistry)
                         .maxCallsPerTool(2)
                         .maxCallsPerTool(AgentPlanToolFactory.TOOL_NAME, AgentPlanToolFactory.MAX_UPDATES)
+                        .maxCallsPerTool(RememberToolFactory.TOOL_NAME, RememberToolFactory.MAX_CALLS)
                         .maxCallsPerTool(KnowledgeSearchToolFactory.TOOL_NAME, KnowledgeSearchToolFactory.MAX_CALLS)
                         .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES
+                                + RememberToolFactory.MAX_CALLS
                                 + KnowledgeSearchToolFactory.MAX_CALLS
                                 + McpToolSessionFactory.MAX_CALLS)
                         .onLimitExceeded(ToolCallLimitBehavior.THROW)
@@ -181,7 +190,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     if (cancelled.getAsBoolean()) {
                         return new ChatCompletionOutcome(
                                 content.toString(), null, null, null, true, CANCELLED_REASON,
-                                evidence(planSession, knowledgeSession, mcpSession));
+                                evidence(planSession, rememberSession, knowledgeSession, mcpSession));
                     }
 
                     ChatResponse response = iterator.next();
@@ -228,7 +237,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             }
             return new ChatCompletionOutcome(
                     content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
-                    evidence(planSession, knowledgeSession, mcpSession));
+                    evidence(planSession, rememberSession, knowledgeSession, mcpSession));
         } finally {
             if (mcpSession != null) {
                 mcpSession.close();
@@ -261,6 +270,16 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 cancelled);
     }
 
+    private RememberToolSession rememberToolSession(
+            ChatCompletionCommand command,
+            BooleanSupplier cancelled) {
+        if (command.mode() != ConversationMode.AGENT || command.memoryToolScope() == null) {
+            return null;
+        }
+        return rememberToolFactory.open(
+                command.memoryToolScope(), command.toolExecutionObserver(), cancelled);
+    }
+
     private McpToolSession mcpToolSession(
             ChatCompletionCommand command,
             BooleanSupplier cancelled) {
@@ -275,6 +294,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
     private List<ToolExecutionEvidence> evidence(
             AgentPlanToolSession planSession,
+            RememberToolSession rememberSession,
             KnowledgeSearchToolSession knowledgeSession,
             McpToolSession mcpSession) {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
@@ -283,6 +303,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         }
         if (knowledgeSession != null) {
             evidence.addAll(knowledgeSession.evidence());
+        }
+        if (rememberSession != null) {
+            evidence.addAll(rememberSession.evidence());
         }
         if (mcpSession != null) {
             evidence.addAll(mcpSession.evidence());
@@ -308,7 +331,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         return new ChatCompletionCommand(
                 command.providerType(), command.endpoint(), command.model(), command.messages(), false,
                 command.mode(), command.knowledgeToolScope(), command.agentPlanToolScope(),
-                command.mcpToolScope(), command.toolExecutionObserver(), command.agentPlanUpdateObserver());
+                command.memoryToolScope(), command.mcpToolScope(),
+                command.toolExecutionObserver(), command.agentPlanUpdateObserver());
     }
 
     private boolean thinkingUnsupported(ProviderStreamException exception) {

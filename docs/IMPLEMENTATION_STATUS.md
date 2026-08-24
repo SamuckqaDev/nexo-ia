@@ -352,6 +352,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   writes correlated audits. The responsive MCP Hub separates Docker and personal servers, owns its
   internal scrolling, validates API payloads, and requires discover → select tools → enable. See
   D-030 and [MCP runtime and implementation plan](MCP_RUNTIME.md).
+- MCP connection creation now flushes the persistence context before building the response, so
+  Hibernate-managed `createdAt` and `updatedAt` values satisfy the frontend's strict API schema
+  instead of occasionally arriving as `null`. Shared buttons use a smaller default footprint and
+  MCP actions use the dedicated compact size, including connection, inspection, selection, and
+  enablement actions.
 - Agent mode is usable directly from the chat composer. Its compact context inspector shows the
   selected backend Vaults, enabled owned MCP servers/tools, query failures, and whether the selected
   Ollama model advertises tool calling. Model discovery reads capability metadata and falls back to
@@ -368,7 +373,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
   shared only with the backend, and are consumed through Spring AI's MCP SSE transport. The MCP Hub
   therefore presents those free catalog cards as executable instead of informational in local Docker
   development, while production keeps requiring an operator-owned gateway or Companion boundary.
-- One hundred and seventy-two passing default backend tests and one hundred and fourteen passing frontend tests,
+- Migration V28 adds private personal memory with source-conversation/message provenance. Agent mode
+  exposes the bounded Spring AI `remember` tool, whose callback receives owner and provenance only
+  from server request scope. The 20 most recent memories owned by the authenticated user are framed
+  as non-authoritative context in later Chat and Agent requests; exact duplicates are reused and a
+  50-memory account cap prevents unbounded context growth. Authenticated APIs and the conversation
+  workspace's Memory section provide inspection and deletion. See D-031.
+- One hundred and eighty-four passing default backend tests and one hundred and sixteen passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -379,7 +390,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
   A Testcontainers run also started the complete Java 25 application context against PostgreSQL 18.6,
-  applied all 27 Flyway migrations through the MCP registry schema, and verified the active-request
+  applied all 28 Flyway migrations through the personal-memory schema, and verified the active-request
   index. The pgvector-backed local corpus remains migration-compatible.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.6
   instance and asserts that every migration applied, the Agent plan tool bean exists, and the

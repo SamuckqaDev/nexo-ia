@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../../../shared/api/ApiError";
 import { usePreferenceStore } from "../../../settings/stores/usePreferenceStore";
+import { personalMemoriesKey } from "../../../memory/personal/hooks/usePersonalMemories";
 import type { PreferenceState } from "../../../settings/types/preferenceTypes";
 import { cancelModelRequest } from "../api/chatApi";
 import { streamMessage } from "../api/chatStreamClient";
@@ -214,6 +215,9 @@ export const useChatStream = (
           toolExecutions: [...current.toolExecutions.filter(
             (execution: ToolExecution): boolean => execution.id !== event.executionId), completed]
         });
+        if (event.toolName === "remember" && event.status === "COMPLETED") {
+          queryClient.invalidateQueries({ queryKey: personalMemoriesKey });
+        }
       },
       onPlanUpdated: (event: PlanUpdatedEvent): void => {
         updateStream(conversationId, { agentPlan: event });

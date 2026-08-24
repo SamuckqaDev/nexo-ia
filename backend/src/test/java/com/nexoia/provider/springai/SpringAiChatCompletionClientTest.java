@@ -20,6 +20,7 @@ import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
 import com.nexoia.mcp.runtime.service.McpToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
+import com.nexoia.memory.personal.tool.RememberToolFactory;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.ChatCompletionCommand;
@@ -85,6 +86,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
     }
@@ -176,6 +178,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 new KnowledgeSearchToolFactory(retrieval, mock(AuditService.class), Clock.systemUTC()),
                 mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
         AtomicInteger requests = new AtomicInteger();
@@ -233,6 +236,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
+                mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
         AtomicInteger requests = new AtomicInteger();
@@ -298,6 +302,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
                 mcpFactory,
                 ObservationRegistry.NOOP);
         serve(STREAM);

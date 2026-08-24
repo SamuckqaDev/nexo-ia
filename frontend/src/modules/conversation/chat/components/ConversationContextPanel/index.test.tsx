@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
@@ -7,11 +7,18 @@ import { useImageGenerationStore } from "../../../media/stores/useImageGeneratio
 import { ConversationContextPanel } from "./index";
 
 const listBackendSources = vi.fn();
+const listPersonalMemories = vi.fn();
+const removePersonalMemory = vi.fn();
 
 vi.mock("../../../../knowledge/vault/api/sourceApi", () => ({
   listBackendSources: (vaultId: string): Promise<unknown> => listBackendSources(vaultId),
   registerBackendSource: vi.fn(),
   archiveBackendSource: vi.fn()
+}));
+
+vi.mock("../../../../memory/personal/api/personalMemoryApi", () => ({
+  listPersonalMemories: (): Promise<unknown> => listPersonalMemories(),
+  removePersonalMemory: (memoryId: string): Promise<unknown> => removePersonalMemory(memoryId)
 }));
 
 const vault = {
@@ -56,7 +63,11 @@ const renderPanel = (
 };
 
 describe("ConversationContextPanel", () => {
-  beforeEach(() => useImageGenerationStore.getState().reset());
+  beforeEach(() => {
+    useImageGenerationStore.getState().reset();
+    listPersonalMemories.mockResolvedValue([]);
+    removePersonalMemory.mockResolvedValue(undefined);
+  });
 
   it("keeps the chat plan honest until Agent mode is selected", () => {
     renderPanel("chat");
@@ -167,5 +178,24 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByRole("progressbar", { name: /image generation progress/i })).toHaveValue(42);
     expect(screen.getByText("42%")).toBeVisible();
     expect(screen.getByText(/about 18s remaining/i)).toBeVisible();
+  });
+
+  it("shows and removes only the authenticated account's personal memories", async () => {
+    listPersonalMemories.mockResolvedValue([{
+      id: "33333333-3333-4333-8333-333333333333",
+      content: "The user prefers concise answers.",
+      sourceConversationId: "11111111-1111-4111-8111-111111111111",
+      createdAt: "2026-08-24T12:00:00Z",
+      updatedAt: "2026-08-24T12:00:00Z"
+    }]);
+    renderPanel("agent");
+
+    fireEvent.click(screen.getByRole("tab", { name: /memory/i }));
+
+    expect(await screen.findByText("The user prefers concise answers.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /remove memory/i }));
+    await waitFor(() => {
+      expect(removePersonalMemory).toHaveBeenCalledWith("33333333-3333-4333-8333-333333333333");
+    });
   });
 });

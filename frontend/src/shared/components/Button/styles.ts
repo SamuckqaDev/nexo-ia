@@ -1,14 +1,18 @@
 import styled, { css } from "styled-components";
 
-export const Button = styled.button<{ $variant: "primary" | "outline" }>`
+export const Button = styled.button<{
+  $variant: "primary" | "outline";
+  $size: "default" | "compact";
+}>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: ${({ theme, $size }) => $size === "compact" ? theme.spacing.xs : theme.spacing.sm};
   border: 1px solid ${({ theme }) => theme.colors.primary};
-  border-radius: 0.8rem;
-  padding: 0.9rem 1rem;
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: ${({ $size }) => $size === "compact" ? "0.46rem 0.66rem" : "0.65rem 0.82rem"};
   font: inherit;
+  font-size: ${({ $size }) => $size === "compact" ? "0.7rem" : "0.78rem"};
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;

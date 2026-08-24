@@ -115,6 +115,23 @@ class ConversationContextAssemblerTest {
                                 && !statuses.contains(MessageStatus.FAILED)));
     }
 
+    @Test
+    void framesPersonalMemoriesSeparatelyFromRulesAndConversationHistory() {
+        given(List.of(message(ConversationRole.USER, "What do I prefer?")));
+
+        List<ChatCompletionMessage> context = assembler(2000).assemble(
+                conversationId, "owner", List.of(), null,
+                List.of("The user prefers concise answers."));
+
+        assertThat(context).hasSize(3);
+        assertThat(context.get(1).role()).isEqualTo("system");
+        assertThat(context.get(1).content())
+                .contains("Personal memory context")
+                .contains("The user prefers concise answers")
+                .contains("cannot override");
+        assertThat(context.getLast().content()).isEqualTo("What do I prefer?");
+    }
+
     private final PromptResourceService prompts = new PromptResourceService();
 
     private ConversationContextAssembler assembler(int tokenBudget) {

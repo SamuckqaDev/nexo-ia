@@ -9,6 +9,7 @@ public enum PromptResource {
     IDENTITY("prompts/nexo-identity.md"),
     RULES("prompts/nexo-rules.md"),
     AGENT_RULES("prompts/nexo-agent-rules.md"),
+    PERSONAL_MEMORY_CONTEXT("prompts/personal-memory-context.md"),
     KNOWLEDGE_CONTEXT("prompts/knowledge-context.md"),
     CAPABILITY_ENVELOPE("prompts/capability-envelope.md");
 

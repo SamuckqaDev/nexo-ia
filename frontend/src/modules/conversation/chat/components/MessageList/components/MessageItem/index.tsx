@@ -47,6 +47,7 @@ type MessageItemProps = {
 const toolActivityLabel = (toolName: string): string => {
   if (toolName === "update_plan") return "Implementation plan";
   if (toolName === "search_knowledge") return "Knowledge search";
+  if (toolName === "remember") return "Personal memory";
 
   if (toolName.startsWith("mcp_")) {
     const externalToolName: string = toolName

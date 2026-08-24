@@ -3,7 +3,7 @@ import type { BackendVault } from "../../../knowledge/vault/types/backendVaultTy
 import type { VaultSourceReference } from "../../../knowledge/vault/types/vaultTypes";
 import type { AgentPlan, ConversationMode, StreamPhase } from "./chatTypes";
 
-export type ConversationContextSection = "workspace" | "vaults" | "plan" | "artifacts" | "media" | "tasks";
+export type ConversationContextSection = "workspace" | "vaults" | "memory" | "plan" | "artifacts" | "media" | "tasks";
 
 export type ConversationContextPanelProps = {
   conversationId: string | null;

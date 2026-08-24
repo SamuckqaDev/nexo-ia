@@ -28,4 +28,17 @@ describe("Button", () => {
       cursor: "progress"
     });
   });
+
+  it("offers a compact size for dense tool surfaces", () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <Button type="button" size="compact">Inspect</Button>
+      </ThemeProvider>
+    );
+
+    expect(screen.getByRole("button", { name: "Inspect" })).toHaveStyle({
+      padding: "0.46rem 0.66rem",
+      fontSize: "0.7rem"
+    });
+  });
 });

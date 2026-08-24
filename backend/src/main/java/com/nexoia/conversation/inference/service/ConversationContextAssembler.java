@@ -59,18 +59,29 @@ public class ConversationContextAssembler {
     public List<ChatCompletionMessage> assemble(
             UUID conversationId, String username, List<CitationResponse> citations,
             ModelContextEnvelope envelope) {
+        return assemble(conversationId, username, citations, envelope, List.of());
+    }
+
+    public List<ChatCompletionMessage> assemble(
+            UUID conversationId, String username, List<CitationResponse> citations,
+            ModelContextEnvelope envelope, List<String> personalMemories) {
         String identity = identityFor(username, envelope);
         String envelopeMessage = envelope == null ? null : envelopeRenderer.render(envelope);
+        String memoryMessage = personalMemories == null || personalMemories.isEmpty()
+                ? null : personalMemoryContext(personalMemories);
         String knowledgeMessage = citations == null || citations.isEmpty() ? null : retrievedContext(citations);
 
         int reserved = properties.estimateTokens(identity)
-                + estimate(envelopeMessage) + estimate(knowledgeMessage);
+                + estimate(envelopeMessage) + estimate(memoryMessage) + estimate(knowledgeMessage);
         List<ChatCompletionMessage> selected = boundedHistory(conversationId, reserved);
 
-        List<ChatCompletionMessage> context = new ArrayList<>(selected.size() + 3);
+        List<ChatCompletionMessage> context = new ArrayList<>(selected.size() + 4);
         context.add(new ChatCompletionMessage("system", identity));
         if (envelopeMessage != null) {
             context.add(new ChatCompletionMessage("system", envelopeMessage));
+        }
+        if (memoryMessage != null) {
+            context.add(new ChatCompletionMessage("system", memoryMessage));
         }
         if (knowledgeMessage != null) {
             context.add(new ChatCompletionMessage("system", knowledgeMessage));
@@ -132,6 +143,16 @@ public class ConversationContextAssembler {
                     .append("]\n").append(citation.excerpt()).append("\n\n");
         }
 
+        return builder.toString().strip();
+    }
+
+    private String personalMemoryContext(List<String> memories) {
+        StringBuilder builder = new StringBuilder(prompts.get(PromptResource.PERSONAL_MEMORY_CONTEXT));
+        builder.append("\n\n");
+        for (int index = 0; index < memories.size(); index++) {
+            builder.append("[memory-").append(index + 1).append("] ")
+                    .append(memories.get(index)).append('\n');
+        }
         return builder.toString().strip();
     }
 

@@ -111,6 +111,9 @@ administration UI. It does not pull later-phase capabilities forward. See
 
 ## Phase 9 — Memory and reliability
 
+- **Implemented first slice:** explicit Agent `remember` tool, user-owned PostgreSQL storage,
+  cross-chat Chat/Agent context, source conversation/message provenance, inspection, deletion,
+  audit events, duplicate suppression, and bounded per-user/request limits.
 - Separate history, scoped Memory, and retrieved Vault knowledge.
 - Add session, personal, Project, team, and organization Memory with provenance, approval, expiration,
   inspection, rescoping, and deletion propagation.

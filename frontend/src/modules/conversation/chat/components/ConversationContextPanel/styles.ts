@@ -163,6 +163,43 @@ export const ResourceCard = styled.section`
   > header > small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.55rem; white-space: nowrap; }
 `;
 
+export const MemoryCard = styled.article`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm};
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.background};
+  color: ${({ theme }) => theme.colors.primary};
+
+  > span {
+    color: ${({ theme }) => theme.colors.textMuted};
+    font-size: 0.64rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+`;
+
+export const MemoryRemoveButton = styled.button`
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSubtle};
+  cursor: pointer;
+
+  &:hover:not(:disabled), &:focus-visible {
+    border-color: ${({ theme }) => theme.colors.lineStrong};
+    color: ${({ theme }) => theme.colors.accent};
+  }
+  &:disabled { cursor: progress; opacity: 0.55; }
+`;
+
 export const SourceButton = styled.button<{ $active: boolean }>`
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

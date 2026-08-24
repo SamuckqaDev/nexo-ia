@@ -26,6 +26,7 @@ export type SelectProps<T extends string = string> = SelectHTMLAttributes<HTMLSe
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   icon?: Icon;
   variant?: "primary" | "outline";
+  size?: "default" | "compact";
 };
 
 export type WorkspacePageProps = {

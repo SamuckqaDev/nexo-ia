@@ -220,6 +220,7 @@ export function McpHubPage(): ReactElement {
                         <span>{server.riskLevel === "READ_ONLY" ? "Read only" : "May write"}</span>
                       </CatalogMeta>
                       <Button
+                        size="compact"
                         type="button"
                         variant="outline"
                         icon={installed ? CheckCircle : unavailable ? WarningCircle : Plus}
@@ -249,7 +250,7 @@ export function McpHubPage(): ReactElement {
         <WorkspacePanel
           title="Your MCP servers"
           description="Private registrations; other users cannot list or execute them."
-          action={<Button type="button" variant="outline" icon={Plus} onClick={(): void => setCreatingRemote(true)}>Connect custom</Button>}
+          action={<Button size="compact" type="button" variant="outline" icon={Plus} onClick={(): void => setCreatingRemote(true)}>Connect custom</Button>}
         >
           {creatingRemote ? (
             <McpConnectionForm
@@ -308,6 +309,7 @@ export function McpHubPage(): ReactElement {
                 </div>
                 <DetailActions>
                   <Button
+                    size="compact"
                     type="button"
                     variant="outline"
                     icon={ArrowsClockwise}
@@ -317,7 +319,7 @@ export function McpHubPage(): ReactElement {
                   >
                     {hub.discover.isPending ? "Inspecting…" : "Inspect"}
                   </Button>
-                  <Button type="button" variant="outline" icon={Trash} onClick={(): void => remove(selected)}>Remove</Button>
+                  <Button size="compact" type="button" variant="outline" icon={Trash} onClick={(): void => remove(selected)}>Remove</Button>
                 </DetailActions>
               </DetailHeader>
 
@@ -347,6 +349,7 @@ export function McpHubPage(): ReactElement {
                   </ToolList>
                   <DetailActions>
                     <Button
+                      size="compact"
                       type="button"
                       variant="outline"
                       disabled={!toolSelectionDirty || hub.selectTools.isPending}
@@ -356,6 +359,7 @@ export function McpHubPage(): ReactElement {
                       {hub.selectTools.isPending ? "Saving tools…" : "Save allowed tools"}
                     </Button>
                     <Button
+                      size="compact"
                       type="button"
                       disabled={toolSelectionDirty || (!selected.enabled && selectedTools.length === 0) || hub.setEnabled.isPending}
                       aria-busy={hub.setEnabled.isPending}

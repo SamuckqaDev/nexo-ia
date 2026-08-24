@@ -2,8 +2,9 @@
 
 Nexo uses Spring AI 2.0.1 as the orchestration layer for Ollama chat, embeddings, Advisors, and
 request-scoped tools. This is a real but deliberately bounded Agent runtime: the selected model can
-revise a visible implementation plan, search the conversation's authorized Knowledge Vaults, and
-call explicitly enabled tools from the authenticated user's MCP registry. It cannot yet read a
+revise a visible implementation plan, search the conversation's authorized Knowledge Vaults, store
+an explicitly requested personal memory, and call explicitly enabled tools from the authenticated
+user's MCP registry. It cannot yet read a
 Workspace, edit files, run arbitrary terminal commands, write Git state, or delegate to subagents.
 
 ## Source-backed framework choices
@@ -39,6 +40,7 @@ authenticated message
   -> SpringAiContextAdvisor injects the authorized system context
   -> ToolCallingAdvisor drives the bounded loop
        update_plan       always in Agent mode
+       remember          personal memory, owned by the authenticated account
        search_knowledge  only with authorized selected Vaults
        mcp_*              only from the owner's enabled, explicitly selected MCP snapshot
   -> stream typed Agent/tool/plan/token/usage events
@@ -55,6 +57,7 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | --- | --- | --- |
 | Conversation history | Bounded server history | Bounded server history |
 | Selected Vaults | Deterministic retrieval before generation | Available through `search_knowledge` |
+| Personal memory | Most recent owned memories in context | Same context plus explicit `remember` tool |
 | Visible plan | None | Persisted `update_plan` revisions |
 | Tool loop | None | Spring AI `ToolCallingAdvisor` |
 | External MCP tools | None | Explicitly selected, governed callbacks |
@@ -88,6 +91,14 @@ request cap, two calls per tool, duplicate-argument denial, bounded output, evid
 cancellation. `ToolCallingManager` caps the combined loop and throws on exhaustion rather than
 looping forever. See [MCP runtime and implementation plan](MCP_RUNTIME.md).
 
+`remember` is attached only in Agent mode and is capped at two calls per request. The model-facing
+schema contains only the memory text: user, conversation, assistant message, and correlation IDs are
+captured by the server-created request scope. Duplicate text is reused instead of copied, each user
+is limited to 50 personal memories, and at most the 20 most recently updated owned memories are
+framed as untrusted personal context for later Chat or Agent requests. The conversation workspace's
+**Memory** section lets the authenticated person inspect and delete this first slice. Automatic
+extraction, semantic selection, editing, expiration, and shared scopes remain deferred.
+
 ## Knowledge and isolation
 
 Vault selection is durable conversation state. The server authorizes every selected Vault before it
@@ -96,6 +107,11 @@ contain no user id, owner id, Vault id, endpoint, SQL, or filesystem path. Retri
 chunk → source → Vault and filters owner plus selected Vaults before vector ranking. Excerpts are
 bounded and treated as untrusted reference context; vectors and full source bodies never leave the
 backend.
+
+Personal memory is separate from history and Vault knowledge. Repository queries are always filtered
+by the authenticated user, provenance records the source conversation/message when the Agent created
+the memory, and memory text is framed as context rather than instructions or authorization. Deleting
+a memory removes it from subsequent request assembly.
 
 ## Identity, plans, and reasoning
 

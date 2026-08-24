@@ -41,8 +41,8 @@ export function McpConnectionForm({ pending, onSubmit, onCancel }: McpConnection
         the backend operator explicitly enables them.
       </Hint>
       <Actions>
-        <Button type="button" variant="outline" icon={X} onClick={onCancel}>Cancel</Button>
-        <Button type="submit" icon={CloudArrowUp} disabled={pending} aria-busy={pending}>
+        <Button size="compact" type="button" variant="outline" icon={X} onClick={onCancel}>Cancel</Button>
+        <Button size="compact" type="submit" icon={CloudArrowUp} disabled={pending} aria-busy={pending}>
           {pending ? "Inspecting…" : "Connect & inspect"}
         </Button>
       </Actions>

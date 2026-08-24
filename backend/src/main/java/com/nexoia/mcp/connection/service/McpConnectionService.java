@@ -68,7 +68,7 @@ public class McpConnectionService {
                 || connections.existsByUserIdAndDisplayNameIgnoreCase(userId, server.title())) {
             throw new McpConnectionConflictException();
         }
-        McpConnection connection = connections.save(McpConnection.builder()
+        McpConnection connection = connections.saveAndFlush(McpConnection.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
                 .displayName(server.title())
@@ -91,7 +91,7 @@ public class McpConnectionService {
         if (connections.existsByUserIdAndDisplayNameIgnoreCase(userId, displayName)) {
             throw new McpConnectionConflictException();
         }
-        McpConnection connection = connections.save(McpConnection.builder()
+        McpConnection connection = connections.saveAndFlush(McpConnection.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
                 .displayName(displayName)

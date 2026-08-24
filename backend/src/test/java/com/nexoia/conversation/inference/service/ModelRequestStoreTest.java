@@ -31,6 +31,7 @@ import com.nexoia.mcp.connection.model.McpTransportType;
 import com.nexoia.mcp.connection.service.McpConnectionService;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
+import com.nexoia.memory.personal.service.PersonalMemoryService;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
@@ -64,6 +65,7 @@ class ModelRequestStoreTest {
     @Mock private ProviderEndpointGuard endpointGuard;
     @Mock private RetrievalService retrieval;
     @Mock private McpConnectionService mcpConnections;
+    @Mock private PersonalMemoryService personalMemories;
 
     private ModelRequestStore store;
     private final UUID userId = UUID.randomUUID();
@@ -84,6 +86,7 @@ class ModelRequestStoreTest {
                 endpointGuard,
                 retrieval,
                 mcpConnections,
+                personalMemories,
                 Clock.fixed(Instant.parse("2026-08-21T12:00:00Z"), ZoneOffset.UTC));
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(Conversation.builder()
@@ -108,7 +111,7 @@ class ModelRequestStoreTest {
                 UserAccount.builder().id(userId).username("owner").build()));
         when(messages.save(any(ConversationMessage.class))).thenAnswer(call -> call.getArgument(0));
         when(messages.saveAndFlush(any(ConversationMessage.class))).thenAnswer(call -> call.getArgument(0));
-        when(contextAssembler.assemble(any(), any(), any(), any())).thenReturn(
+        when(contextAssembler.assemble(any(), any(), any(), any(), any())).thenReturn(
                 List.of(new ChatCompletionMessage("user", "question")));
     }
 
@@ -170,13 +173,14 @@ class ModelRequestStoreTest {
                 .containsExactly(vault.getId());
         ArgumentCaptor<ModelContextEnvelope> envelope = ArgumentCaptor.forClass(ModelContextEnvelope.class);
         verify(contextAssembler).assemble(
-                eq(conversationId), eq("owner"), eq(List.of()), envelope.capture());
+                eq(conversationId), eq("owner"), eq(List.of()), envelope.capture(), eq(List.of()));
         assertThat(envelope.getValue().conversationMode()).isEqualTo("agent");
         assertThat(envelope.getValue().manifest().knowledge().searchStatus())
                 .isEqualTo(KnowledgeSearchStatus.AVAILABLE_ON_DEMAND);
         assertThat(envelope.getValue().manifest().tools().exposedToolNames())
-                .containsExactly("update_plan", "search_knowledge", "mcp_12345678_fetch");
+                .containsExactly("update_plan", "remember", "search_knowledge", "mcp_12345678_fetch");
         assertThat(reservation.command().agentPlanToolScope()).isNotNull();
+        assertThat(reservation.command().memoryToolScope()).isNotNull();
         assertThat(reservation.command().mcpToolScope().connections()).containsExactly(mcp);
     }
 }

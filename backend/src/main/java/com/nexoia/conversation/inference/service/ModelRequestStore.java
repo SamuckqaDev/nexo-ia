@@ -40,6 +40,8 @@ import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.mcp.connection.service.McpConnectionService;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
+import com.nexoia.memory.personal.service.PersonalMemoryService;
+import com.nexoia.memory.personal.tool.RememberToolFactory;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.AgentPlanUpdateObserver;
@@ -47,6 +49,7 @@ import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
 import com.nexoia.provider.dto.McpToolScope;
+import com.nexoia.provider.dto.MemoryToolScope;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStarted;
@@ -94,6 +97,7 @@ public class ModelRequestStore {
     private final ProviderEndpointGuard endpointGuard;
     private final RetrievalService retrievalService;
     private final McpConnectionService mcpConnections;
+    private final PersonalMemoryService personalMemories;
     private final Clock clock;
 
     /**
@@ -213,7 +217,8 @@ public class ModelRequestStore {
                                 conversationId, username, citations,
                                 capabilityEnvelope(username, conversation.getSelectedModel(),
                                         processingLocation, selectedVaults, resolvedKnowledge,
-                                        enabledMcpConnections, mode)),
+                                        enabledMcpConnections, mode),
+                                personalMemories.context(userId)),
                         thinkingEnabled,
                         mode,
                         mode == ConversationMode.AGENT
@@ -223,6 +228,10 @@ public class ModelRequestStore {
                         mode == ConversationMode.AGENT
                                 ? new AgentPlanToolScope(
                                         userId, assistantMessage.getId(), correlationId)
+                                : null,
+                        mode == ConversationMode.AGENT
+                                ? new MemoryToolScope(
+                                        userId, conversationId, assistantMessage.getId(), correlationId)
                                 : null,
                         mode == ConversationMode.AGENT && !enabledMcpConnections.isEmpty()
                                 ? new McpToolScope(
@@ -265,6 +274,7 @@ public class ModelRequestStore {
         } else {
             List<String> exposedTools = new ArrayList<>();
             exposedTools.add(AgentPlanToolFactory.TOOL_NAME);
+            exposedTools.add(RememberToolFactory.TOOL_NAME);
             if (!selectedVaults.isEmpty()) {
                 exposedTools.add(KnowledgeSearchToolFactory.TOOL_NAME);
             }

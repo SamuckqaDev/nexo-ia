@@ -445,3 +445,20 @@ options considered, the selected approach, and its consequences.
   authenticated, non-published sidecars on a backend-only network. Remote access to a user's Docker
   Desktop still waits for the Companion/broker boundary. See
   [MCP runtime and implementation plan](MCP_RUNTIME.md).
+
+## D-031 — Start Memory with explicit, private, cross-chat facts
+
+- **Status:** accepted
+- **Context:** Nexo needs to remember durable user preferences across conversations without treating
+  chat history or Vault documents as implicit memory, leaking facts between accounts, or letting the
+  model choose an owner identifier.
+- **Decision:** persist personal memories under the authenticated user and expose a request-scoped
+  Spring AI `remember` tool only in Agent mode. The callback schema accepts only bounded text; owner
+  and provenance are captured by the server. Reuse exact duplicates, cap storage at 50 memories per
+  account, inject at most the 20 most recently updated owned memories into Chat and Agent context,
+  and provide authenticated list, create, and delete APIs plus a Memory inspector in the conversation
+  workspace.
+- **Consequence:** a logged-in person can explicitly ask Nexo to remember a fact and use it in later
+  chats while another user cannot list, delete, or receive it. This first slice deliberately defers
+  automatic extraction, semantic relevance ranking, editing, expiration, sensitivity classification,
+  shared scopes, and derived-index deletion propagation.

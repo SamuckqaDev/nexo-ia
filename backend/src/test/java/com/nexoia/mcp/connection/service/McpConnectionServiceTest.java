@@ -12,6 +12,7 @@ import com.nexoia.mcp.catalog.dto.McpCatalogServerResponse;
 import com.nexoia.mcp.catalog.dto.McpRiskLevel;
 import com.nexoia.mcp.catalog.service.McpCatalogService;
 import com.nexoia.mcp.connection.dto.UpdateMcpToolsRequest;
+import com.nexoia.mcp.connection.dto.CreateRemoteMcpConnectionRequest;
 import com.nexoia.mcp.connection.exception.McpConfigurationNotSupportedException;
 import com.nexoia.mcp.connection.exception.McpCredentialsNotSupportedException;
 import com.nexoia.mcp.connection.exception.McpToolSelectionException;
@@ -61,7 +62,21 @@ class McpConnectionServiceTest {
                 .isInstanceOf(McpCredentialsNotSupportedException.class);
         assertThatThrownBy(() -> service.installDocker(userId, "configured"))
                 .isInstanceOf(McpConfigurationNotSupportedException.class);
-        verify(connections, never()).save(any());
+        verify(connections, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void flushesANewConnectionBeforeBuildingTheTimestampedResponse() {
+        UUID userId = UUID.randomUUID();
+        when(endpoints.normalize("https://tools.example.com/mcp"))
+                .thenReturn("https://tools.example.com/mcp");
+        when(connections.saveAndFlush(any(McpConnection.class)))
+                .thenAnswer(call -> call.getArgument(0));
+
+        service.createRemote(userId, new CreateRemoteMcpConnectionRequest(
+                "My tools", "https://tools.example.com/mcp"));
+
+        verify(connections).saveAndFlush(any(McpConnection.class));
     }
 
     @Test
