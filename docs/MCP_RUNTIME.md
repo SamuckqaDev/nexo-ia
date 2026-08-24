@@ -53,6 +53,8 @@ Docker-maintained catalog source remains available in the
 - Agent mode resolves a maximum of four enabled owned connections and twelve selected tools.
 - Spring AI's `SyncMcpToolCallback` adapts SDK tools into the same `ToolCallingAdvisor` loop used by
   Nexo's `update_plan` and `search_knowledge` tools.
+- The Agent capability envelope identifies the exact enabled `mcp_*` callbacks as callable external
+  tools, and the composer shows their owned server and tool counts before sending.
 - A request may execute at most six MCP calls and at most two calls to one external tool. Repeated
   identical tool arguments are denied.
 - Calls honor explicit cancellation, record an argument digest rather than raw input, emit the normal

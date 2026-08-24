@@ -2,10 +2,21 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "styled-components";
 import { darkTheme } from "../../../../../app/styles/theme";
-import { previewVaults, useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
 import { builtInSkills, useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
 import type { StreamPhase } from "../../types/chatTypes";
+import type { AgentContextSummary } from "../../types/chatViewTypes";
 import { ChatComposer } from "./index";
+
+const defaultAgentContext: AgentContextSummary = {
+  selectedVaultNames: ["Nexo Knowledge Base"],
+  enabledMcpConnectionNames: ["Fetch"],
+  enabledMcpToolCount: 1,
+  knowledgeLoading: false,
+  knowledgeError: false,
+  mcpLoading: false,
+  mcpError: false,
+  modelToolCallingSupported: true
+};
 
 const renderComposer = (
   mode: "chat" | "agent",
@@ -14,7 +25,8 @@ const renderComposer = (
   onSend = vi.fn(),
   isBusy = false,
   phase: StreamPhase = "idle",
-  messageHistory: string[] = []
+  messageHistory: string[] = [],
+  agentContext: AgentContextSummary = defaultAgentContext
 ) => {
   render(
     <ThemeProvider theme={darkTheme}>
@@ -26,7 +38,10 @@ const renderComposer = (
         phase={phase}
         isBusy={isBusy}
         mode={mode}
+        agentContext={agentContext}
         onModeChange={onModeChange}
+        onInspectKnowledge={vi.fn()}
+        onManageMcp={vi.fn()}
         onSend={onSend}
         onCancel={vi.fn()}
       />
@@ -38,14 +53,13 @@ const renderComposer = (
 describe("ChatComposer", () => {
   beforeEach(() => {
     useSkillCatalogStore.setState({ skills: builtInSkills });
-    useVaultCatalogStore.setState({ vaults: previewVaults, attachedSourceIds: [] });
   });
 
   it("keeps Chat as the active conversational surface and exposes capabilities in the composer", () => {
     renderComposer("chat");
 
     expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Tools" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "MCP" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Image" })).toBeDisabled();
   });
 
@@ -65,11 +79,28 @@ describe("ChatComposer", () => {
       .toHaveValue("Review the authentication flow");
   });
 
-  it("explains the unavailable Agent runtime inside the composer", () => {
-    renderComposer("agent");
+  it("enables Agent input and shows the knowledge and MCP context it will receive", () => {
+    const onSend = vi.fn();
+    renderComposer("agent", vi.fn(), "Inspect our principles", onSend);
 
-    expect(screen.getByText(/adds a visible plan, permissions and verified steps/i)).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+    expect(screen.getByRole("region", { name: "Agent context" })).toBeVisible();
+    expect(screen.getByText("Nexo Knowledge Base")).toBeVisible();
+    expect(screen.getByText(/1 tool from Fetch/i)).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(onSend).toHaveBeenCalledOnce();
+  });
+
+  it("blocks an Agent run when Ollama reports that the selected model cannot call tools", () => {
+    renderComposer("agent", vi.fn(), "Use Fetch", vi.fn(), false, "idle", [], {
+      ...defaultAgentContext,
+      modelToolCallingSupported: false
+    });
+
+    expect(screen.getByText(/selected model has no tool calling/i)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   });
 
   it("opens the Skill palette with slash and includes the chosen method in the message context", () => {

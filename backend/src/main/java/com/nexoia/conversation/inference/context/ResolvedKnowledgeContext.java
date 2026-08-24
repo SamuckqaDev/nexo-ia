@@ -16,6 +16,10 @@ public record ResolvedKnowledgeContext(
         return new ResolvedKnowledgeContext(List.of(), KnowledgeSearchStatus.NOT_REQUESTED);
     }
 
+    public static ResolvedKnowledgeContext availableOnDemand() {
+        return new ResolvedKnowledgeContext(List.of(), KnowledgeSearchStatus.AVAILABLE_ON_DEMAND);
+    }
+
     public static ResolvedKnowledgeContext unavailable() {
         return new ResolvedKnowledgeContext(List.of(), KnowledgeSearchStatus.UNAVAILABLE);
     }

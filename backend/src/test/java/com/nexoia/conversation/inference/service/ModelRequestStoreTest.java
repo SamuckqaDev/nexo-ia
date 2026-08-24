@@ -173,7 +173,7 @@ class ModelRequestStoreTest {
                 eq(conversationId), eq("owner"), eq(List.of()), envelope.capture());
         assertThat(envelope.getValue().conversationMode()).isEqualTo("agent");
         assertThat(envelope.getValue().manifest().knowledge().searchStatus())
-                .isEqualTo(KnowledgeSearchStatus.NOT_REQUESTED);
+                .isEqualTo(KnowledgeSearchStatus.AVAILABLE_ON_DEMAND);
         assertThat(envelope.getValue().manifest().tools().exposedToolNames())
                 .containsExactly("update_plan", "search_knowledge", "mcp_12345678_fetch");
         assertThat(reservation.command().agentPlanToolScope()).isNotNull();

@@ -34,9 +34,18 @@ class OllamaProviderServiceTest {
         server.createContext("/api/tags", exchange -> {
             byte[] payload = """
                     {"models":[
-                      {"name":"qwen3:8b","modified_at":"2026-08-20T12:00:00Z","size":123},
+                      {"name":"qwen3:8b","modified_at":"2026-08-20T12:00:00Z","size":123,"capabilities":["completion","tools"]},
                       {"name":"nomic-embed-text","modified_at":null,"size":456}
                     ]}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.createContext("/api/show", exchange -> {
+            byte[] payload = """
+                    {"capabilities":["completion","tools","thinking"]}
                     """.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, payload.length);
@@ -50,6 +59,31 @@ class OllamaProviderServiceTest {
         assertThat(models).extracting(model -> model.name())
                 .containsExactly("qwen3:8b", "nomic-embed-text");
         assertThat(models.getFirst().modifiedAt()).isNotNull();
+        assertThat(models.getFirst().toolCallingSupported()).isTrue();
+        assertThat(models.getLast().toolCallingSupported()).isTrue();
+    }
+
+    @Test
+    void keepsModelsVisibleWhenAnOlderOllamaDoesNotReportCapabilities() {
+        server.createContext("/api/tags", exchange -> {
+            byte[] payload = """
+                    {"models":[{"name":"legacy:7b","modified_at":null,"size":123}]}
+                    """.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.createContext("/api/show", exchange -> {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+        });
+        server.start();
+
+        var models = service.models(endpoint());
+
+        assertThat(models).singleElement()
+                .satisfies(model -> assertThat(model.toolCallingSupported()).isNull());
     }
 
     @Test

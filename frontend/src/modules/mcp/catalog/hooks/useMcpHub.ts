@@ -8,16 +8,16 @@ import {
   discoverMcpConnection,
   getMcpCatalog,
   installDockerMcp,
-  listMcpConnections,
   updateMcpConnectionState,
   updateMcpTools
 } from "../api/mcpApi";
 import type { McpConnection, McpHubResult, RemoteMcpConnectionInput } from "../types/mcpTypes";
+import { mcpConnectionsKey, useMcpConnections } from "./useMcpConnections";
 
 export function useMcpHub(): McpHubResult {
   const queryClient: QueryClient = useQueryClient();
   const show: SnackbarState["show"] = useSnackbarStore((state: SnackbarState) => state.show);
-  const refresh = (): void => { queryClient.invalidateQueries({ queryKey: ["mcp", "connections"] }); };
+  const refresh = (): void => { queryClient.invalidateQueries({ queryKey: mcpConnectionsKey }); };
   const failure = (error: Error): void => show(error.message, { variant: "error" });
 
   const catalog = useQuery({
@@ -26,11 +26,7 @@ export function useMcpHub(): McpHubResult {
     retry: false,
     staleTime: 5 * 60 * 1000
   });
-  const connections = useQuery({
-    queryKey: ["mcp", "connections"],
-    queryFn: listMcpConnections,
-    retry: false
-  });
+  const connections = useMcpConnections();
   const installDocker = useMutation({
     mutationFn: (catalogServerId: string): Promise<McpConnection> => installDockerMcp(catalogServerId)
       .then((connection: McpConnection) => discoverMcpConnection(connection.id)),

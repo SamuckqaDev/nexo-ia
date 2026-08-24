@@ -61,7 +61,7 @@ export const ConversationBody = styled.div<{ $contextOpen: boolean }>`
 
 export const ConversationColumn = styled.div`
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   min-width: 0;
   min-height: 0;
 `;
@@ -217,7 +217,8 @@ export const VaultBar = styled.div`
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
-  width: min(60rem, 100%);
+  width: min(60rem, calc(100% - 2rem));
+  box-sizing: border-box;
   align-self: center;
   padding: 0 ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.xs};
 `;

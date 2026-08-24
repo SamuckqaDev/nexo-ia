@@ -17,6 +17,11 @@ Spring AI 2.0 moves the tool loop into the `ChatClient` advisor chain: `ToolCall
 model, `ToolCallingManager` executes an attached callback, the result becomes a tool response, and
 the advisor repeats until the model returns an ordinary answer or a limit stops the run.
 
+Ollama model compatibility is read from the capability metadata reported by the local catalog, with
+the official [`/api/show`](https://docs.ollama.com/api-reference/show-model-details) endpoint as a
+fallback. Only a model advertising `tools` is presented as **Agent ready**; the behavior follows
+Ollama's [tool-calling contract](https://docs.ollama.com/capabilities/tool-calling).
+
 Baeldung's guides on
 [recursive Advisors](https://www.baeldung.com/spring-ai-recursive-advisors) and
 [effective Agent patterns](https://www.baeldung.com/spring-ai-building-effective-agents) informed
@@ -55,6 +60,18 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | External MCP tools | None | Explicitly selected, governed callbacks |
 | Native write/system tools | None | None |
 
+The composer remains writable in Agent mode and includes a compact **Agent context** inspector. It
+shows the real conversation Vault selection, enabled MCP server/tool count, loading or failure
+states, and the selected model's tool compatibility before a request is sent. The Knowledge bar and
+composer share the same bounded width. A model explicitly reporting no tool calling keeps the
+textarea editable but blocks the invalid Agent submission and points the user back to the model
+picker; unknown capability metadata remains usable with an explicit warning.
+
+For an Agent request with selected Vaults, the initial capability envelope now says that Knowledge
+is `available_on_demand` instead of incorrectly describing it as not requested. It tells the model
+to call `search_knowledge` for a focused query. Enabled `mcp_*` names are separately identified as
+callable external tools, while tool results remain the only acceptable evidence of execution.
+
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
 `search_knowledge` accepts only a bounded query and result count, searches only server-captured Vault
@@ -82,7 +99,6 @@ future context.
 
 ## Deliberately deferred
 
-- model-capability discovery before enabling Agent mode;
 - Workspace/file read and write tools;
 - native terminal, Git, browser, email, and database tools;
 - MCP credentials/OAuth, configuration-dependent Docker entries, resources/prompts, and a Companion

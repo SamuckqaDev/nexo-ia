@@ -41,8 +41,18 @@ public class CapabilityEnvelopeRenderer {
         line(builder, "Tools available this request", manifest.tools().exposedToolNames().isEmpty()
                 ? "none" : join(manifest.tools().exposedToolNames()));
 
+        List<String> mcpTools = manifest.tools().exposedToolNames().stream()
+                .filter(tool -> tool.startsWith("mcp_"))
+                .toList();
+        line(builder, "MCP tools enabled", mcpTools.isEmpty() ? "none" : join(mcpTools));
+
         if (knowledge.sourcesRetrieved() == 0) {
             builder.append('\n').append(noKnowledgeInstruction(knowledge.searchStatus()));
+        }
+        if (!mcpTools.isEmpty()) {
+            builder.append('\n').append("Tools whose names start with `mcp_` are callable external MCP tools "
+                    + "explicitly enabled by the user. Use the exact listed tool name when it directly helps "
+                    + "the request, and report a result only after the tool returns evidence.");
         }
 
         return builder.toString().strip();
@@ -60,6 +70,9 @@ public class CapabilityEnvelopeRenderer {
         return switch (status) {
             case NOT_REQUESTED -> "No Knowledge Vault search was requested. Do not claim you searched, "
                     + "found, or used internal knowledge.";
+            case AVAILABLE_ON_DEMAND -> "The selected Knowledge Vaults are available through the "
+                    + "`search_knowledge` tool. Before answering a request that may depend on the user's "
+                    + "knowledge, call that tool with a focused query and use only returned evidence.";
             case COMPLETED -> "The Knowledge Vault search completed but returned no relevant sources. "
                     + "You may state that no relevant source was found; do not invent or attribute content.";
             case UNAVAILABLE -> "Knowledge Vault search was unavailable. State that limitation plainly and "

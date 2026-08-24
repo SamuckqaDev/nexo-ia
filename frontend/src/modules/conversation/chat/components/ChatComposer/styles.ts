@@ -176,16 +176,6 @@ export const Hint = styled.p`
   font-size: 0.72rem;
 `;
 
-export const ModeHint = styled.p`
-  margin: 0;
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-  background: ${({ theme }) => theme.colors.dangerSurface};
-  color: ${({ theme }) => theme.colors.accentSoft};
-  font-size: 0.72rem;
-  line-height: 1.5;
-`;
-
 export const ComposerFooter = styled.div`
   display: flex;
   min-width: 0;

@@ -49,7 +49,7 @@ class ProviderModelCatalogServiceTest {
         when(endpointGuard.verify(ProviderType.OLLAMA, provider.getEndpoint()))
                 .thenReturn(ProcessingLocation.LOCAL);
         when(ollamaProviderService.models(provider.getEndpoint()))
-                .thenReturn(List.of(new ProviderModelResponse("qwen3:8b", null, 42L)));
+                .thenReturn(List.of(new ProviderModelResponse("qwen3:8b", null, 42L, true)));
 
         var response = service.discover(userId, providerId);
 
@@ -102,7 +102,7 @@ class ProviderModelCatalogServiceTest {
         when(endpointGuard.verify(ProviderType.OLLAMA, "http://127.0.0.1:11434"))
                 .thenReturn(ProcessingLocation.LOCAL);
         when(ollamaProviderService.models("http://127.0.0.1:11434"))
-                .thenReturn(List.of(new ProviderModelResponse("qwen3:8b", null, 42L)));
+                .thenReturn(List.of(new ProviderModelResponse("qwen3:8b", null, 42L, true)));
 
         var response = service.testConnection(ProviderType.OLLAMA, "http://127.0.0.1:11434");
 

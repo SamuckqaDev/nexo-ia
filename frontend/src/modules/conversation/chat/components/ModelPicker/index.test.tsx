@@ -12,8 +12,8 @@ const ollamaCatalog: ProviderModelCatalogView = {
   selectedModel: "qwen3:8b",
   status: "AVAILABLE",
   models: [
-    { name: "qwen3:8b", modifiedAt: null, size: 123 },
-    { name: "deepseek-r1:14b", modifiedAt: null, size: 456 }
+    { name: "qwen3:8b", modifiedAt: null, size: 123, toolCallingSupported: true },
+    { name: "deepseek-r1:14b", modifiedAt: null, size: 456, toolCallingSupported: false }
   ],
   message: null
 };
@@ -43,8 +43,8 @@ describe("ModelPicker", () => {
   it("lists every discovered model under its provider", () => {
     renderPicker([ollamaCatalog]);
 
-    expect(screen.getByRole("option", { name: "qwen3:8b · default" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "deepseek-r1:14b" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "qwen3:8b · Agent ready · default" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "deepseek-r1:14b · no tools" })).toBeInTheDocument();
     expect(screen.getByText("2 models reported by providers")).toBeInTheDocument();
   });
 

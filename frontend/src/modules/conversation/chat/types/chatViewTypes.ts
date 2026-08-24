@@ -19,6 +19,17 @@ export type ConversationContextPanelProps = {
   onManageWorkspace: () => void;
 };
 
+export type AgentContextSummary = {
+  selectedVaultNames: string[];
+  enabledMcpConnectionNames: string[];
+  enabledMcpToolCount: number;
+  knowledgeLoading: boolean;
+  knowledgeError: boolean;
+  mcpLoading: boolean;
+  mcpError: boolean;
+  modelToolCallingSupported: boolean | null;
+};
+
 export type ChatComposerProps = {
   initialContent?: string;
   messageHistory?: string[];
@@ -27,7 +38,10 @@ export type ChatComposerProps = {
   phase: StreamPhase;
   isBusy: boolean;
   mode: ConversationMode;
+  agentContext: AgentContextSummary;
   onModeChange: (mode: ConversationMode) => void;
+  onInspectKnowledge: () => void;
+  onManageMcp: () => void;
   onSend: (content: string) => void;
   onCancel: () => void;
 };

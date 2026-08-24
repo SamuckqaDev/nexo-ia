@@ -10,7 +10,9 @@ import { useProviderRegistry } from "../../../../provider/hooks/useProviderRegis
 import { useProviderModelCatalogs } from "../../../../provider/hooks/useProviderModelCatalogs";
 import { useBackendVaultCatalog } from "../../../../knowledge/vault/hooks/useBackendVaultCatalog";
 import type { BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
-import type { ProviderConfiguration } from "../../../../provider/types/providerConfigurationTypes";
+import { useMcpConnections } from "../../../../mcp/catalog/hooks/useMcpConnections";
+import type { McpConnection, McpTool } from "../../../../mcp/catalog/types/mcpTypes";
+import type { ProviderConfiguration, ProviderModel } from "../../../../provider/types/providerConfigurationTypes";
 import { useUsage } from "../../../../usage/hooks/useUsage";
 import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
@@ -37,6 +39,7 @@ import { parseContextualChatMessage } from "../../services/chatContextService";
 import { useChatDraftStore } from "../../stores/useChatDraftStore";
 import type { Conversation, ConversationMessage, ConversationMode } from "../../types/chatTypes";
 import type { ChatDraftState } from "../../types/chatDraftTypes";
+import type { AgentContextSummary } from "../../types/chatViewTypes";
 import {
   Chat,
   ChatContent,
@@ -102,6 +105,7 @@ export function ChatPage(): ReactElement {
   const selectedVaultIds: string[] = selected?.knowledgeVaultIds ?? [];
   const selectKnowledge = useSelectConversationKnowledge(selectedId);
   const stream = useChatStream(selectedId, messages.data ?? [], mode);
+  const mcpConnections = useMcpConnections(mode === "agent");
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
     .filter((message: ConversationMessage): boolean => message.role === "USER")
     .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
@@ -151,6 +155,25 @@ export function ChatPage(): ReactElement {
     : draftModel ?? firstAvailableModel ?? null;
   const hasModel: boolean = Boolean(effectiveModel?.selectedModel && effectiveModel.providerConfigurationId);
   const hasConfiguredProvider: boolean = configuredProviders.length > 0;
+  const effectiveModelDetails: ProviderModel | undefined = modelCatalogs
+    .find((catalog) => catalog.providerConfigurationId === effectiveModel?.providerConfigurationId)
+    ?.models.find((model: ProviderModel) => model.name === effectiveModel?.selectedModel);
+  const selectedVaultNames: string[] = (backendVaults.vaults.data ?? [])
+    .filter((vault: BackendVault) => selectedVaultIds.includes(vault.id))
+    .map((vault: BackendVault) => vault.name);
+  const enabledMcpConnections: McpConnection[] = (mcpConnections.data ?? [])
+    .filter((connection: McpConnection) => connection.enabled);
+  const agentContext: AgentContextSummary = {
+    selectedVaultNames,
+    enabledMcpConnectionNames: enabledMcpConnections.map((connection: McpConnection) => connection.displayName),
+    enabledMcpToolCount: enabledMcpConnections.reduce((count: number, connection: McpConnection) =>
+      count + connection.tools.filter((tool: McpTool) => tool.enabled).length, 0),
+    knowledgeLoading: backendVaults.vaults.isLoading,
+    knowledgeError: backendVaults.vaults.isError,
+    mcpLoading: mcpConnections.isLoading,
+    mcpError: mcpConnections.isError,
+    modelToolCallingSupported: effectiveModelDetails?.toolCallingSupported ?? null
+  };
 
   useEffect((): void => {
     if (!selectedId || selected?.selectedModel || selectModel.isPending) return;
@@ -408,7 +431,10 @@ export function ChatPage(): ReactElement {
                 phase={stream.phase}
                 isBusy={stream.isBusy}
                 mode={mode}
+                agentContext={agentContext}
                 onModeChange={setMode}
+                onInspectKnowledge={(): void => setIsContextOpen(true)}
+                onManageMcp={(): void => { navigate("/mcp"); }}
                 onSend={sendMessage}
                 onCancel={stream.cancel}
               />

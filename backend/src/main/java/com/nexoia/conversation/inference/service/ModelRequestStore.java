@@ -192,7 +192,9 @@ public class ModelRequestStore {
         List<UUID> selectedVaultIds = selectedVaults.stream().map(KnowledgeVault::getId).toList();
         ResolvedKnowledgeContext resolvedKnowledge = mode == ConversationMode.CHAT
                 ? retrieve(userId, selectedVaultIds, content)
-                : ResolvedKnowledgeContext.notRequested();
+                : selectedVaultIds.isEmpty()
+                        ? ResolvedKnowledgeContext.notRequested()
+                        : ResolvedKnowledgeContext.availableOnDemand();
         List<CitationResponse> citations = resolvedKnowledge.citations();
         List<McpRuntimeConnection> enabledMcpConnections = mode == ConversationMode.AGENT
                 ? mcpConnections.enabledRuntimeConnections(userId)

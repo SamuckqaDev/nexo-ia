@@ -349,7 +349,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
   writes correlated audits. The responsive MCP Hub separates Docker and personal servers, owns its
   internal scrolling, validates API payloads, and requires discover → select tools → enable. See
   D-030 and [MCP runtime and implementation plan](MCP_RUNTIME.md).
-- One hundred and sixty-three passing default backend tests and one hundred and ten passing frontend tests,
+- Agent mode is usable directly from the chat composer. Its compact context inspector shows the
+  selected backend Vaults, enabled owned MCP servers/tools, query failures, and whether the selected
+  Ollama model advertises tool calling. Model discovery reads capability metadata and falls back to
+  `/api/show`; explicitly incompatible models are labeled and cannot start a broken Agent run.
+  Selected Vaults are described to the model as on-demand `search_knowledge` scope, while exact
+  `mcp_*` names are identified as callable tools instead of generic context text.
+- One hundred and sixty-five passing default backend tests and one hundred and eleven passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is

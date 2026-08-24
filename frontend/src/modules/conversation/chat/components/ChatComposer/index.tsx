@@ -1,12 +1,11 @@
-import { ArrowUp, ChatCircleDots, ImageSquare, Paperclip, PaperPlaneRight, Robot, Sparkle, Stop, Wrench, X } from "@phosphor-icons/react";
+import { ArrowUp, ChatCircleDots, ImageSquare, PaperPlaneRight, PlugsConnected, Robot, Sparkle, Stop, X } from "@phosphor-icons/react";
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
-import { attachedVaultSources, useVaultCatalogStore } from "../../../../knowledge/vault/stores/useVaultCatalogStore";
-import type { VaultCatalogState, VaultSourceReference } from "../../../../knowledge/vault/types/vaultTypes";
 import { useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
 import type { SkillCatalogState, SkillDefinition } from "../../../../skill/catalog/types/skillTypes";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { buildContextualChatMessage } from "../../services/chatContextService";
 import type { ChatComposerProps } from "../../types/chatViewTypes";
+import { AgentContextIndicator } from "./components/AgentContextIndicator";
 import {
   ActiveContext,
   ActiveContextCopy,
@@ -23,7 +22,6 @@ import {
   HistoryOption,
   ModeButton,
   ModeControl,
-  ModeHint,
   RemoveContext,
   SendButton,
   SkillCommand,
@@ -42,7 +40,10 @@ export function ChatComposer({
   phase,
   isBusy,
   mode,
+  agentContext,
   onModeChange,
+  onInspectKnowledge,
+  onManageMcp,
   onSend,
   onCancel
 }: ChatComposerProps): ReactElement {
@@ -56,11 +57,6 @@ export function ChatComposer({
   const draftBeforeHistory = useRef<string>("");
   const skills: SkillDefinition[] = useSkillCatalogStore((state: SkillCatalogState) => state.skills);
   const activeWorkspace = useActiveWorkspace();
-  const vaultState: VaultCatalogState = useVaultCatalogStore();
-  const vaultSources: VaultSourceReference[] = useMemo<VaultSourceReference[]>(
-    () => attachedVaultSources(vaultState),
-    [vaultState]
-  );
   const recentMessages: string[] = useMemo<string[]>(() => {
     const seen = new Set<string>();
     const recent: string[] = [];
@@ -90,10 +86,10 @@ export function ChatComposer({
   };
 
   const send = (): void => {
-    if (!content.trim() || isBusy) return;
+    if (!content.trim() || isBusy || (mode === "agent" && agentContext.modelToolCallingSupported === false)) return;
     onSend(buildContextualChatMessage(content, {
       skill: activeSkill,
-      vaultSources,
+      vaultSources: [],
       workspace: activeWorkspace ? { id: activeWorkspace.id, name: activeWorkspace.name } : null
     }));
     setContent("");
@@ -205,24 +201,19 @@ export function ChatComposer({
       <ComposerSurface>
         {!hasModel && !disabled && <Hint>Select a model to enable this conversation.</Hint>}
         {phase === "cancelling" && <Hint>Stopping the answer…</Hint>}
-        {mode === "agent" && (
-          <ModeHint>
-            Agent keeps this conversation, but adds a visible plan, permissions and verified steps.
-            Its execution runtime is not enabled yet.
-          </ModeHint>
-        )}
         <Composer onSubmit={submit}>
+          {mode === "agent" && (
+            <AgentContextIndicator
+              context={agentContext}
+              onInspectKnowledge={onInspectKnowledge}
+              onManageMcp={onManageMcp}
+            />
+          )}
           {activeSkill && (
             <ActiveContext>
               <Sparkle size={17} weight="fill" />
               <ActiveContextCopy><strong>Skill: /{activeSkill.command}</strong><span>Skill instructions will be included in this message. Dependencies remain permission-gated.</span></ActiveContextCopy>
               <RemoveContext type="button" aria-label={`Remove ${activeSkill.name} Skill`} onClick={(): void => setActiveSkill(null)}><X size={14} /></RemoveContext>
-            </ActiveContext>
-          )}
-          {vaultSources.length > 0 && (
-            <ActiveContext>
-              <Paperclip size={17} weight="fill" />
-              <ActiveContextCopy><strong>{vaultSources.length} Vault source{vaultSources.length === 1 ? "" : "s"}</strong><span>Bounded text excerpts will be included as untrusted reference context.</span></ActiveContextCopy>
             </ActiveContext>
           )}
           <Field
@@ -233,7 +224,7 @@ export function ChatComposer({
               : "Type your first message…"}
             value={content}
             maxLength={8000}
-            disabled={disabled || isBusy || mode === "agent"}
+            disabled={disabled || isBusy}
             onChange={updateContent}
             onKeyDown={submitOnEnter}
           />
@@ -247,8 +238,9 @@ export function ChatComposer({
                 <Robot size={15} weight="duotone" /> Agent
               </ModeButton>
             </ModeControl>
-            <CapabilityButton type="button" disabled title="Tools will appear here when enabled">
-              <Wrench size={16} weight="duotone" /> <span>Tools</span>
+            <CapabilityButton type="button" title="Open your MCP tools" onClick={onManageMcp}>
+              <PlugsConnected size={16} weight="duotone" />
+              <span>{mode === "agent" ? `MCP ${agentContext.enabledMcpToolCount}` : "MCP"}</span>
             </CapabilityButton>
             <CapabilityButton type="button" title="Choose a Skill or type /" onClick={openSkills}>
               <Sparkle size={16} weight="duotone" /> <span>Skills</span>
@@ -262,7 +254,12 @@ export function ChatComposer({
                   <Stop size={18} weight="fill" />
                 </StopButton>
               ) : (
-                <SendButton type="submit" aria-label="Send message" disabled={disabled || !hasModel || !content.trim() || mode === "agent"}>
+                <SendButton
+                  type="submit"
+                  aria-label="Send message"
+                  disabled={disabled || !hasModel || !content.trim()
+                    || (mode === "agent" && agentContext.modelToolCallingSupported === false)}
+                >
                   <PaperPlaneRight size={19} weight="fill" />
                 </SendButton>
               )}
