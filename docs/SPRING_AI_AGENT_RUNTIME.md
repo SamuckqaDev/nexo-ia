@@ -78,6 +78,10 @@ Nexo publishes a deterministic three-step plan as soon as every Agent request st
 replace it through `update_plan`; if the model returns a normal answer without doing so, Nexo
 completes the fallback plan so the execution never loses its visible plan contract merely because a
 smaller model ignored the tool.
+The same latest revision is rendered in the assistant turn and in the conversation workspace's
+**Plan** section. The workspace follows live `plan_updated` events and falls back to the newest
+persisted assistant plan after navigation or reload; it never substitutes preview-only steps.
+
 `search_knowledge` accepts only a bounded query and result count, searches only server-captured Vault
 scope, rejects repeated identical queries, and is capped at three calls. MCP tools share a six-call
 request cap, two calls per tool, duplicate-argument denial, bounded output, evidence, audit, and

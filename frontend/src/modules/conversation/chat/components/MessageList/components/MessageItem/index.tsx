@@ -12,9 +12,9 @@ import {
   WarningCircle
 } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
+import { AgentPlan } from "../../../AgentPlan";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
 import type { AgentPlan as AgentPlanValue, AgentState, ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
-import { AgentPlan } from "./components/AgentPlan";
 import { MessageContent } from "./components/MessageContent";
 import {
   Avatar,

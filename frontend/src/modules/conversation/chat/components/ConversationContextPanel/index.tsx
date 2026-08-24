@@ -1,7 +1,6 @@
 import {
   CaretDoubleLeft,
   CaretDoubleRight,
-  CheckCircle,
   ClipboardText,
   FileText,
   FolderOpen,
@@ -13,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
+import { AgentPlan } from "../AgentPlan";
 import { ImageGenerationProgress } from "../../../media/components/ImageGenerationProgress";
 import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
 import type { ImageGenerationJob, ImageGenerationState } from "../../../media/types/imageGenerationTypes";
@@ -33,9 +33,6 @@ import {
   Panel,
   PanelHeader,
   PanelTitle,
-  PlanItem,
-  PlanList,
-  PlanMarker,
   Rail,
   RailButton,
   ResourceCard,
@@ -62,12 +59,6 @@ const contextTabs: ContextTab[] = [
   { id: "tasks", label: "Tasks", icon: ListChecks },
   { id: "artifacts", label: "Artifacts", icon: FileText },
   { id: "media", label: "Media", icon: ImageSquare }
-];
-
-const agentPreviewSteps: string[] = [
-  "Understand the objective",
-  "Request permissions",
-  "Execute and verify"
 ];
 
 type VaultContextCardProps = {
@@ -122,6 +113,7 @@ function VaultContextCard({ vault, selected, disabled, onToggle }: VaultContextC
 export function ConversationContextPanel({
   conversationId,
   mode,
+  agentPlan,
   open,
   vaults,
   selectedVaultIds,
@@ -233,21 +225,12 @@ export function ConversationContextPanel({
       );
     }
 
-    if (mode === "agent") {
+    if (agentPlan) {
       return (
         <>
-          <PlanList>
-            {agentPreviewSteps.map((step: string, index: number) => (
-              <PlanItem key={step}>
-                <PlanMarker>
-                  {index === 0 ? <CheckCircle size={16} weight="duotone" /> : index + 1}
-                </PlanMarker>
-                <span>{step}</span>
-              </PlanItem>
-            ))}
-          </PlanList>
+          <AgentPlan plan={agentPlan} />
           <EmptyCopy>
-            <span>Agent mode may search the selected Vaults and run tools you explicitly enabled in MCP Hub. Workspace and native system tools remain unavailable.</span>
+            <span>This is the latest persisted revision for this conversation and it updates while Agent is working.</span>
           </EmptyCopy>
         </>
       );
@@ -258,7 +241,9 @@ export function ConversationContextPanel({
         <EmptyIcon><ClipboardText size={22} weight="duotone" /></EmptyIcon>
         <EmptyCopy>
           <strong>No active plan</strong>
-          <span>Switch to Agent for multi-step work with a visible, governed plan.</span>
+          <span>{mode === "agent"
+            ? "Send an Agent request to create a visible, governed implementation plan."
+            : "Switch to Agent for multi-step work with a visible, governed plan."}</span>
         </EmptyCopy>
       </EmptyState>
     );

@@ -37,7 +37,7 @@ import {
 import { useChatStream } from "../../hooks/useChatStream";
 import { parseContextualChatMessage } from "../../services/chatContextService";
 import { useChatDraftStore } from "../../stores/useChatDraftStore";
-import type { Conversation, ConversationMessage, ConversationMode } from "../../types/chatTypes";
+import type { AgentPlan, Conversation, ConversationMessage, ConversationMode } from "../../types/chatTypes";
 import type { ChatDraftState } from "../../types/chatDraftTypes";
 import type { AgentContextSummary } from "../../types/chatViewTypes";
 import {
@@ -110,6 +110,11 @@ export function ChatPage(): ReactElement {
     .filter((message: ConversationMessage): boolean => message.role === "USER")
     .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
     .filter((content: string): boolean => Boolean(content.trim())), [messages.data]);
+  const persistedAgentPlan: AgentPlan | null = useMemo<AgentPlan | null>(() =>
+    (messages.data ?? []).findLast((message: ConversationMessage): boolean =>
+      message.role === "ASSISTANT" && Boolean(message.agentPlan))?.agentPlan ?? null,
+  [messages.data]);
+  const visibleAgentPlan: AgentPlan | null = stream.agentPlan ?? persistedAgentPlan;
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
 
   useEffect((): void => {
@@ -442,6 +447,7 @@ export function ChatPage(): ReactElement {
             <ConversationContextPanel
               conversationId={selectedId}
               mode={mode}
+              agentPlan={visibleAgentPlan}
               open={isContextOpen}
               vaults={backendVaults.vaults.data ?? []}
               selectedVaultIds={selectedVaultIds}

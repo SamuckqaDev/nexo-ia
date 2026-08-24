@@ -39,6 +39,7 @@ const renderPanel = (
         <ConversationContextPanel
           conversationId="conversation-1"
           mode={mode}
+          agentPlan={null}
           open={open}
           vaults={vaults}
           selectedVaultIds={selectedVaultIds}
@@ -65,13 +66,42 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText(/switch to agent/i)).toBeInTheDocument();
   });
 
-  it("states the live governed tool boundary of Agent mode", () => {
-    renderPanel("agent");
+  it("shows the latest real implementation-plan revision", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={darkTheme}>
+          <ConversationContextPanel
+            conversationId="conversation-1"
+            mode="agent"
+            agentPlan={{
+              revision: 3,
+              explanation: "Implementation advanced",
+              steps: [
+                { step: "Inspect the current behavior", status: "COMPLETED" },
+                { step: "Connect the Plan workspace", status: "IN_PROGRESS" }
+              ],
+              updatedAt: "2026-08-24T12:00:00Z"
+            }}
+            open
+            vaults={[]}
+            selectedVaultIds={[]}
+            isVaultSelectionPending={false}
+            vaultSelectionError={null}
+            onOpenChange={vi.fn()}
+            onToggleVault={vi.fn()}
+            onManageVaults={vi.fn()}
+            onManageWorkspace={vi.fn()}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
 
     fireEvent.click(screen.getByRole("tab", { name: /plan/i }));
-    expect(screen.getByText("Execute and verify")).toBeInTheDocument();
-    expect(screen.getByText(/tools you explicitly enabled in MCP Hub/i)).toBeInTheDocument();
-    expect(screen.queryByText(/preview/i)).not.toBeInTheDocument();
+    expect(screen.getByText("revision 3")).toBeVisible();
+    expect(screen.getByText("Inspect the current behavior")).toBeVisible();
+    expect(screen.getByText("Connect the Plan workspace")).toBeVisible();
+    expect(screen.getByText(/latest persisted revision/i)).toBeVisible();
   });
 
   it("exposes tasks, artifacts and media as conversation resources", () => {

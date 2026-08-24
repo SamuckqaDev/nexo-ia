@@ -1,6 +1,6 @@
 import { CheckCircle, Circle, ListChecks, SpinnerGap } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
-import type { AgentPlan as AgentPlanValue, AgentPlanStepStatus } from "../../../../../../types/chatTypes";
+import type { AgentPlan as AgentPlanValue, AgentPlanStepStatus } from "../../types/chatTypes";
 import { PlanExplanation, PlanHead, PlanStep, PlanSteps, PlanSurface } from "./styles";
 
 type AgentPlanProps = {
@@ -13,7 +13,7 @@ const StepIcon = ({ status }: { status: AgentPlanStepStatus }): ReactElement => 
   return <Circle size={13} aria-hidden />;
 };
 
-/** Compact, scroll-owning implementation plan restored from the server with the Agent message. */
+/** Reusable implementation-plan surface for both the message timeline and conversation workspace. */
 export function AgentPlan({ plan }: AgentPlanProps): ReactElement {
   return (
     <PlanSurface aria-label="Agent implementation plan">

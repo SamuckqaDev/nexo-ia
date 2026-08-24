@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import type { AgentPlanStepStatus } from "../../../../../../types/chatTypes";
+import type { AgentPlanStepStatus } from "../../types/chatTypes";
 
 export const PlanSurface = styled.section`
   display: grid;

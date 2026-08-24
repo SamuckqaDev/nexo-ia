@@ -146,35 +146,6 @@ export const PreviewBadge = styled.span`
   text-transform: uppercase;
 `;
 
-export const PlanList = styled.ol`
-  display: grid;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: 0;
-  margin: 0 0 ${({ theme }) => theme.spacing.lg};
-  list-style: none;
-`;
-
-export const PlanItem = styled.li`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: 0.71rem;
-`;
-
-export const PlanMarker = styled.span`
-  display: grid;
-  width: 1.7rem;
-  height: 1.7rem;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
-  border-radius: 50%;
-  color: ${({ theme }) => theme.colors.primary};
-  font-size: 0.64rem;
-  font-weight: 800;
-`;
-
 export const ResourceList = styled.div`
   display: grid;
   gap: ${({ theme }) => theme.spacing.sm};

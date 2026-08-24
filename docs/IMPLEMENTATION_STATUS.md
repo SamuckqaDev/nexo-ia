@@ -269,8 +269,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   generate it and discards any reasoning a model still emits. A minimized resource rail keeps the
   selected Project tree, attached Vault sources, governed implementation plan, Agent tasks,
   generated artifacts, and media oriented at the right edge and expands the selected section on
-  demand. The expanded conversation list remains a scroll-owning left panel and becomes an overlay
-  drawer on compact screens. When minimized it disappears completely, preserves the active
+  demand. The Plan section renders the conversation's latest persisted plan revision, follows live
+  `plan_updated` events during execution, and restores the correct plan after changing conversations
+  or reloading instead of showing placeholder steps. The expanded conversation list remains a
+  scroll-owning left panel and becomes an overlay drawer on compact screens. When minimized it
+  disappears completely, preserves the active
   conversation, and is reopened from an icon-only header control instead of consuming width as a
   rail. The Chat workspace establishes its own paint layer so internal drawers and counters cannot
   overlap the application's primary sidebar.
