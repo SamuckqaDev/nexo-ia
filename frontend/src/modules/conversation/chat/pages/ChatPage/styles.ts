@@ -219,7 +219,7 @@ export const VaultBar = styled.div`
   gap: 0.4rem;
   width: min(60rem, calc(100% - 2rem));
   box-sizing: border-box;
-  align-self: center;
+  justify-self: center;
   padding: 0 ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.xs};
 `;
 
