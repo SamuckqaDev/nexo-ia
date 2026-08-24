@@ -63,6 +63,11 @@ nexo:
       estimated-characters-per-token: 4
     stream:
       timeout: 10m
+  mcp:
+    # Operator-owned, comma-separated Docker MCP sidecars: server-id=http://service:port/sse.
+    # Empty in production unless a separately isolated gateway boundary is deployed.
+    docker-gateway-endpoints: ${NEXO_MCP_DOCKER_GATEWAY_ENDPOINTS:}
+    docker-gateway-token: ${NEXO_MCP_DOCKER_GATEWAY_TOKEN:}
   security:
     token:
       issuer: nexo-ia

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.nexoia.mcp.connection.model.McpCostType;
+import com.nexoia.mcp.gateway.service.DockerMcpGatewayRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,7 +34,7 @@ class McpCatalogServiceTest {
                         ]}
                         """));
 
-        var result = service(commands).catalog();
+        var result = service(commands, "").catalog();
 
         assertThat(result.dockerAvailable()).isTrue();
         assertThat(result.gatewayVersion()).isEqualTo("v0.43.3");
@@ -53,7 +54,7 @@ class McpCatalogServiceTest {
                 Duration.ofSeconds(15)))
                 .thenReturn(new DockerMcpCommandResult(-1, ""));
 
-        var result = service(commands).catalog();
+        var result = service(commands, "").catalog();
 
         assertThat(result.dockerAvailable()).isFalse();
         assertThat(result.source()).isEqualTo("reviewed-fallback");
@@ -62,9 +63,31 @@ class McpCatalogServiceTest {
         assertThat(result.servers()).allMatch(server -> server.costType() == McpCostType.LOCAL_FREE);
     }
 
-    private McpCatalogService service(DockerMcpCommandRunner commands) {
+    @Test
+    void exposesOnlyConfiguredSidecarsWhenTheDockerCliIsUnavailable() {
+        DockerMcpCommandRunner commands = Mockito.mock(DockerMcpCommandRunner.class);
+        when(commands.run(List.of("mcp", "version"), Duration.ofSeconds(5)))
+                .thenReturn(new DockerMcpCommandResult(-1, ""));
+        when(commands.run(
+                List.of("mcp", "catalog", "server", "ls", "mcp/docker-mcp-catalog", "--format", "json"),
+                Duration.ofSeconds(15)))
+                .thenReturn(new DockerMcpCommandResult(-1, ""));
+
+        var result = service(commands,
+                "fetch=http://mcp-fetch:8811/sse,duckduckgo=http://mcp-duckduckgo:8811/sse")
+                .catalog();
+
+        assertThat(result.dockerAvailable()).isTrue();
+        assertThat(result.gatewayVersion()).isEqualTo("sidecar");
+        assertThat(result.source()).isEqualTo("docker-sidecars");
+        assertThat(result.servers()).extracting(server -> server.id())
+                .containsExactly("fetch", "duckduckgo");
+    }
+
+    private McpCatalogService service(DockerMcpCommandRunner commands, String gateways) {
         return new McpCatalogService(
                 commands,
+                new DockerMcpGatewayRegistry(gateways, "test-token"),
                 JsonMapper.builder().build(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }

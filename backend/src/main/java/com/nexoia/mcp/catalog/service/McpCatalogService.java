@@ -5,6 +5,7 @@ import com.nexoia.mcp.catalog.dto.McpCatalogServerResponse;
 import com.nexoia.mcp.catalog.dto.McpRiskLevel;
 import com.nexoia.mcp.connection.exception.McpConnectionNotFoundException;
 import com.nexoia.mcp.connection.model.McpCostType;
+import com.nexoia.mcp.gateway.service.DockerMcpGatewayRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,6 +27,7 @@ public class McpCatalogService {
     private static final List<String> RECOMMENDED = List.of("fetch", "duckduckgo", "git", "playwright");
 
     private final DockerMcpCommandRunner commands;
+    private final DockerMcpGatewayRegistry gateways;
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private volatile McpCatalogResponse cached;
@@ -59,6 +61,13 @@ public class McpCatalogService {
                 List.of("mcp", "catalog", "server", "ls", CATALOG_REFERENCE, "--format", "json"),
                 Duration.ofSeconds(15));
         if (version.exitCode() != 0 || catalog.exitCode() != 0 || catalog.output().isBlank()) {
+            if (gateways.available()) {
+                List<McpCatalogServerResponse> available = fallback().stream()
+                        .filter(server -> gateways.endpoint(server.id()).isPresent())
+                        .toList();
+                return new McpCatalogResponse(
+                        !available.isEmpty(), "sidecar", "docker-sidecars", refreshedAt, available);
+            }
             return new McpCatalogResponse(false, null, "reviewed-fallback", refreshedAt, fallback());
         }
 

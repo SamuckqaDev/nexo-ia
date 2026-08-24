@@ -76,6 +76,8 @@ administration UI. It does not pull later-phase capabilities forward. See
   selection, Agent callbacks, evidence, audit, and call limits.
 - **Implemented first slice:** MCP Hub with provenance, license/cost/risk/setup metadata, connection
   health, transport, tool annotations, and free-first filtering.
+- **Implemented local runtime:** pinned, authenticated Docker MCP Gateway sidecars for Fetch and
+  DuckDuckGo, isolated from the frontend and exposed to Agent mode through Spring AI's MCP SSE client.
 - Add Secret Store/OAuth, typed per-user Docker configuration, the full approval Permission Engine,
   per-conversation scope, usage history, and the Companion Docker broker.
 - Build the Nexo MCP toolkit and validate one free, maintained tool integration end to end.

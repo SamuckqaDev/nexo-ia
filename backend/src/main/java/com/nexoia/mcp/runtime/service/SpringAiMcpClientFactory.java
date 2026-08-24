@@ -2,12 +2,14 @@ package com.nexoia.mcp.runtime.service;
 
 import com.nexoia.mcp.connection.exception.McpConnectionUnavailableException;
 import com.nexoia.mcp.connection.model.McpConnectionKind;
+import com.nexoia.mcp.gateway.service.DockerMcpGatewayRegistry;
 import com.nexoia.mcp.runtime.dto.McpConnectionSnapshot;
 import com.nexoia.mcp.runtime.dto.McpDiscoveredTool;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
@@ -16,6 +18,7 @@ import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.net.URI;
+import java.net.http.HttpRequest;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,13 +41,16 @@ public class SpringAiMcpClientFactory implements McpClientFactory {
     private static final int MAX_TOOLS = 100;
     private final String dockerExecutable;
     private final Duration requestTimeout;
+    private final DockerMcpGatewayRegistry dockerGateways;
     private final McpJsonMapper jsonMapper = new JacksonMcpJsonMapper(JsonMapper.builder().build());
 
     public SpringAiMcpClientFactory(
             @Value("${nexo.mcp.docker-command:docker}") String dockerExecutable,
-            @Value("${nexo.mcp.request-timeout:20s}") Duration requestTimeout) {
+            @Value("${nexo.mcp.request-timeout:20s}") Duration requestTimeout,
+            DockerMcpGatewayRegistry dockerGateways) {
         this.dockerExecutable = dockerExecutable;
         this.requestTimeout = requestTimeout;
+        this.dockerGateways = dockerGateways;
     }
 
     @Override
@@ -89,8 +95,12 @@ public class SpringAiMcpClientFactory implements McpClientFactory {
         }
     }
 
-    private McpClientTransport transport(McpRuntimeConnection connection) {
+    McpClientTransport transport(McpRuntimeConnection connection) {
         if (connection.connectionKind() == McpConnectionKind.DOCKER_CATALOG) {
+            URI gatewayEndpoint = dockerGateways.endpoint(connection.catalogServerId()).orElse(null);
+            if (gatewayEndpoint != null) {
+                return httpTransport(gatewayEndpoint, dockerGateways.authorizationHeader().orElse(null));
+            }
             ServerParameters parameters = ServerParameters.builder(dockerExecutable)
                     .args("mcp", "gateway", "run", "--servers", connection.catalogServerId())
                     .build();
@@ -100,13 +110,30 @@ public class SpringAiMcpClientFactory implements McpClientFactory {
             return transport;
         }
 
-        URI endpoint = URI.create(connection.endpoint());
+        return httpTransport(URI.create(connection.endpoint()), null);
+    }
+
+    private McpClientTransport httpTransport(URI endpoint, String authorizationHeader) {
         String baseUrl = endpoint.getScheme() + "://" + endpoint.getAuthority();
         String path = endpoint.getRawPath();
-        return HttpClientStreamableHttpTransport.builder(baseUrl)
+        if ("/sse".equals(path)) {
+            HttpClientSseClientTransport.Builder builder = HttpClientSseClientTransport.builder(baseUrl)
+                    .sseEndpoint(path)
+                    .connectTimeout(requestTimeout);
+            if (authorizationHeader != null) {
+                builder.requestBuilder(HttpRequest.newBuilder()
+                        .header("Authorization", authorizationHeader));
+            }
+            return builder.build();
+        }
+        HttpClientStreamableHttpTransport.Builder builder = HttpClientStreamableHttpTransport.builder(baseUrl)
                 .endpoint(path == null || path.isBlank() ? "/mcp" : path)
-                .connectTimeout(requestTimeout)
-                .build();
+                .connectTimeout(requestTimeout);
+        if (authorizationHeader != null) {
+            builder.requestBuilder(HttpRequest.newBuilder()
+                    .header("Authorization", authorizationHeader));
+        }
+        return builder.build();
     }
 
     private List<McpSchema.Tool> tools(McpSyncClient client) {

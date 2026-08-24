@@ -3,8 +3,8 @@
 Nexo IA supports the first governed MCP tool increment through Spring AI 2.0.1. The product keeps
 two connection worlds behind one user-owned registry:
 
-1. **Docker MCP Catalog:** reviewed containerized servers discovered through the installed Docker
-   MCP CLI and launched through the Docker MCP Gateway's STDIO transport.
+1. **Docker MCP Catalog:** reviewed containerized servers reached either through the installed
+   Docker MCP CLI over STDIO or through operator-owned SSE Gateway sidecars.
 2. **Personal MCP:** a Streamable HTTP endpoint registered by one authenticated user, suitable for a
    server that person built or operates.
 
@@ -33,8 +33,9 @@ Docker-maintained catalog source remains available in the
 - The backend reads Docker's live catalog for five minutes at a time and falls back to a small
   reviewed free-first list when Docker MCP is unavailable.
 - Docker connections use the fixed command `docker mcp gateway run --servers <catalog-id>` without a
-  shell. The server id must first resolve through the catalog and match the bounded identifier
-  contract.
+  shell when the backend runs where the CLI is available. In the Compose development profile,
+  configured server ids resolve instead to isolated SSE sidecars. The server id must
+  first resolve through the catalog and match the bounded identifier contract.
 - Personal connections use the official MCP Java SDK's Streamable HTTP transport.
 - Discovery initializes the server, paginates a bounded tool list, stores safe metadata and JSON
   input schemas, and preserves still-existing tool selections on refresh.
@@ -102,17 +103,36 @@ authenticated owner
 
 ## Operation
 
-Docker MCP works when the Nexo backend process can execute the Docker CLI with the MCP plugin. A
-backend started directly on a developer workstation can use the locally installed Docker Desktop
-Toolkit. The production backend image deliberately contains no host Docker socket or Docker Desktop
-credentials, so its catalog reports unavailable until a separately authenticated Companion/broker
-boundary is implemented; mounting the host socket into the application container is not accepted as
-an implicit shortcut.
+Docker MCP works when the Nexo backend process can execute the Docker CLI with the MCP plugin or an
+operator configures a server-id-to-Gateway endpoint. A backend started directly on a developer
+workstation can use the locally installed Docker Desktop Toolkit.
 
-The MCP Hub renders that state as **Docker runtime unavailable**, with a normal unavailable cursor
-and an explanation of the runtime boundary. Progress labels and cursors are reserved for real
-install, discovery, selection, and enablement requests. Personal Streamable HTTP registration
-remains available through **Connect custom** when its endpoint satisfies the network policy.
+The Compose development profile starts two pinned Docker MCP Gateway sidecars: `fetch` and
+`duckduckgo`. Each sidecar owns exactly one reviewed server, receives Docker's API socket through
+Compose `use_api_socket`, requires a bearer token, has no published host port, and shares only the
+dedicated `nexo-mcp` network with the backend. The backend selects those endpoints through
+`NEXO_MCP_DOCKER_GATEWAY_ENDPOINTS` and sends `NEXO_MCP_DOCKER_GATEWAY_TOKEN`; the gateway receives
+the matching `MCP_GATEWAY_AUTH_TOKEN`. `NEXO_MCP_GATEWAY_TOKEN` can override the development-only
+default. The tool containers retain Docker Gateway signature verification, resource limits, and
+`no-new-privileges` defaults.
+
+The sidecars currently use Docker Gateway's SSE transport. The pinned Gateway rejects the
+`application/json; charset=utf-8` request media type emitted by the Spring AI-bundled MCP SDK 2.0
+Streamable HTTP client, while the official SSE client interoperates successfully. An opt-in Docker
+smoke test initializes the real authenticated gateway and verifies `search` and `fetch_content`
+discovery so a future dependency upgrade can safely reevaluate Streamable HTTP.
+
+The production backend image deliberately contains no host Docker socket or Docker Desktop
+credentials. Production therefore still requires separately isolated, authenticated Gateway
+sidecars or the future Companion/broker boundary; the application container never receives the raw
+Docker socket.
+
+When neither the CLI nor configured sidecars exist, the MCP Hub renders **Docker runtime
+unavailable**, with a normal unavailable cursor and an explanation of the runtime boundary. In the
+development profile, Fetch and DuckDuckGo are executable catalog cards. Progress labels and cursors
+are reserved for real install, discovery, selection, and enablement requests. Personal Streamable
+HTTP registration remains available through **Connect custom** when its endpoint satisfies the
+network policy.
 
 Public HTTPS personal endpoints are allowed by default. Loopback and private-network endpoints are
 blocked against server-side request forgery. A trusted local development operator may explicitly set
@@ -125,8 +145,8 @@ and must not be enabled casually on a shared server.
    require credentials.
 2. Add typed, user-owned Docker configuration rather than reading shared Docker Toolkit settings;
    then enable configuration-dependent catalog entries.
-3. Build the signed Nexo Companion/broker so a containerized or remote server can reach a user's
-   local Docker MCP Gateway without receiving the host Docker socket.
+3. Build the signed Nexo Companion/broker so a remote Nexo server can reach a user's local Docker
+   MCP Gateway; local Compose already uses operator-owned isolated sidecars.
 4. Put write/destructive MCP annotations through the full Permission Engine with previews and fresh
    approval; annotations are untrusted hints, not authorization.
 5. Add per-conversation connection selection, resources/prompts, health history, usage counters, and

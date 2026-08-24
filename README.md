@@ -83,7 +83,9 @@ The script detects Docker Compose or Podman Compose, creates a private `.env` wi
 secrets when absent, removes only previous Nexo IA containers, and preserves named volumes. It then
 builds the backend image and starts PostgreSQL, Mailpit, and the React frontend through
 `npm run dev` on Node.js 24. The default addresses are frontend `http://127.0.0.1:5173`, backend
-`http://127.0.0.1:8080`, and Mailpit `http://127.0.0.1:8025`.
+`http://127.0.0.1:8080`, and Mailpit `http://127.0.0.1:8025`. With Docker Compose, development also
+starts authenticated, non-published Docker MCP Gateway sidecars for the free Fetch and DuckDuckGo
+catalog servers. Set `NEXO_MCP_GATEWAY_TOKEN` to override the local-only default gateway token.
 
 ## Documentation site
 

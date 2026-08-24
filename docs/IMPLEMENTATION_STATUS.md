@@ -360,7 +360,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   fallback. The capability envelope distinguishes exact executable tools from language abilities,
   explicitly reports when no MCP tool is connected, and points to the Hub. The Hub no longer uses a
   perpetual wait cursor for unavailable Docker actions and shows the container runtime boundary.
-- One hundred and sixty-seven passing default backend tests and one hundred and fourteen passing frontend tests,
+- The Compose development profile now starts pinned Docker MCP Gateway sidecars for Fetch and
+  DuckDuckGo. They require bearer authentication, publish no host port, live on a dedicated network
+  shared only with the backend, and are consumed through Spring AI's MCP SSE transport. The MCP Hub
+  therefore presents those free catalog cards as executable instead of informational in local Docker
+  development, while production keeps requiring an operator-owned gateway or Companion boundary.
+- One hundred and seventy-two passing default backend tests and one hundred and fourteen passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is

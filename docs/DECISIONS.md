@@ -435,11 +435,13 @@ options considered, the selected approach, and its consequences.
   Engine and Secret Store.
 - **Decision:** persist user-owned MCP connections and discovered tool snapshots. Use the official
   MCP Java SDK plus Spring AI's programmatic callback adapter: Docker catalog servers launch only
-  through a fixed Docker Gateway command, and personal servers use validated Streamable HTTP.
+  through a fixed Docker Gateway command or an operator-owned server-specific Gateway sidecar, and
+  personal servers use validated Streamable HTTP.
   Discover first, keep every tool disabled by default, and attach only explicitly selected tools to
   Agent requests. Reject catalog entries that currently require secrets or configuration, and reject
   arbitrary custom STDIO commands.
 - **Consequence:** the first MCP slice is useful, dynamic, free-first, audited, and isolated without
-  pretending the later security subsystems exist. A containerized Nexo backend cannot use a host
-  Docker Desktop Gateway until the Companion/broker boundary exists. See
+  pretending the later security subsystems exist. Local Compose exposes Fetch and DuckDuckGo through
+  authenticated, non-published sidecars on a backend-only network. Remote access to a user's Docker
+  Desktop still waits for the Companion/broker boundary. See
   [MCP runtime and implementation plan](MCP_RUNTIME.md).
