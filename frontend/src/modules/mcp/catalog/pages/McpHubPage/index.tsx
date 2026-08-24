@@ -191,10 +191,20 @@ export function McpHubPage(): ReactElement {
               <InlineNotice><WarningCircle size={17} />{failureMessage(hub.catalog.error)}</InlineNotice>
             ) : hub.catalog.isLoading ? <Loading label="Reading Docker MCP Catalog…" /> : (
               <CatalogList>
+                {catalog && !catalog.dockerAvailable && (
+                  <InlineNotice>
+                    <WarningCircle size={17} />
+                    Docker MCP is not connected to this Nexo runtime. Catalog cards are informational
+                    here; use Connect custom for a Streamable HTTP server or run the backend where
+                    Docker MCP is available.
+                  </InlineNotice>
+                )}
                 {visibleServers.map((server: McpCatalogServer) => {
                   const installed = installedIds.has(server.id);
                   const unsupportedSetup = server.requiresSecrets || server.requiresConfiguration;
                   const unavailable = !catalog?.dockerAvailable;
+                  const installing = hub.installDocker.isPending
+                    && hub.installDocker.variables === server.id;
                   return (
                     <CatalogCard key={server.id}>
                       <ServerIdentity>
@@ -212,12 +222,21 @@ export function McpHubPage(): ReactElement {
                       <Button
                         type="button"
                         variant="outline"
-                        icon={installed ? CheckCircle : Plus}
+                        icon={installed ? CheckCircle : unavailable ? WarningCircle : Plus}
                         disabled={installed || unsupportedSetup || unavailable || hub.installDocker.isPending}
-                        title={unsupportedSetup ? "Per-user credentials and configuration are not stored yet" : undefined}
+                        aria-busy={installing}
+                        title={unsupportedSetup
+                          ? "Per-user credentials and configuration are not stored yet"
+                          : unavailable ? "The current Nexo backend cannot execute Docker MCP" : undefined}
                         onClick={(): void => install(server)}
                       >
-                        {installed ? "Installed" : unsupportedSetup ? "Setup coming next" : "Install & inspect"}
+                        {installed
+                          ? "Installed"
+                          : unsupportedSetup
+                            ? "Setup coming next"
+                            : unavailable
+                              ? "Docker runtime unavailable"
+                              : installing ? "Installing & inspecting…" : "Install & inspect"}
                       </Button>
                     </CatalogCard>
                   );
@@ -230,7 +249,7 @@ export function McpHubPage(): ReactElement {
         <WorkspacePanel
           title="Your MCP servers"
           description="Private registrations; other users cannot list or execute them."
-          action={<Button type="button" variant="outline" icon={Plus} onClick={(): void => setCreatingRemote(true)}>Custom</Button>}
+          action={<Button type="button" variant="outline" icon={Plus} onClick={(): void => setCreatingRemote(true)}>Connect custom</Button>}
         >
           {creatingRemote ? (
             <McpConnectionForm
@@ -266,7 +285,9 @@ export function McpHubPage(): ReactElement {
             <WorkspaceEmptyState
               icon={PlugsConnected}
               title="No MCP servers yet"
-              description="Install a zero-secret Docker server or connect an MCP endpoint you control."
+              description={catalog?.dockerAvailable
+                ? "Install a zero-secret Docker server or connect an MCP endpoint you control."
+                : "Connect a public HTTPS Streamable HTTP endpoint. Docker cards require a Nexo runtime with Docker MCP available."}
             />
           )}
         </WorkspacePanel>
@@ -286,7 +307,16 @@ export function McpHubPage(): ReactElement {
                   {selected.serverVersion && <small>Version {selected.serverVersion}</small>}
                 </div>
                 <DetailActions>
-                  <Button type="button" variant="outline" icon={ArrowsClockwise} disabled={hub.discover.isPending} onClick={(): void => hub.discover.mutate(selected.id)}>Inspect</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    icon={ArrowsClockwise}
+                    disabled={hub.discover.isPending}
+                    aria-busy={hub.discover.isPending}
+                    onClick={(): void => hub.discover.mutate(selected.id)}
+                  >
+                    {hub.discover.isPending ? "Inspecting…" : "Inspect"}
+                  </Button>
                   <Button type="button" variant="outline" icon={Trash} onClick={(): void => remove(selected)}>Remove</Button>
                 </DetailActions>
               </DetailHeader>
@@ -316,9 +346,24 @@ export function McpHubPage(): ReactElement {
                     })}
                   </ToolList>
                   <DetailActions>
-                    <Button type="button" variant="outline" disabled={!toolSelectionDirty || hub.selectTools.isPending} onClick={(): void => hub.selectTools.mutate({ id: selected.id, enabledToolNames: selectedTools })}>Save allowed tools</Button>
-                    <Button type="button" disabled={toolSelectionDirty || (!selected.enabled && selectedTools.length === 0) || hub.setEnabled.isPending} onClick={(): void => hub.setEnabled.mutate({ id: selected.id, enabled: !selected.enabled })}>
-                      {toolSelectionDirty ? "Save tools first" : selected.enabled ? "Disable" : "Enable in Agent"}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!toolSelectionDirty || hub.selectTools.isPending}
+                      aria-busy={hub.selectTools.isPending}
+                      onClick={(): void => hub.selectTools.mutate({ id: selected.id, enabledToolNames: selectedTools })}
+                    >
+                      {hub.selectTools.isPending ? "Saving tools…" : "Save allowed tools"}
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={toolSelectionDirty || (!selected.enabled && selectedTools.length === 0) || hub.setEnabled.isPending}
+                      aria-busy={hub.setEnabled.isPending}
+                      onClick={(): void => hub.setEnabled.mutate({ id: selected.id, enabled: !selected.enabled })}
+                    >
+                      {hub.setEnabled.isPending
+                        ? selected.enabled ? "Disabling…" : "Enabling…"
+                        : toolSelectionDirty ? "Save tools first" : selected.enabled ? "Disable" : "Enable in Agent"}
                     </Button>
                   </DetailActions>
                 </>

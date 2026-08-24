@@ -74,6 +74,10 @@ callable external tools, while tool results remain the only acceptable evidence 
 
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
+Nexo publishes a deterministic three-step plan as soon as every Agent request starts. A model may
+replace it through `update_plan`; if the model returns a normal answer without doing so, Nexo
+completes the fallback plan so the execution never loses its visible plan contract merely because a
+smaller model ignored the tool.
 `search_knowledge` accepts only a bounded query and result count, searches only server-captured Vault
 scope, rejects repeated identical queries, and is capped at three calls. MCP tools share a six-call
 request cap, two calls per tool, duplicate-argument denial, bounded output, evidence, audit, and

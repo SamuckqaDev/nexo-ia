@@ -43,7 +43,7 @@ export function AgentContextIndicator({
       ? "MCP status unavailable"
       : mcpReady
         ? `${context.enabledMcpToolCount} tool${context.enabledMcpToolCount === 1 ? "" : "s"} from ${context.enabledMcpConnectionNames.join(", ")}`
-        : "No MCP tools enabled";
+        : "No MCP connected — open Hub";
 
   return (
     <ContextPanel aria-label="Agent context" $blocked={modelBlocked}>

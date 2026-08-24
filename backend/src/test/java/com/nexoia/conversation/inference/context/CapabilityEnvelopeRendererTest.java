@@ -21,7 +21,9 @@ class CapabilityEnvelopeRendererTest {
         assertThat(rendered).contains("Sources retrieved: 0");
         assertThat(rendered).contains("No Knowledge Vault search was requested");
         assertThat(rendered).contains("Tools available this request: none");
+        assertThat(rendered).contains("MCP connection status: no enabled MCP tools are connected");
         assertThat(rendered).contains("MCP tools enabled: none");
+        assertThat(rendered).contains("direct them to enable a suitable server in the MCP Hub");
     }
 
     @Test
@@ -50,8 +52,10 @@ class CapabilityEnvelopeRendererTest {
 
         assertThat(rendered).contains("Knowledge search status: available_on_demand");
         assertThat(rendered).contains("available through the `search_knowledge` tool");
+        assertThat(rendered).contains("MCP connection status: 1 enabled tool(s)");
         assertThat(rendered).contains("MCP tools enabled: mcp_12345678_fetch");
         assertThat(rendered).contains("callable external MCP tools");
+        assertThat(rendered).contains("before claiming that external access is unavailable");
     }
 
     private ModelContextEnvelope envelope(KnowledgeCapability knowledge, ToolCapability tools) {

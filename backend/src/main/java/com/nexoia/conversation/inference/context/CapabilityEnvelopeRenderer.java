@@ -44,15 +44,23 @@ public class CapabilityEnvelopeRenderer {
         List<String> mcpTools = manifest.tools().exposedToolNames().stream()
                 .filter(tool -> tool.startsWith("mcp_"))
                 .toList();
+        line(builder, "MCP connection status", mcpTools.isEmpty()
+                ? "no enabled MCP tools are connected to this request"
+                : mcpTools.size() + " enabled tool(s)");
         line(builder, "MCP tools enabled", mcpTools.isEmpty() ? "none" : join(mcpTools));
 
         if (knowledge.sourcesRetrieved() == 0) {
             builder.append('\n').append(noKnowledgeInstruction(knowledge.searchStatus()));
         }
-        if (!mcpTools.isEmpty()) {
+        if (mcpTools.isEmpty()) {
+            builder.append('\n').append("No external MCP tool is connected to this request. If the user asks "
+                    + "for web search or another external action, state this limitation and direct them to "
+                    + "enable a suitable server in the MCP Hub. You cannot connect or enable one yourself.");
+        } else {
             builder.append('\n').append("Tools whose names start with `mcp_` are callable external MCP tools "
                     + "explicitly enabled by the user. Use the exact listed tool name when it directly helps "
-                    + "the request, and report a result only after the tool returns evidence.");
+                    + "the request, before claiming that external access is unavailable, and report a result "
+                    + "only after the tool returns evidence.");
         }
 
         return builder.toString().strip();

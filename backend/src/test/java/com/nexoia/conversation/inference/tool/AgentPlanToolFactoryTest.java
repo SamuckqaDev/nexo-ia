@@ -3,6 +3,7 @@ package com.nexoia.conversation.inference.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.conversation.inference.model.AgentPlanStepStatus;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
@@ -48,8 +49,17 @@ class AgentPlanToolFactoryTest {
                 """);
 
         assertThat(result).contains("COMPLETED").contains("revision");
-        assertThat(updates).singleElement().satisfies(update -> {
+        assertThat(updates).hasSize(2);
+        assertThat(updates.getFirst()).satisfies(update -> {
             assertThat(update.revision()).isEqualTo(1);
+            assertThat(update.steps()).extracting(step -> step.status())
+                    .containsExactly(
+                            AgentPlanStepStatus.IN_PROGRESS,
+                            AgentPlanStepStatus.PENDING,
+                            AgentPlanStepStatus.PENDING);
+        });
+        assertThat(updates.getLast()).satisfies(update -> {
+            assertThat(update.revision()).isEqualTo(2);
             assertThat(update.steps()).extracting(step -> step.step())
                     .containsExactly("Inspect the selected Vaults", "Answer with citations");
         });
@@ -83,6 +93,23 @@ class AgentPlanToolFactoryTest {
                         ToolExecutionStatus.COMPLETED,
                         ToolExecutionStatus.DENIED,
                         ToolExecutionStatus.DENIED);
+    }
+
+    @Test
+    void completesTheVisibleFallbackWhenTheModelDoesNotCreateAPlan() {
+        List<AgentPlanUpdate> updates = new ArrayList<>();
+        AgentPlanToolSession session = factory.open(
+                scope(), ToolExecutionObserver.NOOP, updates::add, () -> false);
+
+        session.completeFallback();
+        session.completeFallback();
+
+        assertThat(updates).hasSize(2);
+        assertThat(updates.getFirst().revision()).isEqualTo(1);
+        assertThat(updates.getLast().revision()).isEqualTo(2);
+        assertThat(updates.getLast().steps())
+                .allMatch(step -> step.status() == AgentPlanStepStatus.COMPLETED);
+        assertThat(session.evidence()).isEmpty();
     }
 
     private AgentPlanToolScope scope() {

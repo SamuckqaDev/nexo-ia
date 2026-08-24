@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nexoia.audit.service.AuditService;
@@ -13,6 +14,11 @@ import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
+import com.nexoia.mcp.connection.model.McpConnectionKind;
+import com.nexoia.mcp.connection.model.McpTransportType;
+import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
+import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
+import com.nexoia.mcp.runtime.service.McpToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
@@ -20,6 +26,7 @@ import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
+import com.nexoia.provider.dto.McpToolScope;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.exception.ProviderStreamException;
@@ -277,6 +284,53 @@ class SpringAiChatCompletionClientTest {
         assertThat(planUpdate.get().steps()).hasSize(2);
         assertThat(requestBodies.getFirst()).contains("update_plan").doesNotContain("userId");
         assertThat(requestBodies.get(1)).contains("\"role\":\"tool\"");
+    }
+
+    @Test
+    void tellsTheModelWhenConfiguredMcpHasNoCallableRuntimeTool() {
+        McpToolSessionFactory mcpFactory = mock(McpToolSessionFactory.class);
+        McpToolSession mcpSession = mock(McpToolSession.class);
+        when(mcpSession.callbacks()).thenReturn(List.of());
+        when(mcpSession.evidence()).thenReturn(List.of());
+        when(mcpFactory.open(any(), any(), any())).thenReturn(mcpSession);
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mcpFactory,
+                ObservationRegistry.NOOP);
+        serve(STREAM);
+        UUID userId = UUID.randomUUID();
+        McpRuntimeConnection connection = new McpRuntimeConnection(
+                UUID.randomUUID(),
+                "Search server",
+                McpConnectionKind.CUSTOM_REMOTE,
+                McpTransportType.STREAMABLE_HTTP,
+                null,
+                "https://mcp.example.com/mcp",
+                List.of(new McpRuntimeTool("search", "mcp_search")));
+        ChatCompletionCommand agentCommand = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage("user", "Search LinkedIn")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                new McpToolScope(userId, UUID.randomUUID(), UUID.randomUUID(), List.of(connection)),
+                ToolExecutionObserver.NOOP,
+                update -> { });
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                agentCommand, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("Hello");
+        assertThat(requestBody.get())
+                .contains("configured MCP connection could not provide any callable tool")
+                .contains("do not claim an external action succeeded");
+        verify(mcpSession).close();
     }
 
     private void serve(String body) {

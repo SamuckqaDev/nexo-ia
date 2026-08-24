@@ -25,6 +25,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import lombok.extern.slf4j.Slf4j;
@@ -58,16 +59,24 @@ public class AgentPlanToolFactory {
             BooleanSupplier cancelled) {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
         AtomicInteger updateCount = new AtomicInteger();
+        AtomicInteger revision = new AtomicInteger(1);
+        AtomicBoolean modelPlanUpdated = new AtomicBoolean();
         Set<String> seenPlans = new HashSet<>();
+
+        planObserver.onUpdated(fallbackPlan(revision.get(), false));
 
         var callback = FunctionToolCallback
                 .builder(TOOL_NAME, (UpdatePlanInput input, ToolContext ignored) -> execute(
                         scope, toolObserver, planObserver, cancelled, evidence,
-                        updateCount, seenPlans, input))
+                        updateCount, revision, modelPlanUpdated, seenPlans, input))
                 .description("Create or replace the concise implementation plan visible to the user")
                 .inputType(UpdatePlanInput.class)
                 .build();
-        return new AgentPlanToolSession(callback, evidence);
+        return new AgentPlanToolSession(callback, evidence, () -> {
+            if (modelPlanUpdated.compareAndSet(false, true)) {
+                planObserver.onUpdated(fallbackPlan(revision.incrementAndGet(), true));
+            }
+        });
     }
 
     private UpdatePlanResult execute(
@@ -77,6 +86,8 @@ public class AgentPlanToolFactory {
             BooleanSupplier cancelled,
             List<ToolExecutionEvidence> evidence,
             AtomicInteger updateCount,
+            AtomicInteger revision,
+            AtomicBoolean modelPlanUpdated,
             Set<String> seenPlans,
             UpdatePlanInput input) {
         String serialized = input == null ? "" : input.toString();
@@ -97,9 +108,9 @@ public class AgentPlanToolFactory {
                     "The plan update was denied because it violated the request limits.");
         }
 
-        int revision = updateCount.get();
+        int nextRevision = revision.incrementAndGet();
         AgentPlanUpdate update = new AgentPlanUpdate(
-                revision,
+                nextRevision,
                 normalizeExplanation(input.explanation()),
                 input.plan().stream()
                         .map(step -> new AgentPlanStepUpdate(step.step().trim(), step.status()))
@@ -107,9 +118,10 @@ public class AgentPlanToolFactory {
                 clock.instant());
         try {
             planObserver.onUpdated(update);
+            modelPlanUpdated.set(true);
             finish(scope, toolObserver, evidence, startedAt, executionId, ToolExecutionStatus.COMPLETED);
             return new UpdatePlanResult(
-                    ToolExecutionStatus.COMPLETED, revision,
+                    ToolExecutionStatus.COMPLETED, nextRevision,
                     "The visible implementation plan was updated.");
         } catch (RuntimeException exception) {
             log.warn("[NEXO-BACK][AGENT] Plan update failed messageId={} reason={}",
@@ -146,6 +158,27 @@ public class AgentPlanToolFactory {
             return null;
         }
         return explanation.trim();
+    }
+
+    private AgentPlanUpdate fallbackPlan(int revision, boolean completed) {
+        AgentPlanStepStatus status = completed
+                ? AgentPlanStepStatus.COMPLETED
+                : AgentPlanStepStatus.IN_PROGRESS;
+        return new AgentPlanUpdate(
+                revision,
+                completed
+                        ? "Request assessed against the capabilities actually available to Nexo."
+                        : "Assessing the request before using any authorized capability.",
+                List.of(
+                        new AgentPlanStepUpdate(
+                                "Assess the request and available capabilities", status),
+                        new AgentPlanStepUpdate(
+                                "Use authorized tools or identify the missing connection",
+                                completed ? AgentPlanStepStatus.COMPLETED : AgentPlanStepStatus.PENDING),
+                        new AgentPlanStepUpdate(
+                                "Verify evidence and report the result honestly",
+                                completed ? AgentPlanStepStatus.COMPLETED : AgentPlanStepStatus.PENDING)),
+                clock.instant());
     }
 
     private void finish(

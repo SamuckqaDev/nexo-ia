@@ -121,10 +121,10 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         OllamaChatModel model =
                 modelFactory.chatModel(command.endpoint(), command.model(), command.thinkingEnabled());
         List<Message> mapped = messageMapper.toSpringAi(command.messages());
-        List<SystemMessage> systemContext = mapped.stream()
+        List<SystemMessage> systemContext = new ArrayList<>(mapped.stream()
                 .filter(SystemMessage.class::isInstance)
                 .map(SystemMessage.class::cast)
-                .toList();
+                .toList());
         List<Message> conversation = mapped.stream()
                 .filter(message -> !(message instanceof SystemMessage))
                 .toList();
@@ -133,6 +133,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         KnowledgeSearchToolSession knowledgeSession = knowledgeToolSession(command, cancelled);
         AgentPlanToolSession planSession = planToolSession(command, cancelled);
         McpToolSession mcpSession = mcpToolSession(command, cancelled);
+        if (mcpSession != null) {
+            systemContext.add(new SystemMessage(mcpRuntimeStatus(mcpSession)));
+        }
         List<ToolCallback> callbacks = new ArrayList<>(Stream.of(
                         planSession == null ? null : planSession.callback(),
                         knowledgeSession == null ? null : knowledgeSession.callback())
@@ -220,6 +223,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
             TokenSource tokenSource =
                     inputTokens == null && outputTokens == null ? null : TokenSource.PROVIDER;
+            if (planSession != null) {
+                planSession.completeFallback();
+            }
             return new ChatCompletionOutcome(
                     content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
                     evidence(planSession, knowledgeSession, mcpSession));
@@ -282,6 +288,20 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             evidence.addAll(mcpSession.evidence());
         }
         return evidence;
+    }
+
+    private String mcpRuntimeStatus(McpToolSession session) {
+        List<String> toolNames = session.callbacks().stream()
+                .map(callback -> callback.getToolDefinition().name())
+                .toList();
+        if (toolNames.isEmpty()) {
+            return "MCP runtime status: the configured MCP connection could not provide any callable "
+                    + "tool for this execution. State that limitation and direct the user to inspect the "
+                    + "connection in the MCP Hub; do not claim an external action succeeded.";
+        }
+        return "MCP runtime status: connected. Callable external tools for this execution: "
+                + String.join(", ", toolNames) + ". Use a matching tool before claiming external access "
+                + "is unavailable, and trust only its returned evidence.";
     }
 
     private ChatCompletionCommand withoutThinking(ChatCompletionCommand command) {

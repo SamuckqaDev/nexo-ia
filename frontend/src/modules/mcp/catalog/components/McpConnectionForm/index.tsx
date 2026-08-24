@@ -42,7 +42,7 @@ export function McpConnectionForm({ pending, onSubmit, onCancel }: McpConnection
       </Hint>
       <Actions>
         <Button type="button" variant="outline" icon={X} onClick={onCancel}>Cancel</Button>
-        <Button type="submit" icon={CloudArrowUp} disabled={pending}>
+        <Button type="submit" icon={CloudArrowUp} disabled={pending} aria-busy={pending}>
           {pending ? "Inspecting…" : "Connect & inspect"}
         </Button>
       </Actions>

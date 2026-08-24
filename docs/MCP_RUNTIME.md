@@ -55,6 +55,10 @@ Docker-maintained catalog source remains available in the
   Nexo's `update_plan` and `search_knowledge` tools.
 - The Agent capability envelope identifies the exact enabled `mcp_*` callbacks as callable external
   tools, and the composer shows their owned server and tool counts before sending.
+- With no enabled MCP callback, the envelope explicitly says that no external MCP tool is connected
+  and directs the model to the MCP Hub instead of letting it invent tools or generic capabilities.
+  With a matching callback, the model is instructed to call it before claiming external access is
+  unavailable.
 - A request may execute at most six MCP calls and at most two calls to one external tool. Repeated
   identical tool arguments are denied.
 - Calls honor explicit cancellation, record an argument digest rather than raw input, emit the normal
@@ -104,6 +108,11 @@ Toolkit. The production backend image deliberately contains no host Docker socke
 credentials, so its catalog reports unavailable until a separately authenticated Companion/broker
 boundary is implemented; mounting the host socket into the application container is not accepted as
 an implicit shortcut.
+
+The MCP Hub renders that state as **Docker runtime unavailable**, with a normal unavailable cursor
+and an explanation of the runtime boundary. Progress labels and cursors are reserved for real
+install, discovery, selection, and enablement requests. Personal Streamable HTTP registration
+remains available through **Connect custom** when its endpoint satisfies the network policy.
 
 Public HTTPS personal endpoints are allowed by default. Loopback and private-network endpoints are
 blocked against server-side request forgery. A trusted local development operator may explicitly set

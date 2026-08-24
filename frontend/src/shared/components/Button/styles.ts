@@ -33,7 +33,11 @@ export const Button = styled.button<{ $variant: "primary" | "outline" }>`
   }
 
   &:disabled {
-    cursor: wait;
+    cursor: not-allowed;
     opacity: 0.6;
+  }
+
+  &[aria-busy="true"]:disabled {
+    cursor: progress;
   }
 `;

@@ -355,7 +355,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   `/api/show`; explicitly incompatible models are labeled and cannot start a broken Agent run.
   Selected Vaults are described to the model as on-demand `search_knowledge` scope, while exact
   `mcp_*` names are identified as callable tools instead of generic context text.
-- One hundred and sixty-five passing default backend tests and one hundred and eleven passing frontend tests,
+- Every Agent request now receives a durable visible fallback plan before inference. A compliant
+  model can replace it through `update_plan`; a normal response from a smaller model completes the
+  fallback. The capability envelope distinguishes exact executable tools from language abilities,
+  explicitly reports when no MCP tool is connected, and points to the Hub. The Hub no longer uses a
+  perpetual wait cursor for unavailable Docker actions and shows the container runtime boundary.
+- One hundred and sixty-seven passing default backend tests and one hundred and fourteen passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
