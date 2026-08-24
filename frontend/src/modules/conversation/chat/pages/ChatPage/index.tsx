@@ -39,6 +39,7 @@ import {
 import { useChatStream } from "../../hooks/useChatStream";
 import { parseContextualChatMessage } from "../../services/chatContextService";
 import { useChatDraftStore } from "../../stores/useChatDraftStore";
+import { useConversationModeStore } from "../../stores/useConversationModeStore";
 import type { AgentPlan, Conversation, ConversationMessage, ConversationMode } from "../../types/chatTypes";
 import type { ChatDraftState } from "../../types/chatDraftTypes";
 import type { AgentContextSummary } from "../../types/chatViewTypes";
@@ -86,7 +87,8 @@ export function ChatPage(): ReactElement {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isStartingNewConversation, setIsStartingNewConversation] = useState<boolean>(false);
-  const [mode, setMode] = useState<ConversationMode>("chat");
+  const mode: ConversationMode = useConversationModeStore((state) => state.mode);
+  const setMode = useConversationModeStore((state) => state.setMode);
   const [isConversationMenuOpen, setIsConversationMenuOpen] = useState<boolean>((): boolean =>
     typeof window === "undefined"
     || typeof window.matchMedia !== "function"

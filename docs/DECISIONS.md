@@ -397,15 +397,16 @@ options considered, the selected approach, and its consequences.
   endpoint. Keeping the manual protocol would duplicate streaming, tool, embedding, usage, and
   provider compatibility logic now owned by the framework.
 - **Decision:** import the Spring AI 2.0.1 BOM and use `OllamaChatModel`, `OllamaEmbeddingModel`,
-  `ChatClient`, `StreamAdvisor`, `ToolSearchToolCallingAdvisor`, `ToolCallingManager`, and
-  request-scoped `ToolCallback` objects. Build a fresh tool-search index for each execution and seed
-  it only with callbacks authorized for that authenticated request. Build model objects per request
+  `ChatClient`, `StreamAdvisor`, `ToolCallingAdvisor`, `ToolSearchToolCallingAdvisor`,
+  `ToolCallingManager`, and request-scoped `ToolCallback` objects. Attach up to ten authorized
+  callbacks directly for local-model reliability; for larger catalogs build a fresh tool-search
+  index and seed it only with callbacks authorized for that authenticated request. Build model objects per request
   from the authenticated user's normalized
   Provider Registry endpoint and selected model. Keep `ChatCompletionClient` and `EmbeddingClient`
   only as real provider-neutral Nexo boundaries. Keep authorization-first pgvector retrieval in Nexo
   rather than replacing it with a generic vector-store query.
-- **Consequence:** Spring AI owns provider protocol, streaming aggregation, embeddings, progressive
-  tool-schema disclosure, advisor composition, and recursive tool calls. Nexo still owns
+- **Consequence:** Spring AI owns provider protocol, streaming aggregation, embeddings, bounded
+  direct or progressive tool-schema disclosure, advisor composition, and recursive tool calls. Nexo still owns
   authentication, endpoint validation,
   owner/Vault isolation, context limits, cancellation, persistence, SSE, evidence, and audit. A
   browser disconnect never becomes model cancellation, and raw tool arguments/results remain absent

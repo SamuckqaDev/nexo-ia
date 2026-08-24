@@ -15,9 +15,11 @@ The implementation was checked against the current
 [ChatClient reference](https://docs.spring.io/spring-ai/reference/api/chatclient.html),
 [Advisors reference](https://docs.spring.io/spring-ai/reference/api/advisors.html), and
 [RAG reference](https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html).
-Spring AI 2.0 moves the tool loop into the `ChatClient` advisor chain. Nexo uses
-`ToolSearchToolCallingAdvisor`: the model initially sees only `toolSearchTool`, discovers a relevant
-request-owned callback, receives that callback's full schema, and can then invoke it.
+Spring AI 2.0 moves the tool loop into the `ChatClient` advisor chain. Nexo uses a hybrid advisor
+strategy: catalogs with at most ten request-owned callbacks use `ToolCallingAdvisor` and disclose
+those authorized schemas directly; larger catalogs use `ToolSearchToolCallingAdvisor` for progressive
+discovery. Direct disclosure supports smaller local models that advertise tool calling but do not
+reliably invoke the intermediate `toolSearchTool`.
 `ToolCallingManager` executes the callback, its result becomes a tool response, and the advisor
 repeats until the model returns an ordinary answer or a limit stops the run.
 
@@ -43,8 +45,9 @@ authenticated message
   -> assemble Markdown identity + rules + truthful capability envelope
   -> build request-local OllamaChatModel and ChatClient
   -> SpringAiContextAdvisor injects the authorized system context
-  -> ToolSearchToolCallingAdvisor drives the bounded discovery and execution loop
-       toolSearchTool     progressive discovery; initially the only visible schema
+  -> a Spring AI tool advisor drives the bounded execution loop
+       direct schemas     up to ten callbacks for reliable local-model invocation
+       toolSearchTool     progressive discovery above ten callbacks
        inspect_capabilities exact safe catalog for the current authenticated request
        update_plan       always in Agent mode
        remember          personal memory, owned by the authenticated account
@@ -66,11 +69,13 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Selected Vaults | Deterministic retrieval before generation | Available through `search_knowledge` |
 | Personal memory | Most recent owned memories in context | Same context plus explicit `remember` tool |
 | Visible plan | None | Persisted `update_plan` revisions |
-| Tool loop | None | Spring AI `ToolSearchToolCallingAdvisor` |
+| Tool loop | None | Spring AI direct or progressive advisor, selected by catalog size |
 | External MCP tools | None | Explicitly selected, governed callbacks |
 | Native write/system tools | None | None |
 
-The composer remains writable in Agent mode and includes a compact **Agent context** inspector. It
+The composer remains writable in Agent mode and includes a compact **Agent context** inspector. The
+Chat/Agent selection persists across navigation, so visiting the MCP Hub cannot silently downgrade
+the next request to Chat mode. It
 shows the real conversation Vault selection, enabled MCP server/tool count, loading or failure
 states, and the selected model's tool compatibility before a request is sent. The Knowledge bar and
 composer share the same bounded width. A model explicitly reporting no tool calling keeps the
@@ -87,10 +92,11 @@ is `available_on_demand` instead of incorrectly describing it as not requested. 
 to call `search_knowledge` for a focused query. Enabled `mcp_*` names are separately identified as
 callable external tools, while tool results remain the only acceptable evidence of execution.
 
-Every Agent execution creates a fresh regex tool index and keys it with the server-created assistant
-message id. Only callbacks resolved for that authenticated request are indexed. The first provider
-call therefore contains `toolSearchTool`, not every native and MCP JSON schema. After a search, only
-matching definitions are disclosed. `inspect_capabilities` returns the exact safe names and
+Every Agent execution resolves a fresh callback list for the authenticated request. With ten or
+fewer callbacks, the first provider call contains their actual schemas, including
+`inspect_capabilities`; above ten, a fresh regex index is keyed with the server-created assistant
+message id and the first provider call contains only `toolSearchTool`. After a search, only matching
+definitions are disclosed. `inspect_capabilities` returns the exact safe names and
 descriptions from that same callback list, so questions such as “which tools can you use?” can be
 answered from runtime state instead of prompt claims. Ownership ids, Vault ids, endpoints, secrets,
 and raw MCP configuration are never part of that result.
@@ -141,7 +147,9 @@ The Nexo identity, general rules, Agent rules, capability framing, and Knowledge
 `backend/src/main/resources/prompts/*.md`. Every request says which model and tools were actually
 provided. Agent planning stores concise steps and status, not private chain-of-thought. Provider
 reasoning remains opt-in, transient, separate from answer content, and absent from persistence and
-future context.
+future context. If a thinking-capable model completes with reasoning but no final answer, Nexo
+retries once without thinking and combines provider usage. It never persists an empty successful
+answer, and it does not repeat a completed tool effect merely to recover missing prose.
 
 ## Deliberately deferred
 

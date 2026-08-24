@@ -55,9 +55,9 @@ Docker-maintained catalog source remains available in the
 
 - Chat mode never receives MCP callbacks.
 - Agent mode resolves a maximum of four enabled owned connections and twelve selected tools.
-- Spring AI's `SyncMcpToolCallback` adapts SDK tools into the same
-  `ToolSearchToolCallingAdvisor` loop used by Nexo's native tools. The model first searches the
-  request-local index and receives only matching MCP schemas before invocation.
+- Spring AI's `SyncMcpToolCallback` adapts SDK tools into the same governed loop used by Nexo's
+  native tools. Up to ten authorized callbacks are attached directly for reliable local-model
+  invocation; larger catalogs switch to request-local progressive discovery.
 - The Agent capability envelope identifies the exact enabled `mcp_*` callbacks as callable external
   tools, and the composer shows their owned server and tool counts before sending.
 - With no enabled MCP callback, the envelope explicitly says that no external MCP tool is connected

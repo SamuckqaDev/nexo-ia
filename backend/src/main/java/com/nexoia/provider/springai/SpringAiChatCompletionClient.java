@@ -31,6 +31,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -70,6 +71,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private static final String TOOL_DISCOVERY_SESSION_ID = "nexoToolDiscoverySessionId";
     private static final String TOOL_SEARCH_NAME = "toolSearchTool";
     private static final String CAPABILITY_INSPECTION_NAME = "inspect_capabilities";
+    private static final int DIRECT_TOOL_SCHEMA_LIMIT = 10;
     private static final int MAX_TOOL_SEARCH_CALLS = 3;
     private static final int MAX_CAPABILITY_INSPECTION_CALLS = 2;
     private static final String TOOL_DISCOVERY_INSTRUCTIONS = """
@@ -125,7 +127,28 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         };
 
         try {
-            return streamOnce(command, onThinking, trackedToken, cancelled);
+            ChatCompletionOutcome outcome = streamOnce(command, onThinking, trackedToken, cancelled);
+            if (hasAnswer(outcome) || outcome.cancelled()) {
+                return outcome;
+            }
+            if (!outcome.toolExecutions().isEmpty()) {
+                return withMissingAnswerFallback(outcome, trackedToken);
+            }
+            if (command.thinkingEnabled()) {
+                log.warn("[NEXO-BACK][PROVIDER] Thinking produced no final answer; retrying without it model={}",
+                        command.model());
+                ChatCompletionOutcome retried = streamOnce(
+                        withoutThinking(command), onThinking, trackedToken, cancelled);
+                ChatCompletionOutcome combined = combineUsage(outcome, retried);
+                if (hasAnswer(combined) || combined.cancelled()) {
+                    return combined;
+                }
+                if (!combined.toolExecutions().isEmpty()) {
+                    return withMissingAnswerFallback(combined, trackedToken);
+                }
+            }
+            throw new ProviderStreamException(
+                    new IllegalStateException("Provider completed without answer content"));
         } catch (ProviderStreamException exception) {
             // Ollama rejects `think: true` for models that never advertise reasoning (for example
             // granite). A normal answer is still valid, so retry once without thinking — but only when
@@ -201,19 +224,26 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                                 + MAX_CAPABILITY_INSPECTION_CALLS)
                         .onLimitExceeded(ToolCallLimitBehavior.THROW)
                         .build();
-                ToolSearchToolCallingAdvisor toolAdvisor = ToolSearchToolCallingAdvisor.builder()
-                        .toolCallingManager(toolCallingManager)
-                        .toolIndex(new RegexToolIndex())
-                        .sessionIdKeyName(TOOL_DISCOVERY_SESSION_ID)
-                        .maxResults(10)
-                        .systemMessageSuffix(TOOL_DISCOVERY_INSTRUCTIONS)
-                        .build();
-                request = request
-                        .advisors(toolAdvisor)
-                        .advisors(spec -> spec.param(
-                                TOOL_DISCOVERY_SESSION_ID,
-                                toolDiscoverySessionId(command)))
-                        .tools(callbacks.toArray());
+                if (callbacks.size() <= DIRECT_TOOL_SCHEMA_LIMIT) {
+                    ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
+                            .toolCallingManager(toolCallingManager)
+                            .build();
+                    request = request.advisors(toolAdvisor).tools(callbacks.toArray());
+                } else {
+                    ToolSearchToolCallingAdvisor toolAdvisor = ToolSearchToolCallingAdvisor.builder()
+                            .toolCallingManager(toolCallingManager)
+                            .toolIndex(new RegexToolIndex())
+                            .sessionIdKeyName(TOOL_DISCOVERY_SESSION_ID)
+                            .maxResults(10)
+                            .systemMessageSuffix(TOOL_DISCOVERY_INSTRUCTIONS)
+                            .build();
+                    request = request
+                            .advisors(toolAdvisor)
+                            .advisors(spec -> spec.param(
+                                    TOOL_DISCOVERY_SESSION_ID,
+                                    toolDiscoverySessionId(command)))
+                            .tools(callbacks.toArray());
+                }
             }
 
             try (Stream<ChatResponse> responses = request
@@ -421,5 +451,48 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         + "and memory capabilities authorized for this request")
                 .inputType(CapabilityInspectionInput.class)
                 .build();
+    }
+
+    private boolean hasAnswer(ChatCompletionOutcome outcome) {
+        return outcome.content() != null && !outcome.content().isBlank();
+    }
+
+    private ChatCompletionOutcome withMissingAnswerFallback(
+            ChatCompletionOutcome outcome,
+            Consumer<String> onToken) {
+        String fallback = "The authorized tool execution finished, but the selected model did not "
+                + "produce a final answer. Review the tool evidence and retry with another Agent-ready model.";
+        onToken.accept(fallback);
+        return new ChatCompletionOutcome(
+                fallback,
+                outcome.inputTokens(),
+                outcome.outputTokens(),
+                outcome.tokenSource(),
+                false,
+                outcome.doneReason(),
+                outcome.toolExecutions());
+    }
+
+    private ChatCompletionOutcome combineUsage(
+            ChatCompletionOutcome first,
+            ChatCompletionOutcome second) {
+        return new ChatCompletionOutcome(
+                second.content(),
+                sum(first.inputTokens(), second.inputTokens()),
+                sum(first.outputTokens(), second.outputTokens()),
+                second.tokenSource() != null ? second.tokenSource() : first.tokenSource(),
+                second.cancelled(),
+                second.doneReason(),
+                Stream.concat(first.toolExecutions().stream(), second.toolExecutions().stream()).toList());
+    }
+
+    private Integer sum(Integer first, Integer second) {
+        if (first == null) {
+            return second;
+        }
+        if (second == null) {
+            return first;
+        }
+        return first + second;
     }
 }

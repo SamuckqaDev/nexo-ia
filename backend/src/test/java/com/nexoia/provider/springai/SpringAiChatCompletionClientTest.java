@@ -48,6 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -190,12 +192,6 @@ class SpringAiChatCompletionClientTest {
             String body = requestNumber == 1
                     ? """
                       {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
-                      "tool_calls":[{"id":"call-search","function":{"name":"toolSearchTool",\
-                      "arguments":{"query":"search knowledge vault","maxResults":5}}}]},"done":true,\
-                      "done_reason":"stop","prompt_eval_count":10,"eval_count":1}
-                      """
-                    : requestNumber == 2 ? """
-                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
                       "tool_calls":[{"id":"call-1","function":{"name":"search_knowledge",\
                       "arguments":{"query":"Nexo identity","limit":2}}}]},"done":true,\
                       "done_reason":"stop","prompt_eval_count":20,"eval_count":1}
@@ -230,15 +226,15 @@ class SpringAiChatCompletionClientTest {
         assertThat(outcome.content()).isEqualTo("Nexo is truthful.");
         assertThat(outcome.toolExecutions()).hasSize(1);
         assertThat(outcome.toolExecutions().getFirst().citations()).hasSize(1);
-        assertThat(requestBodies).hasSize(3);
+        assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst())
                 .contains("\"tools\"")
-                .contains("toolSearchTool")
-                .doesNotContain("\"name\":\"search_knowledge\"");
+                .contains("\"name\":\"search_knowledge\"")
+                .contains("\"name\":\"inspect_capabilities\"")
+                .doesNotContain("toolSearchTool");
         assertThat(requestBodies.get(1))
                 .contains("\"role\":\"tool\"")
                 .contains("search_knowledge");
-        assertThat(requestBodies.get(2)).contains("\"role\":\"tool\"");
     }
 
     @Test
@@ -260,12 +256,6 @@ class SpringAiChatCompletionClientTest {
             int requestNumber = requests.incrementAndGet();
             String body = requestNumber == 1
                     ? """
-                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
-                      "tool_calls":[{"id":"call-search-plan","function":{"name":"toolSearchTool",\
-                      "arguments":{"query":"create update implementation plan","maxResults":5}}}]},\
-                      "done":true,"done_reason":"stop","prompt_eval_count":10,"eval_count":1}
-                      """
-                    : requestNumber == 2 ? """
                       {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
                       "tool_calls":[{"id":"call-plan","function":{"name":"update_plan",\
                       "arguments":{"explanation":"Work visibly","plan":[\
@@ -306,16 +296,16 @@ class SpringAiChatCompletionClientTest {
                 .satisfies(execution -> assertThat(execution.status()).isEqualTo(ToolExecutionStatus.COMPLETED));
         assertThat(planUpdate.get()).isNotNull();
         assertThat(planUpdate.get().steps()).hasSize(2);
-        assertThat(requestBodies).hasSize(3);
+        assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst())
-                .contains("toolSearchTool")
-                .doesNotContain("\"name\":\"update_plan\"")
+                .contains("\"name\":\"update_plan\"")
+                .contains("\"name\":\"inspect_capabilities\"")
+                .doesNotContain("toolSearchTool")
                 .doesNotContain("userId");
         assertThat(requestBodies.get(1))
                 .contains("\"role\":\"tool\"")
                 .contains("update_plan")
                 .doesNotContain("userId");
-        assertThat(requestBodies.get(2)).contains("\"role\":\"tool\"");
     }
 
     @Test
@@ -338,7 +328,7 @@ class SpringAiChatCompletionClientTest {
                     ? """
                       {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
                       "tool_calls":[{"id":"call-search-capabilities","function":{\
-                      "name":"toolSearchTool","arguments":{"query":"inspect capabilities",\
+                      "name":"inspect_capabilities","arguments":{"focus":"tools",\
                       "maxResults":5}}}]},"done":true,"done_reason":"stop",\
                       "prompt_eval_count":10,"eval_count":1}
                       """
@@ -379,12 +369,15 @@ class SpringAiChatCompletionClientTest {
         assertThat(outcome.content()).isEqualTo("I can inspect capabilities and update the plan.");
         assertThat(requestBodies).hasSize(3);
         assertThat(requestBodies.getFirst())
-                .contains("toolSearchTool")
-                .doesNotContain("\"name\":\"inspect_capabilities\"")
-                .doesNotContain("\"name\":\"update_plan\"");
+                .contains("\"name\":\"inspect_capabilities\"")
+                .contains("\"name\":\"update_plan\"")
+                .doesNotContain("toolSearchTool")
+                .doesNotContain("search_knowledge")
+                .doesNotContain("\"name\":\"remember\"")
+                .doesNotContain("mcp_");
         assertThat(requestBodies.get(1))
                 .contains("inspect_capabilities")
-                .doesNotContain("\"name\":\"update_plan\"");
+                .contains("update_plan");
         assertThat(requestBodies.get(2))
                 .contains("\"role\":\"tool\"")
                 .contains("inspect_capabilities")
@@ -392,6 +385,44 @@ class SpringAiChatCompletionClientTest {
                 .doesNotContain("search_knowledge")
                 .doesNotContain("\"name\":\"remember\"")
                 .doesNotContain("mcp_");
+    }
+
+    @Test
+    void retriesWithoutThinkingWhenTheModelProducesReasoningButNoFinalAnswer() {
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(
+                    exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            String body = requests.incrementAndGet() == 1
+                    ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "thinking":"I should answer."},"done":false}
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":""},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":12,"eval_count":5}
+                      """
+                    : """
+                      {"model":"qwen3:8b","message":{"role":"assistant",\
+                      "content":"Available tools listed."},"done":true,"done_reason":"stop",\
+                      "prompt_eval_count":13,"eval_count":4}
+                      """;
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+
+        ChatCompletionOutcome outcome = client.stream(
+                command(true), delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("Available tools listed.");
+        assertThat(outcome.inputTokens()).isEqualTo(25);
+        assertThat(outcome.outputTokens()).isEqualTo(9);
+        assertThat(requestBodies).hasSize(2);
+        assertThat(requestBodies.getFirst()).contains("\"think\":true");
+        assertThat(requestBodies.get(1)).contains("\"think\":false");
     }
 
     @Test
@@ -439,6 +470,146 @@ class SpringAiChatCompletionClientTest {
         assertThat(requestBody.get())
                 .contains("configured MCP connection could not provide any callable tool")
                 .contains("do not claim an external action succeeded");
+        verify(mcpSession).close();
+    }
+
+    @Test
+    void exposesTheAuthorizedMcpSchemaDirectlyToSmallLocalModels() {
+        ToolDefinition definition = mock(ToolDefinition.class);
+        when(definition.name()).thenReturn("mcp_private_search");
+        when(definition.description()).thenReturn("Search public web pages");
+        when(definition.inputSchema()).thenReturn("{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}}}");
+        ToolCallback callback = mock(ToolCallback.class);
+        when(callback.getToolDefinition()).thenReturn(definition);
+        McpToolSessionFactory mcpFactory = mock(McpToolSessionFactory.class);
+        McpToolSession mcpSession = mock(McpToolSession.class);
+        when(mcpSession.callbacks()).thenReturn(List.of(callback));
+        when(mcpSession.evidence()).thenReturn(List.of());
+        when(mcpFactory.open(any(), any(), any())).thenReturn(mcpSession);
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
+                mcpFactory,
+                ObservationRegistry.NOOP);
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(
+                    exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            String body = requests.incrementAndGet() == 1
+                    ? """
+                      {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-inspect","function":{\
+                      "name":"inspect_capabilities","arguments":{"focus":"MCP"}}}]},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":20,"eval_count":1}
+                      """
+                    : """
+                      {"model":"qwen3:8b","message":{"role":"assistant",\
+                      "content":"I can use mcp_private_search."},"done":true,\
+                      "done_reason":"stop","prompt_eval_count":30,"eval_count":5}
+                      """;
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+        UUID userId = UUID.randomUUID();
+        McpRuntimeConnection connection = new McpRuntimeConnection(
+                UUID.randomUUID(),
+                "Private search",
+                McpConnectionKind.CUSTOM_REMOTE,
+                McpTransportType.STREAMABLE_HTTP,
+                null,
+                "https://mcp.example.com/mcp",
+                List.of(new McpRuntimeTool("search", "mcp_private_search")));
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage("user", "Which tools can you use?")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                new McpToolScope(userId, UUID.randomUUID(), UUID.randomUUID(), List.of(connection)),
+                ToolExecutionObserver.NOOP,
+                update -> { });
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                command, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("I can use mcp_private_search.");
+        assertThat(requestBodies).hasSize(2);
+        assertThat(requestBodies.getFirst())
+                .contains("\"name\":\"mcp_private_search\"")
+                .contains("\"name\":\"inspect_capabilities\"")
+                .doesNotContain("toolSearchTool");
+        assertThat(requestBodies.get(1))
+                .contains("\"role\":\"tool\"")
+                .contains("mcp_private_search");
+        verify(mcpSession).close();
+    }
+
+    @Test
+    void keepsProgressiveDiscoveryForLargeAuthorizedCatalogs() {
+        List<ToolCallback> callbacks = new ArrayList<>();
+        for (int index = 0; index < 11; index++) {
+            ToolDefinition definition = mock(ToolDefinition.class);
+            when(definition.name()).thenReturn("mcp_bulk_" + index);
+            when(definition.description()).thenReturn("Bulk tool " + index);
+            when(definition.inputSchema()).thenReturn("{\"type\":\"object\"}");
+            ToolCallback callback = mock(ToolCallback.class);
+            when(callback.getToolDefinition()).thenReturn(definition);
+            callbacks.add(callback);
+        }
+        McpToolSessionFactory mcpFactory = mock(McpToolSessionFactory.class);
+        McpToolSession mcpSession = mock(McpToolSession.class);
+        when(mcpSession.callbacks()).thenReturn(callbacks);
+        when(mcpSession.evidence()).thenReturn(List.of());
+        when(mcpFactory.open(any(), any(), any())).thenReturn(mcpSession);
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
+                mcpFactory,
+                ObservationRegistry.NOOP);
+        serve(STREAM);
+        UUID userId = UUID.randomUUID();
+        McpRuntimeConnection connection = new McpRuntimeConnection(
+                UUID.randomUUID(),
+                "Large catalog",
+                McpConnectionKind.CUSTOM_REMOTE,
+                McpTransportType.STREAMABLE_HTTP,
+                null,
+                "https://mcp.example.com/mcp",
+                List.of(new McpRuntimeTool("bulk", "mcp_bulk_0")));
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage("user", "Use a bulk tool")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                new McpToolScope(userId, UUID.randomUUID(), UUID.randomUUID(), List.of(connection)),
+                ToolExecutionObserver.NOOP,
+                update -> { });
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                command, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("Hello");
+        assertThat(requestBody.get())
+                .contains("\"name\":\"toolSearchTool\"")
+                .doesNotContain("\"name\":\"mcp_bulk_0\"");
         verify(mcpSession).close();
     }
 

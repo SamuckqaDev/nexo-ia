@@ -423,11 +423,14 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - The organization-level audit *view* that unions session and domain trails is a later increment.
-- Agent mode has its first bounded runtime. Spring AI's `ToolSearchToolCallingAdvisor` exposes only
-  `toolSearchTool` initially, progressively discovers request-owned `update_plan`, `remember`,
-  conditional `search_knowledge`, and explicitly selected MCP callbacks, and provides
+- Agent mode has its first bounded runtime. Spring AI exposes up to ten request-owned callbacks
+  directly through `ToolCallingAdvisor`; larger catalogs use `ToolSearchToolCallingAdvisor` and
+  `toolSearchTool` for progressive discovery. Both paths cover `update_plan`, `remember`, conditional
+  `search_knowledge`, and explicitly selected MCP callbacks, and provide
   `inspect_capabilities` for truthful runtime self-inspection. The index is recreated per execution
-  from the authenticated user's authorized snapshot. Plans and sanitized tool evidence persist on
+  from the authenticated user's authorized snapshot. Chat/Agent selection persists across Hub
+  navigation, and thinking-only provider completions retry once without reasoning rather than being
+  stored as empty successful answers. Plans and sanitized tool evidence persist on
   the assistant message, stream live, and
   restore after navigation or reload. Native filesystem, terminal, Git, browser, write actions, the
   complete approval Permission Engine, MCP secrets/configuration, resumable backend-restart
