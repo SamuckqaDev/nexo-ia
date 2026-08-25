@@ -12,6 +12,7 @@ import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.knowledge.vault.exception.VaultNotFoundException;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.service.TeamMembershipService;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class ConversationKnowledgeService {
     private final ConversationRepository conversations;
     private final ConversationKnowledgeVaultRepository selections;
     private final VaultRepository vaults;
+    private final TeamMembershipService teamMembershipService;
     private final AuditService audit;
 
     @Transactional
@@ -42,7 +44,8 @@ public class ConversationKnowledgeService {
         Set<UUID> distinctIds = new LinkedHashSet<>(request.vaultIds());
         List<KnowledgeVault> authorized = distinctIds.isEmpty()
                 ? List.of()
-                : vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(userId, distinctIds);
+                : vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(
+                        teamMembershipService.accessibleOwnerIds(userId), distinctIds);
         if (authorized.size() != distinctIds.size()) {
             throw new VaultNotFoundException();
         }
@@ -76,7 +79,8 @@ public class ConversationKnowledgeService {
         }
 
         Map<UUID, KnowledgeVault> authorizedById = vaults
-                .findAllByOwnerIdAndArchivedFalseAndIdIn(userId, ids).stream()
+                .findAllByOwnerIdInAndArchivedFalseAndIdIn(
+                        teamMembershipService.accessibleOwnerIds(userId), ids).stream()
                 .collect(Collectors.toMap(KnowledgeVault::getId, vault -> vault));
         return ids.stream().map(authorizedById::get).filter(Objects::nonNull).toList();
     }

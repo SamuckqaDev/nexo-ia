@@ -7,7 +7,7 @@ export const userSchema = z.object({
   name: z.string(),
   birthDate: z.iso.date().nullable(),
   createdAt: z.iso.datetime(),
-  role: z.enum(["OWNER", "MEMBER"])
+  role: z.enum(["OWNER", "ADMIN", "MEMBER"])
 });
 
 export const bootstrapStatusSchema = z.object({ required: z.boolean() });

@@ -29,6 +29,9 @@ public class KnowledgeVault {
 
     @Column(name = "owner_id", nullable = false)
     private UUID ownerId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", nullable = false, length = 16)
+    private VaultOwnerType ownerType;
 
     @Column(nullable = false, length = 160)
     private String name;
@@ -45,6 +48,8 @@ public class KnowledgeVault {
 
     @Column(nullable = false)
     private boolean archived;
+    @Column(nullable = false)
+    private boolean writable;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
@@ -61,5 +66,10 @@ public class KnowledgeVault {
 
     public void archive() {
         this.archived = true;
+    }
+
+    /** Marks whether the assistant may append AGENT-authored knowledge to this Vault. */
+    public void applyWritable(boolean writable) {
+        this.writable = writable;
     }
 }

@@ -5,6 +5,7 @@ import com.nexoia.knowledge.retrieval.dto.RetrievalPreviewResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
 import com.nexoia.knowledge.vault.dto.CreateVaultRequest;
+import com.nexoia.knowledge.vault.dto.SetVaultWritableRequest;
 import com.nexoia.knowledge.vault.dto.UpdateVaultRequest;
 import com.nexoia.knowledge.vault.dto.VaultResponse;
 import com.nexoia.knowledge.vault.service.VaultService;
@@ -59,6 +60,16 @@ public class VaultController {
             @Valid @RequestBody UpdateVaultRequest request) {
         return ResponseEntity.ok(BaseResponse.success(
                 200, "Vault updated", service.update(principal.userId(), vaultId, request)));
+    }
+
+    @PutMapping("/{vaultId}/writable")
+    @Operation(summary = "Allow or block the assistant from appending knowledge to this owned Vault")
+    public ResponseEntity<BaseResponse<VaultResponse>> setWritable(
+            @AuthenticationPrincipal NexoUserPrincipal principal,
+            @PathVariable UUID vaultId,
+            @Valid @RequestBody SetVaultWritableRequest request) {
+        return ResponseEntity.ok(BaseResponse.success(200, "Vault write access updated",
+                service.setWritable(principal.userId(), vaultId, request.writable())));
     }
 
     @DeleteMapping("/{vaultId}")

@@ -47,6 +47,8 @@ const renderPanel = (
           conversationId="conversation-1"
           mode={mode}
           agentPlan={null}
+          agentState={null}
+          toolExecutions={[]}
           open={open}
           vaults={vaults}
           selectedVaultIds={selectedVaultIds}
@@ -94,6 +96,8 @@ describe("ConversationContextPanel", () => {
               ],
               updatedAt: "2026-08-24T12:00:00Z"
             }}
+            agentState={null}
+            toolExecutions={[]}
             open
             vaults={[]}
             selectedVaultIds={[]}

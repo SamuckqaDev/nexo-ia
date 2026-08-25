@@ -15,8 +15,10 @@ import com.nexoia.knowledge.vault.exception.VaultScopeTargetNotFoundException;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.model.VaultScope;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.service.TeamMembershipService;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.repository.WorkspaceRepository;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,8 @@ class VaultServiceTest {
     @Mock
     private WorkspaceRepository workspaces;
     @Mock
+    private TeamMembershipService teamMembershipService;
+    @Mock
     private AuditService audit;
     private VaultService service;
 
@@ -41,17 +45,20 @@ class VaultServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new VaultService(vaults, workspaces, audit);
+        service = new VaultService(vaults, workspaces, teamMembershipService, audit);
     }
 
     @Test
     void createsAPersonalVaultOwnedByTheAuthenticatedUser() {
-        when(vaults.save(any(KnowledgeVault.class))).thenAnswer(call -> call.getArgument(0));
+        when(vaults.saveAndFlush(any(KnowledgeVault.class)))
+                .thenAnswer(call -> persistedVault(call.getArgument(0)));
 
         var response = service.create(ownerId, new CreateVaultRequest("Notes", null, VaultScope.PERSONAL, null));
 
         assertThat(response.scope()).isEqualTo(VaultScope.PERSONAL);
         assertThat(response.workspaceId()).isNull();
+        assertThat(response.createdAt()).isNotNull();
+        assertThat(response.updatedAt()).isNotNull();
     }
 
     @Test
@@ -60,7 +67,7 @@ class VaultServiceTest {
                 ownerId, new CreateVaultRequest("Team notes", null, VaultScope.TEAM, null)))
                 .isInstanceOf(UnsupportedVaultScopeException.class);
 
-        verify(vaults, never()).save(any(KnowledgeVault.class));
+        verify(vaults, never()).saveAndFlush(any(KnowledgeVault.class));
     }
 
     @Test
@@ -72,7 +79,7 @@ class VaultServiceTest {
                 new CreateVaultRequest("Project vault", null, VaultScope.WORKSPACE, foreignWorkspaceId)))
                 .isInstanceOf(VaultScopeTargetNotFoundException.class);
 
-        verify(vaults, never()).save(any(KnowledgeVault.class));
+        verify(vaults, never()).saveAndFlush(any(KnowledgeVault.class));
     }
 
     @Test
@@ -80,12 +87,43 @@ class VaultServiceTest {
         UUID workspaceId = UUID.randomUUID();
         when(workspaces.findByIdAndOwnerId(workspaceId, ownerId)).thenReturn(Optional.of(
                 Workspace.builder().id(workspaceId).ownerId(ownerId).name("Acme").build()));
-        when(vaults.save(any(KnowledgeVault.class))).thenAnswer(call -> call.getArgument(0));
+        when(vaults.saveAndFlush(any(KnowledgeVault.class)))
+                .thenAnswer(call -> persistedVault(call.getArgument(0)));
 
         var response = service.create(
                 ownerId, new CreateVaultRequest("Project vault", null, VaultScope.WORKSPACE, workspaceId));
 
         assertThat(response.workspaceId()).isEqualTo(workspaceId);
+    }
+
+    @Test
+    void flushesATeamVaultBeforeBuildingItsTimestampedResponse() {
+        UUID teamId = UUID.randomUUID();
+        when(vaults.saveAndFlush(any(KnowledgeVault.class)))
+                .thenAnswer(call -> persistedVault(call.getArgument(0)));
+
+        var response = service.createForTeam(ownerId, teamId, "Shared notes", null);
+
+        assertThat(response.name()).isEqualTo("Shared notes");
+        assertThat(response.createdAt()).isNotNull();
+        assertThat(response.updatedAt()).isNotNull();
+    }
+
+    private KnowledgeVault persistedVault(KnowledgeVault vault) {
+        Instant now = Instant.parse("2026-08-25T00:00:00Z");
+        return KnowledgeVault.builder()
+                .id(vault.getId())
+                .ownerId(vault.getOwnerId())
+                .ownerType(vault.getOwnerType())
+                .name(vault.getName())
+                .description(vault.getDescription())
+                .scope(vault.getScope())
+                .workspaceId(vault.getWorkspaceId())
+                .archived(vault.isArchived())
+                .writable(vault.isWritable())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
     }
 
     @Test

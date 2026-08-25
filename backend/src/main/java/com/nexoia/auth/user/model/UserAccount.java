@@ -1,5 +1,6 @@
 package com.nexoia.auth.user.model;
 
+import com.nexoia.permission.model.ProfileKey;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -48,6 +49,10 @@ public class UserAccount {
     @Column(nullable = false, length = 24)
     private UserStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assigned_profile", nullable = false, length = 24)
+    private ProfileKey assignedProfile;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -55,6 +60,10 @@ public class UserAccount {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    public void assignProfile(ProfileKey assignedProfile) {
+        this.assignedProfile = assignedProfile;
+    }
 
     public void changeStatus(UserStatus status) {
         this.status = status;

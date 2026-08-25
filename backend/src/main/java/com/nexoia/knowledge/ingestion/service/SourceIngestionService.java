@@ -19,10 +19,12 @@ import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableExce
 import com.nexoia.knowledge.embedding.service.EmbeddingService;
 import com.nexoia.knowledge.retrieval.model.KnowledgeChunk;
 import com.nexoia.knowledge.retrieval.repository.KnowledgeChunkRepository;
+import com.nexoia.knowledge.vault.exception.VaultNotWritableException;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.service.VaultService;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -95,6 +97,58 @@ public class SourceIngestionService {
         return sources.findByVaultIdAndContentHash(vaultId, contentHash)
                 .map(this::response)
                 .orElseGet(() -> registerNew(vault, displayName.trim(), extension, content, contentHash));
+    }
+
+    /**
+     * Appends assistant-authored knowledge to a writable Vault: registers an {@code AGENT}-origin
+     * source and runs the same normalize/chunk/embed pipeline as an upload, so the note enters the
+     * authorized retrieval path and is available to later Chat or Agent requests. The Vault must be
+     * owned by the caller and explicitly writable; identical content is reused rather than duplicated.
+     */
+    @Transactional
+    public SourceResponse saveAgentNote(UUID ownerId, UUID vaultId, String title, String content) {
+        KnowledgeVault vault = vaultService.ownedVault(ownerId, vaultId);
+        if (!vault.isWritable()) {
+            throw new VaultNotWritableException();
+        }
+
+        String safeTitle = title == null ? "" : title.trim();
+        String body = content == null ? "" : content.strip();
+        if (safeTitle.isBlank() || body.isBlank()) {
+            throw new UnsupportedSourceTypeException();
+        }
+
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_SOURCE_BYTES) {
+            throw new SourceTooLargeException();
+        }
+
+        String contentHash = sha256(bytes);
+        return sources.findByVaultIdAndContentHash(vaultId, contentHash)
+                .map(this::response)
+                .orElseGet(() -> registerAgentNote(vault, safeTitle, bytes, contentHash));
+    }
+
+    private SourceResponse registerAgentNote(
+            KnowledgeVault vault, String title, byte[] content, String contentHash) {
+        KnowledgeSource source = sources.save(KnowledgeSource.builder()
+                .id(UUID.randomUUID())
+                .vaultId(vault.getId())
+                .sourceKind(SourceKind.AGENT)
+                .displayName(title)
+                .mimeType("text/markdown")
+                .contentHash(contentHash)
+                .byteSize(content.length)
+                .status(SourceStatus.REGISTERED)
+                .archived(false)
+                .build());
+        audit.record(RecordAuditCommand.success(
+                AuditAction.KNOWLEDGE_WRITE, vault.getOwnerId(), null,
+                AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
+
+        ingest(vault, source, "md", content);
+
+        return response(source);
     }
 
     @Transactional(readOnly = true)

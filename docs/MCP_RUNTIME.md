@@ -67,6 +67,11 @@ Docker-maintained catalog source remains available in the
 - Each execution receives a fresh tool index containing only the authenticated owner's enabled
   callback snapshot. `inspect_capabilities` can report safe names and descriptions from that exact
   snapshot, but never connection endpoints, credentials, ownership ids, or disabled tools.
+- A capability-list question is rendered from the actual callback snapshot without relying on model
+  recall. Explicit external research and URL access require at least one recorded `mcp_*` execution
+  before answer text is released or the request can complete successfully. Earlier assistant
+  refusals are excluded from that forced tool turn so a small local model cannot imitate stale,
+  false capability claims.
 - A request may execute at most six MCP calls and at most two calls to one external tool. Repeated
   identical tool arguments are denied.
 - Calls honor explicit cancellation, record an argument digest rather than raw input, emit the normal

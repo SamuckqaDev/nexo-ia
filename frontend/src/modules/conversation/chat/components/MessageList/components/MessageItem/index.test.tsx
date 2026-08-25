@@ -93,7 +93,7 @@ describe("MessageItem", () => {
     expect(screen.queryByText("Thinking")).not.toBeInTheDocument();
   });
 
-  it("restores the visible implementation plan on an Agent answer", () => {
+  it("shows a compact agent chip and keeps the full plan out of the chat bubble", () => {
     renderItem(message({
       mode: "AGENT",
       agentState: "RUNNING",
@@ -108,13 +108,15 @@ describe("MessageItem", () => {
       }
     }));
 
-    expect(screen.getByLabelText("Agent implementation plan")).toBeVisible();
-    expect(screen.getByText("revision 2")).toBeVisible();
-    expect(screen.getByText("Inspect the Vaults")).toBeVisible();
-    expect(screen.getByText("Implement the answer")).toBeVisible();
+    const chip = screen.getByLabelText("Agent execution");
+    expect(chip).toHaveTextContent("Agent · running");
+    expect(chip).toHaveTextContent("see the Plan panel");
+    // The full implementation plan lives in the side panel now, not the message bubble.
+    expect(screen.queryByLabelText("Agent implementation plan")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inspect the Vaults")).not.toBeInTheDocument();
   });
 
-  it("distinguishes MCP activity from native Agent tools", () => {
+  it("summarizes tool activity as a step count instead of listing steps in the bubble", () => {
     renderItem(message({
       mode: "AGENT",
       toolExecutions: [
@@ -123,8 +125,11 @@ describe("MessageItem", () => {
       ]
     }));
 
-    expect(screen.getByText("Knowledge search")).toBeVisible();
-    expect(screen.getByText("MCP · fetch url")).toHaveAttribute("title", "mcp_a1b2c3d4_fetch_url");
+    const chip = screen.getByLabelText("Agent execution");
+    expect(chip).toHaveTextContent("2 steps");
+    // Per-tool detail belongs to the Tasks panel, not the chat bubble.
+    expect(screen.queryByText("Knowledge search")).not.toBeInTheDocument();
+    expect(screen.queryByText("MCP · fetch url")).not.toBeInTheDocument();
   });
 
   it("does not show execution metadata on a user message", () => {

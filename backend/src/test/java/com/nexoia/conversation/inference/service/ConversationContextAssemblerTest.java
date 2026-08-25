@@ -142,7 +142,9 @@ class ConversationContextAssemblerTest {
 
     private int identityTokenCost() {
         return new ConversationContextProperties(0, 4).estimateTokens(
-                prompts.get(PromptResource.IDENTITY) + "\n\n" + prompts.get(PromptResource.RULES));
+                prompts.get(PromptResource.IDENTITY)
+                        + "\n\n" + prompts.get(PromptResource.CONDUCT)
+                        + "\n\n" + prompts.get(PromptResource.CONTENT_POLICY));
     }
 
     private void given(List<ConversationMessage> history) {

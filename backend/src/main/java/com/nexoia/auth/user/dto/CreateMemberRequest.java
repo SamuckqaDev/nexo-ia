@@ -1,6 +1,7 @@
 package com.nexoia.auth.user.dto;
 
 import com.nexoia.auth.credential.validation.ValidPassword;
+import com.nexoia.permission.model.ProfileKey;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -13,5 +14,6 @@ public record CreateMemberRequest(
         String username,
         @NotBlank @Email @Size(max = 254) String email,
         @NotBlank @Size(min = 2, max = 120) String name,
-        @NotBlank @ValidPassword String password) {
+        @NotBlank @ValidPassword String password,
+        ProfileKey profile) {
 }

@@ -13,6 +13,7 @@ import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.mcp.connection.model.McpConnectionKind;
 import com.nexoia.mcp.connection.model.McpTransportType;
@@ -28,6 +29,7 @@ import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
 import com.nexoia.provider.dto.McpToolScope;
+import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.exception.ProviderStreamException;
@@ -39,6 +41,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +53,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -87,6 +91,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
                 mock(AgentPlanToolFactory.class),
                 mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
@@ -179,6 +184,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 new KnowledgeSearchToolFactory(retrieval, mock(AuditService.class), Clock.systemUTC()),
+                mock(KnowledgeWriteToolFactory.class),
                 mock(AgentPlanToolFactory.class),
                 mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
@@ -244,6 +250,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
                 new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
                 mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
@@ -309,11 +316,12 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
-    void discoversAndInspectsOnlyTheToolsAuthorizedForTheCurrentRequest() {
+    void listsOnlyTheToolsAuthorizedForTheCurrentRequestWithoutModelGuesswork() {
         SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
                 new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
                 mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
@@ -354,7 +362,8 @@ class SpringAiChatCompletionClientTest {
                 ProviderType.OLLAMA,
                 "http://127.0.0.1:" + server.getAddress().getPort(),
                 "qwen3:8b",
-                List.of(new ChatCompletionMessage("user", "Which tools can you use?")),
+                List.of(new ChatCompletionMessage(
+                        "user", "Fala pra mim, quais sao as ferramnteas que vc possui...")),
                 false,
                 ConversationMode.AGENT,
                 null,
@@ -366,25 +375,15 @@ class SpringAiChatCompletionClientTest {
         ChatCompletionOutcome outcome = agentClient.stream(
                 agentCommand, delta -> { }, delta -> { }, () -> false);
 
-        assertThat(outcome.content()).isEqualTo("I can inspect capabilities and update the plan.");
-        assertThat(requestBodies).hasSize(3);
-        assertThat(requestBodies.getFirst())
-                .contains("\"name\":\"inspect_capabilities\"")
-                .contains("\"name\":\"update_plan\"")
-                .doesNotContain("toolSearchTool")
+        assertThat(outcome.content())
+                .contains("Ferramentas realmente disponíveis")
+                .contains("`update_plan`")
+                .contains("`inspect_capabilities`")
                 .doesNotContain("search_knowledge")
-                .doesNotContain("\"name\":\"remember\"")
+                .doesNotContain("`remember`")
                 .doesNotContain("mcp_");
-        assertThat(requestBodies.get(1))
-                .contains("inspect_capabilities")
-                .contains("update_plan");
-        assertThat(requestBodies.get(2))
-                .contains("\"role\":\"tool\"")
-                .contains("inspect_capabilities")
-                .contains("update_plan")
-                .doesNotContain("search_knowledge")
-                .doesNotContain("\"name\":\"remember\"")
-                .doesNotContain("mcp_");
+        assertThat(outcome.doneReason()).isEqualTo("capability_listing");
+        assertThat(requestBodies).isEmpty();
     }
 
     @Test
@@ -436,6 +435,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
                 mock(AgentPlanToolFactory.class),
                 mock(RememberToolFactory.class),
                 mcpFactory,
@@ -466,15 +466,16 @@ class SpringAiChatCompletionClientTest {
         ChatCompletionOutcome outcome = agentClient.stream(
                 agentCommand, delta -> { }, delta -> { }, () -> false);
 
-        assertThat(outcome.content()).isEqualTo("Hello");
-        assertThat(requestBody.get())
-                .contains("configured MCP connection could not provide any callable tool")
-                .contains("do not claim an external action succeeded");
+        assertThat(outcome.content())
+                .contains("não forneceu uma ferramenta callable")
+                .contains("MCP Hub");
+        assertThat(outcome.doneReason()).isEqualTo("mcp_unavailable");
+        assertThat(requestBody.get()).isNull();
         verify(mcpSession).close();
     }
 
     @Test
-    void exposesTheAuthorizedMcpSchemaDirectlyToSmallLocalModels() {
+    void listsTheActualAuthorizedMcpCallbackWithoutAskingTheModel() {
         ToolDefinition definition = mock(ToolDefinition.class);
         when(definition.name()).thenReturn("mcp_private_search");
         when(definition.description()).thenReturn("Search public web pages");
@@ -490,6 +491,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
                 mock(AgentPlanToolFactory.class),
                 mock(RememberToolFactory.class),
                 mcpFactory,
@@ -543,15 +545,127 @@ class SpringAiChatCompletionClientTest {
         ChatCompletionOutcome outcome = agentClient.stream(
                 command, delta -> { }, delta -> { }, () -> false);
 
-        assertThat(outcome.content()).isEqualTo("I can use mcp_private_search.");
+        assertThat(outcome.content())
+                .contains("Tools actually available")
+                .contains("`mcp_private_search`")
+                .contains("`inspect_capabilities`")
+                .doesNotContain("toolSearchTool");
+        assertThat(outcome.doneReason()).isEqualTo("capability_listing");
+        assertThat(requestBodies).isEmpty();
+        verify(mcpSession).close();
+    }
+
+    @Test
+    void requiresAndVerifiesMcpEvidenceForAnExplicitResearchRequest() {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        ToolCallback callback = FunctionToolCallback
+                .builder("mcp_private_search", (SearchInput input) -> {
+                    evidence.add(new ToolExecutionEvidence(
+                            UUID.randomUUID(),
+                            "mcp_private_search",
+                            ToolExecutionStatus.COMPLETED,
+                            4L,
+                            List.of(),
+                            Instant.now()));
+                    return "USD/BRL 5.45 from the connected search service";
+                })
+                .description("Search public web pages")
+                .inputType(SearchInput.class)
+                .build();
+        McpToolSessionFactory mcpFactory = mock(McpToolSessionFactory.class);
+        McpToolSession mcpSession = mock(McpToolSession.class);
+        when(mcpSession.callbacks()).thenReturn(List.of(callback));
+        when(mcpSession.evidence()).thenAnswer(ignored -> List.copyOf(evidence));
+        when(mcpFactory.open(any(), any(), any())).thenReturn(mcpSession);
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
+                mcpFactory,
+                ObservationRegistry.NOOP);
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(
+                    exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            String body = requests.incrementAndGet() == 1
+                    ? """
+                      {"model":"granite4.1:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-search","function":{\
+                      "name":"mcp_private_search","arguments":{"query":"cotacao dolar real"}}}]},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":20,"eval_count":4}
+                      """
+                    : """
+                      {"model":"granite4.1:8b","message":{"role":"assistant",\
+                      "content":"A busca retornou USD/BRL 5,45."},"done":true,\
+                      "done_reason":"stop","prompt_eval_count":35,"eval_count":8}
+                      """;
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+        StringBuilder streamed = new StringBuilder();
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                externalResearchCommand(), delta -> { }, streamed::append, () -> false);
+
+        assertThat(outcome.content()).isEqualTo("A busca retornou USD/BRL 5,45.");
+        assertThat(streamed.toString()).isEqualTo(outcome.content());
+        assertThat(outcome.toolExecutions()).singleElement()
+                .satisfies(execution -> assertThat(execution.toolName()).isEqualTo("mcp_private_search"));
         assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst())
-                .contains("\"name\":\"mcp_private_search\"")
-                .contains("\"name\":\"inspect_capabilities\"")
-                .doesNotContain("toolSearchTool");
-        assertThat(requestBodies.get(1))
-                .contains("\"role\":\"tool\"")
-                .contains("mcp_private_search");
+                .contains("MANDATORY MCP EXECUTION GATE")
+                .contains("mcp_private_search")
+                .contains("Cara pesquisa direito ai cara")
+                .doesNotContain("Infelizmente não tenho acesso");
+        assertThat(requestBodies.get(1)).contains("USD/BRL 5.45");
+        verify(mcpSession).close();
+    }
+
+    @Test
+    void discardsAModelsFalseUnavailableAnswerWhenResearchRequiredMcp() {
+        ToolDefinition definition = mock(ToolDefinition.class);
+        when(definition.name()).thenReturn("mcp_private_search");
+        when(definition.description()).thenReturn("Search public web pages");
+        when(definition.inputSchema()).thenReturn("{\"type\":\"object\"}");
+        ToolCallback callback = mock(ToolCallback.class);
+        when(callback.getToolDefinition()).thenReturn(definition);
+        McpToolSessionFactory mcpFactory = mock(McpToolSessionFactory.class);
+        McpToolSession mcpSession = mock(McpToolSession.class);
+        when(mcpSession.callbacks()).thenReturn(List.of(callback));
+        when(mcpSession.evidence()).thenReturn(List.of());
+        when(mcpFactory.open(any(), any(), any())).thenReturn(mcpSession);
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
+                mcpFactory,
+                ObservationRegistry.NOOP);
+        serve("""
+                {"model":"granite4.1:8b","message":{"role":"assistant",\
+                "content":"Infelizmente não tenho acesso ao MCP."},"done":true,\
+                "done_reason":"stop","prompt_eval_count":20,"eval_count":8}
+                """);
+        StringBuilder streamed = new StringBuilder();
+
+        assertThatThrownBy(() -> agentClient.stream(
+                externalResearchCommand(), delta -> { }, streamed::append, () -> false))
+                .isInstanceOf(ProviderStreamException.class)
+                .hasMessage("The model provider could not complete this request");
+        assertThat(streamed).isEmpty();
+        assertThat(requestBody.get())
+                .contains("MANDATORY MCP EXECUTION GATE")
+                .doesNotContain("Infelizmente não tenho acesso");
         verify(mcpSession).close();
     }
 
@@ -576,6 +690,7 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
                 mock(AgentPlanToolFactory.class),
                 mock(RememberToolFactory.class),
                 mcpFactory,
@@ -633,4 +748,34 @@ class SpringAiChatCompletionClientTest {
                 List.of(new ChatCompletionMessage("user", "Hi")),
                 thinkingEnabled);
     }
+
+    private ChatCompletionCommand externalResearchCommand() {
+        UUID userId = UUID.randomUUID();
+        McpRuntimeConnection connection = new McpRuntimeConnection(
+                UUID.randomUUID(),
+                "Private search",
+                McpConnectionKind.CUSTOM_REMOTE,
+                McpTransportType.STREAMABLE_HTTP,
+                null,
+                "https://mcp.example.com/mcp",
+                List.of(new McpRuntimeTool("search", "mcp_private_search")));
+        return new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "granite4.1:8b",
+                List.of(
+                        new ChatCompletionMessage("system", "Nexo Agent"),
+                        new ChatCompletionMessage("user", "Pesquise a cotação do dólar."),
+                        new ChatCompletionMessage("assistant", "Infelizmente não tenho acesso ao MCP."),
+                        new ChatCompletionMessage("user", "Cara pesquisa direito ai cara")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                new McpToolScope(userId, UUID.randomUUID(), UUID.randomUUID(), List.of(connection)),
+                ToolExecutionObserver.NOOP,
+                update -> { });
+    }
+
+    private record SearchInput(String query) {}
 }

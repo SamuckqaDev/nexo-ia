@@ -3,6 +3,9 @@ package com.nexoia.conversation.inference.context;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nexoia.conversation.inference.prompt.PromptResourceService;
+import com.nexoia.permission.model.ContentAllowance;
+import com.nexoia.permission.model.ContentMatrix;
+import com.nexoia.permission.model.UnlockLevel;
 import com.nexoia.provider.model.ProcessingLocation;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -58,9 +61,31 @@ class CapabilityEnvelopeRendererTest {
         assertThat(rendered).contains("before claiming that external access is unavailable");
     }
 
+    @Test
+    void statesThePermissionLevelAndPerAreaContentPolicyAsSeparateAxes() {
+        PermissionCapability permission = new PermissionCapability(
+                "Researcher", UnlockLevel.L2_CONNECTED, ContentMatrix.uniform(ContentAllowance.FULL),
+                List.of("workspace write", "system control"));
+
+        String rendered = renderer.render(new ModelContextEnvelope("samuckqadev", "agent",
+                new CapabilityManifest("qwen3:8b", ProcessingLocation.LOCAL, permission,
+                        KnowledgeCapability.none(), WorkspaceCapability.none(),
+                        SkillCapability.none(), ToolCapability.none())));
+
+        assertThat(rendered).contains("Permission profile: Researcher (capability level L2 (Connected))");
+        assertThat(rendered).contains("Content policy (by area)");
+        assertThat(rendered).contains("medical explicit = full");
+        assertThat(rendered).contains("never blocks a topic beyond these areas");
+        assertThat(rendered).contains("You do not have these capabilities at this level: "
+                + "workspace write, system control");
+        assertThat(rendered).contains("raising the permission profile or approving a specific action");
+    }
+
     private ModelContextEnvelope envelope(KnowledgeCapability knowledge, ToolCapability tools) {
+        PermissionCapability permission = new PermissionCapability(
+                "Reader", UnlockLevel.L1_GROUNDED, ContentMatrix.uniform(ContentAllowance.FULL), List.of());
         return new ModelContextEnvelope("samuckqadev", "chat",
-                new CapabilityManifest("qwen3:8b", ProcessingLocation.LOCAL,
+                new CapabilityManifest("qwen3:8b", ProcessingLocation.LOCAL, permission,
                         knowledge, WorkspaceCapability.none(), SkillCapability.none(), tools));
     }
 }

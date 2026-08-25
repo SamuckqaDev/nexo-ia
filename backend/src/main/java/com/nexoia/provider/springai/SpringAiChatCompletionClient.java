@@ -6,6 +6,8 @@ import com.nexoia.conversation.inference.tool.AgentPlanToolSession;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionInput;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionResult;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionTool;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolSession;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSession;
@@ -13,6 +15,7 @@ import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.memory.personal.tool.RememberToolFactory;
 import com.nexoia.memory.personal.tool.RememberToolSession;
 import com.nexoia.provider.dto.ChatCompletionCommand;
+import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.exception.ProviderStreamException;
@@ -20,14 +23,17 @@ import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
 import com.nexoia.provider.service.ChatCompletionClient;
 import io.micrometer.observation.ObservationRegistry;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -36,6 +42,7 @@ import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCalli
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -68,6 +75,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
     private static final String THINKING_KEY = "thinking";
     private static final String CANCELLED_REASON = "cancelled";
+    private static final String CAPABILITY_LISTING_REASON = "capability_listing";
+    private static final String MCP_UNAVAILABLE_REASON = "mcp_unavailable";
     private static final String TOOL_DISCOVERY_SESSION_ID = "nexoToolDiscoverySessionId";
     private static final String TOOL_SEARCH_NAME = "toolSearchTool";
     private static final String CAPABILITY_INSPECTION_NAME = "inspect_capabilities";
@@ -87,6 +96,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final SpringAiModelFactory modelFactory;
     private final SpringAiMessageMapper messageMapper;
     private final KnowledgeSearchToolFactory knowledgeToolFactory;
+    private final KnowledgeWriteToolFactory knowledgeWriteToolFactory;
     private final AgentPlanToolFactory planToolFactory;
     private final RememberToolFactory rememberToolFactory;
     private final McpToolSessionFactory mcpToolSessionFactory;
@@ -96,6 +106,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             SpringAiModelFactory modelFactory,
             SpringAiMessageMapper messageMapper,
             KnowledgeSearchToolFactory knowledgeToolFactory,
+            KnowledgeWriteToolFactory knowledgeWriteToolFactory,
             AgentPlanToolFactory planToolFactory,
             RememberToolFactory rememberToolFactory,
             McpToolSessionFactory mcpToolSessionFactory,
@@ -103,6 +114,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         this.modelFactory = modelFactory;
         this.messageMapper = messageMapper;
         this.knowledgeToolFactory = knowledgeToolFactory;
+        this.knowledgeWriteToolFactory = knowledgeWriteToolFactory;
         this.planToolFactory = planToolFactory;
         this.rememberToolFactory = rememberToolFactory;
         this.mcpToolSessionFactory = mcpToolSessionFactory;
@@ -127,7 +139,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         };
 
         try {
-            ChatCompletionOutcome outcome = streamOnce(command, onThinking, trackedToken, cancelled);
+            ChatCompletionOutcome outcome = guardedStreamOnce(
+                    command, onThinking, trackedToken, cancelled);
             if (hasAnswer(outcome) || outcome.cancelled()) {
                 return outcome;
             }
@@ -137,7 +150,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             if (command.thinkingEnabled()) {
                 log.warn("[NEXO-BACK][PROVIDER] Thinking produced no final answer; retrying without it model={}",
                         command.model());
-                ChatCompletionOutcome retried = streamOnce(
+                ChatCompletionOutcome retried = guardedStreamOnce(
                         withoutThinking(command), onThinking, trackedToken, cancelled);
                 ChatCompletionOutcome combined = combineUsage(outcome, retried);
                 if (hasAnswer(combined) || combined.cancelled()) {
@@ -158,8 +171,42 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             }
             log.warn("[NEXO-BACK][PROVIDER] Model does not accept thinking; retrying without it model={}",
                     command.model());
-            return streamOnce(withoutThinking(command), onThinking, trackedToken, cancelled);
+            return guardedStreamOnce(
+                    withoutThinking(command), onThinking, trackedToken, cancelled);
         }
+    }
+
+    private ChatCompletionOutcome guardedStreamOnce(
+            ChatCompletionCommand command,
+            Consumer<String> onThinking,
+            Consumer<String> onToken,
+            BooleanSupplier cancelled) {
+        if (!requiresExternalToolEvidence(command)) {
+            return streamOnce(command, onThinking, onToken, cancelled);
+        }
+
+        StringBuilder bufferedAnswer = new StringBuilder();
+        ChatCompletionOutcome outcome = streamOnce(
+                command, onThinking, bufferedAnswer::append, cancelled);
+        if (outcome.cancelled()) {
+            return outcome;
+        }
+        if (MCP_UNAVAILABLE_REASON.equals(outcome.doneReason())) {
+            onToken.accept(outcome.content());
+            return outcome;
+        }
+        boolean mcpExecuted = outcome.toolExecutions().stream()
+                .anyMatch(execution -> execution.toolName().startsWith("mcp_"));
+        if (!mcpExecuted) {
+            log.warn("[NEXO-BACK][AGENT] Explicit external request completed without MCP evidence model={}",
+                    command.model());
+            throw new ProviderStreamException(
+                    new IllegalStateException("The model ignored the required MCP tool call"));
+        }
+        if (hasAnswer(outcome)) {
+            onToken.accept(outcome.content());
+        }
+        return outcome;
     }
 
     private ChatCompletionOutcome streamOnce(
@@ -177,9 +224,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         List<Message> conversation = mapped.stream()
                 .filter(message -> !(message instanceof SystemMessage))
                 .toList();
-        Prompt prompt = new Prompt(conversation);
         ChatClient chatClient = ChatClient.builder(model).build();
         KnowledgeSearchToolSession knowledgeSession = knowledgeToolSession(command, cancelled);
+        KnowledgeWriteToolSession writeSession = knowledgeWriteToolSession(command, cancelled);
         AgentPlanToolSession planSession = planToolSession(command, cancelled);
         RememberToolSession rememberSession = rememberToolSession(command, cancelled);
         McpToolSession mcpSession = mcpToolSession(command, cancelled);
@@ -189,7 +236,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         List<ToolCallback> callbacks = new ArrayList<>(Stream.of(
                         planSession == null ? null : planSession.callback(),
                         rememberSession == null ? null : rememberSession.callback(),
-                        knowledgeSession == null ? null : knowledgeSession.callback())
+                        knowledgeSession == null ? null : knowledgeSession.callback(),
+                        writeSession == null ? null : writeSession.callback())
                 .filter(Objects::nonNull)
                 .toList());
         if (mcpSession != null) {
@@ -198,8 +246,38 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         if (!callbacks.isEmpty()) {
             callbacks.add(capabilityInspectionCallback(callbacks));
         }
+        List<ToolCallback> mcpCallbacks = callbacks.stream()
+                .filter(callback -> callback.getToolDefinition().name().startsWith("mcp_"))
+                .toList();
+        if (!mcpCallbacks.isEmpty() && requiresExternalToolEvidence(command)) {
+            conversation = compactExternalToolConversation(conversation);
+            systemContext.add(new SystemMessage(requiredExternalToolInstruction(mcpCallbacks)));
+        }
 
         try {
+            if (asksForAvailableTools(command)) {
+                String listing = capabilityListing(callbacks, command);
+                if (planSession != null) {
+                    planSession.completeFallback();
+                }
+                onToken.accept(listing);
+                return new ChatCompletionOutcome(
+                        listing, null, null, null, false, CAPABILITY_LISTING_REASON,
+                        evidence(planSession, rememberSession, knowledgeSession, writeSession, mcpSession));
+            }
+            if (requiresExternalToolEvidence(command) && mcpCallbacks.isEmpty()) {
+                String unavailable = "A conexão MCP está configurada, mas não forneceu uma ferramenta "
+                        + "callable para esta execução. Abra o MCP Hub e inspecione a conexão.";
+                if (planSession != null) {
+                    planSession.completeFallback();
+                }
+                onToken.accept(unavailable);
+                return new ChatCompletionOutcome(
+                        unavailable, null, null, null, false, MCP_UNAVAILABLE_REASON,
+                        evidence(planSession, rememberSession, knowledgeSession, writeSession, mcpSession));
+            }
+
+            Prompt prompt = new Prompt(conversation);
             StringBuilder content = new StringBuilder();
             Integer inputTokens = null;
             Integer outputTokens = null;
@@ -257,7 +335,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     if (cancelled.getAsBoolean()) {
                         return new ChatCompletionOutcome(
                                 content.toString(), null, null, null, true, CANCELLED_REASON,
-                                evidence(planSession, rememberSession, knowledgeSession, mcpSession));
+                                evidence(planSession, rememberSession, knowledgeSession, writeSession, mcpSession));
                     }
 
                     ChatResponse response = iterator.next();
@@ -304,7 +382,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             }
             return new ChatCompletionOutcome(
                     content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
-                    evidence(planSession, rememberSession, knowledgeSession, mcpSession));
+                    evidence(planSession, rememberSession, knowledgeSession, writeSession, mcpSession));
         } finally {
             if (mcpSession != null) {
                 mcpSession.close();
@@ -322,6 +400,18 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         }
         return knowledgeToolFactory.open(
                 command.knowledgeToolScope(), command.toolExecutionObserver(), cancelled);
+    }
+
+    private KnowledgeWriteToolSession knowledgeWriteToolSession(
+            ChatCompletionCommand command,
+            BooleanSupplier cancelled) {
+        if (command.mode() != ConversationMode.AGENT
+                || command.knowledgeWriteToolScope() == null
+                || !command.knowledgeWriteToolScope().available()) {
+            return null;
+        }
+        return knowledgeWriteToolFactory.open(
+                command.knowledgeWriteToolScope(), command.toolExecutionObserver(), cancelled);
     }
 
     private AgentPlanToolSession planToolSession(
@@ -363,6 +453,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             AgentPlanToolSession planSession,
             RememberToolSession rememberSession,
             KnowledgeSearchToolSession knowledgeSession,
+            KnowledgeWriteToolSession writeSession,
             McpToolSession mcpSession) {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
         if (planSession != null) {
@@ -370,6 +461,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         }
         if (knowledgeSession != null) {
             evidence.addAll(knowledgeSession.evidence());
+        }
+        if (writeSession != null) {
+            evidence.addAll(writeSession.evidence());
         }
         if (rememberSession != null) {
             evidence.addAll(rememberSession.evidence());
@@ -398,7 +492,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         return new ChatCompletionCommand(
                 command.providerType(), command.endpoint(), command.model(), command.messages(), false,
                 command.mode(), command.knowledgeToolScope(), command.agentPlanToolScope(),
-                command.memoryToolScope(), command.mcpToolScope(),
+                command.memoryToolScope(), command.mcpToolScope(), command.knowledgeWriteToolScope(),
                 command.toolExecutionObserver(), command.agentPlanUpdateObserver());
     }
 
@@ -494,5 +588,103 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             return first;
         }
         return first + second;
+    }
+
+    private boolean asksForAvailableTools(ChatCompletionCommand command) {
+        String request = normalizedLatestUserRequest(command);
+        boolean mentionsTools = request.contains("ferra")
+                || request.contains(" tool")
+                || request.startsWith("tool")
+                || request.contains("mcp");
+        boolean asksForList = request.contains("quais")
+                || request.contains("qual")
+                || request.contains("lista")
+                || request.contains("liste")
+                || request.contains("possui")
+                || request.contains("disponiv")
+                || request.contains("which")
+                || request.contains("what")
+                || request.contains("available")
+                || request.contains("have");
+        return command.mode() == ConversationMode.AGENT && mentionsTools && asksForList;
+    }
+
+    private boolean requiresExternalToolEvidence(ChatCompletionCommand command) {
+        if (command.mode() != ConversationMode.AGENT
+                || command.mcpToolScope() == null
+                || !command.mcpToolScope().available()
+                || asksForAvailableTools(command)) {
+            return false;
+        }
+        String request = normalizedLatestUserRequest(command);
+        return request.contains("pesquis")
+                || request.contains("busc")
+                || request.contains("procura")
+                || request.contains("search")
+                || request.contains("look up")
+                || request.contains("lookup")
+                || request.contains("fetch")
+                || request.contains("internet")
+                || request.contains(" web")
+                || request.contains("acesse")
+                || request.contains("acessa")
+                || request.contains("site")
+                || request.contains("url")
+                || request.contains("cotacao")
+                || request.contains("cambio");
+    }
+
+    private String normalizedLatestUserRequest(ChatCompletionCommand command) {
+        String request = command.messages().reversed().stream()
+                .filter(message -> "user".equalsIgnoreCase(message.role()))
+                .map(ChatCompletionMessage::content)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("");
+        return Normalizer.normalize(request, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .trim();
+    }
+
+    private List<Message> compactExternalToolConversation(List<Message> conversation) {
+        List<Message> userMessages = conversation.stream()
+                .filter(UserMessage.class::isInstance)
+                .toList();
+        int first = Math.max(0, userMessages.size() - 6);
+        return List.copyOf(userMessages.subList(first, userMessages.size()));
+    }
+
+    private String requiredExternalToolInstruction(List<ToolCallback> mcpCallbacks) {
+        String names = mcpCallbacks.stream()
+                .map(callback -> callback.getToolDefinition().name())
+                .collect(Collectors.joining(", "));
+        return """
+                MANDATORY MCP EXECUTION GATE
+                The current user explicitly requested external research or access. The MCP runtime is
+                connected. Ignore earlier assistant claims that external tools are unavailable.
+                Your next response MUST be a tool call to one fitting tool from this exact list: %s.
+                Do not answer with prose and do not call update_plan first. After the tool returns,
+                answer only from its evidence. Never claim MCP is unavailable for this request.
+                """.formatted(names).strip();
+    }
+
+    private String capabilityListing(
+            List<ToolCallback> callbacks,
+            ChatCompletionCommand command) {
+        List<String> names = callbacks.stream()
+                .map(callback -> callback.getToolDefinition().name())
+                .distinct()
+                .toList();
+        String request = normalizedLatestUserRequest(command);
+        String heading = request.contains("which") || request.contains("what") || request.contains("available")
+                ? "Tools actually available for this Agent request:"
+                : "Ferramentas realmente disponíveis nesta execução do Agente:";
+        if (names.isEmpty()) {
+            return heading + "\n\n- Nenhuma ferramenta callable foi conectada.";
+        }
+        return heading + "\n\n" + names.stream()
+                .map(name -> "- `" + name + "`")
+                .collect(Collectors.joining("\n"));
     }
 }

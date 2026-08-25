@@ -2,8 +2,11 @@ package com.nexoia.auth.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.auth.access.dto.ClientAccessMetadata;
 import com.nexoia.auth.access.repository.AccessEventRepository;
 import com.nexoia.auth.access.service.ClientAccessService;
@@ -15,11 +18,14 @@ import com.nexoia.auth.session.security.NexoUserPrincipal;
 import com.nexoia.auth.token.service.TokenCookieService;
 import com.nexoia.auth.token.service.TokenSessionService;
 import com.nexoia.auth.user.dto.UpdateUserStatusRequest;
+import com.nexoia.auth.user.dto.CreateMemberRequest;
 import com.nexoia.auth.user.exception.OwnerStatusChangeException;
 import com.nexoia.auth.user.model.UserAccount;
 import com.nexoia.auth.user.model.UserRole;
 import com.nexoia.auth.user.model.UserStatus;
 import com.nexoia.auth.user.repository.UserAccountRepository;
+import com.nexoia.permission.model.ProfileKey;
+import com.nexoia.permission.service.PermissionAdminService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Instant;
@@ -51,8 +57,43 @@ class UserManagementServiceTest {
 
     @BeforeEach void setUp() {
         service = new UserManagementService(users, credentials, sessions, events, encoder,
-                cookies, tokens, access, Clock.fixed(NOW, ZoneOffset.UTC),
-                org.mockito.Mockito.mock(com.nexoia.audit.service.AuditService.class));
+                cookies, tokens, access, new PermissionAdminService(),
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                mock(AuditService.class));
+    }
+
+    @Test void createsAMemberWithTheDefaultProfileWhenNoneIsRequested() {
+        when(users.existsByUsernameIgnoreCase("newuser")).thenReturn(false);
+        when(users.existsByEmailIgnoreCase("new@nexo.local")).thenReturn(false);
+        when(users.saveAndFlush(any(UserAccount.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(encoder.encode(any())).thenReturn("hash");
+        when(cookies.accessToken(request)).thenReturn(Optional.of("token"));
+        when(tokens.sessionId("token")).thenReturn(UUID.randomUUID());
+        when(access.extract(request)).thenReturn(new ClientAccessMetadata("127.0.0.1", "test"));
+
+        var response = service.createMember(principal(), new CreateMemberRequest(
+                "newuser", "new@nexo.local", "New User", "Str0ng-Passw0rd!", null), request);
+
+        assertThat(response.role()).isEqualTo(UserRole.MEMBER);
+        assertThat(response.assignedProfile()).isEqualTo(ProfileKey.RESEARCHER);
+    }
+
+    @Test void createsAMemberWithTheRequestedProfile() {
+        when(users.existsByUsernameIgnoreCase("reader1")).thenReturn(false);
+        when(users.existsByEmailIgnoreCase("reader@nexo.local")).thenReturn(false);
+        when(users.saveAndFlush(any(UserAccount.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(encoder.encode(any())).thenReturn("hash");
+        when(cookies.accessToken(request)).thenReturn(Optional.of("token"));
+        when(tokens.sessionId("token")).thenReturn(UUID.randomUUID());
+        when(access.extract(request)).thenReturn(new ClientAccessMetadata("127.0.0.1", "test"));
+
+        var response = service.createMember(principal(), new CreateMemberRequest(
+                "reader1", "reader@nexo.local", "Reader One", "Str0ng-Passw0rd!",
+                ProfileKey.READER), request);
+
+        assertThat(response.assignedProfile()).isEqualTo(ProfileKey.READER);
     }
 
     @Test void disablingAMemberRevokesEveryActiveSession() {

@@ -23,11 +23,15 @@ import com.nexoia.knowledge.retrieval.repository.KnowledgeChunkRepository;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.model.VaultScope;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.service.TeamMembershipService;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -42,6 +46,8 @@ class RetrievalServiceTest {
     private KnowledgeChunkRepository chunks;
     @Mock
     private EmbeddingService embeddingService;
+    @Mock
+    private TeamMembershipService teamMembershipService;
     private RetrievalService service;
 
     private final UUID ownerId = UUID.randomUUID();
@@ -51,7 +57,7 @@ class RetrievalServiceTest {
     @BeforeEach
     void setUp() {
         service = new RetrievalService(vaults, sources, chunks, embeddingService,
-                new KnowledgeRetrievalProperties(6, 0.55, 2000));
+                new KnowledgeRetrievalProperties(6, 0.55, 2000), teamMembershipService);
     }
 
     @Test
@@ -65,7 +71,7 @@ class RetrievalServiceTest {
 
     @Test
     void neverQueriesChunksForAVaultTheCallerDoesNotOwn() {
-        when(vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(ownerId, List.of(vaultId)))
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(any(), any()))
                 .thenReturn(List.of());
 
         RetrievalResult result = service.retrieve(ownerId, new RetrievalQuery(List.of(vaultId), "question"));
@@ -76,7 +82,7 @@ class RetrievalServiceTest {
 
     @Test
     void neverFabricatesAnAnswerWhenTheEmbeddingProviderIsUnavailable() {
-        when(vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(ownerId, List.of(vaultId)))
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(any(), any()))
                 .thenReturn(List.of(vault(VaultScope.PERSONAL)));
         when(embeddingService.embed(any(), anyList())).thenThrow(new EmbeddingProviderUnavailableException());
 
@@ -87,7 +93,7 @@ class RetrievalServiceTest {
 
     @Test
     void returnsAnExplicitEmptyResultBelowTheMinimumScore() {
-        when(vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(ownerId, List.of(vaultId)))
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(any(), any()))
                 .thenReturn(List.of(vault(VaultScope.PERSONAL)));
         when(embeddingService.embed(any(), anyList()))
                 .thenReturn(new EmbeddingOutcome(List.of(new float[]{1f, 0f, 0f}), "nomic-embed-text", 3));
@@ -101,7 +107,7 @@ class RetrievalServiceTest {
 
     @Test
     void mapsAnAuthorizedChunkToACitationWithVaultAndSourceNames() {
-        when(vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(ownerId, List.of(vaultId)))
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(any(), any()))
                 .thenReturn(List.of(vault(VaultScope.PERSONAL)));
         when(embeddingService.embed(any(), anyList()))
                 .thenReturn(new EmbeddingOutcome(List.of(new float[]{1f, 0f, 0f}), "nomic-embed-text", 3));
@@ -117,8 +123,29 @@ class RetrievalServiceTest {
         assertThat(result.citations().getFirst().score()).isCloseTo(1.0, org.assertj.core.data.Offset.offset(0.0001));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void authorizesVaultsOwnedByTheUsersTeamsAlongsideTheirOwn() {
+        UUID teamId = UUID.randomUUID();
+        when(teamMembershipService.accessibleOwnerIds(ownerId)).thenReturn(List.of(ownerId, teamId));
+        ArgumentCaptor<Iterable<UUID>> vaultOwnerSet = ArgumentCaptor.forClass(Iterable.class);
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(vaultOwnerSet.capture(), any()))
+                .thenReturn(List.of(vault(VaultScope.PERSONAL)));
+        when(embeddingService.embed(any(), anyList()))
+                .thenReturn(new EmbeddingOutcome(List.of(new float[]{1f, 0f, 0f}), "nomic-embed-text", 3));
+        ArgumentCaptor<Collection<UUID>> chunkOwnerSet = ArgumentCaptor.forClass(Collection.class);
+        when(chunks.findAuthorizedNearest(chunkOwnerSet.capture(), anyList(), any(), any()))
+                .thenReturn(List.of());
+
+        service.retrieve(ownerId, new RetrievalQuery(List.of(vaultId), "question"));
+
+        // Both authorization gates widen to include the user's Team, never another Team.
+        assertThat(vaultOwnerSet.getValue()).contains(ownerId, teamId);
+        assertThat(chunkOwnerSet.getValue()).contains(ownerId, teamId);
+    }
+
     private List<UUID> nRandomIds(int count) {
-        return java.util.stream.IntStream.range(0, count).mapToObj(index -> UUID.randomUUID()).toList();
+        return IntStream.range(0, count).mapToObj(index -> UUID.randomUUID()).toList();
     }
 
     private KnowledgeVault vault(VaultScope scope) {

@@ -370,6 +370,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   `/api/show`; explicitly incompatible models are labeled and cannot start a broken Agent run.
   Selected Vaults are described to the model as on-demand `search_knowledge` scope, while exact
   `mcp_*` names are identified as callable tools instead of generic context text.
+- Runtime capability questions now come from the exact request callback snapshot rather than model
+  recall. Explicit external research compacts away stale assistant refusals, requires a matching
+  `mcp_*` call, buffers provider prose until tool evidence exists, and rejects a false successful
+  answer when the selected model ignores the required tool.
 - Every Agent request now receives a durable visible fallback plan before inference. A compliant
   model can replace it through `update_plan`; a normal response from a smaller model completes the
   fallback. The capability envelope distinguishes exact executable tools from language abilities,
@@ -386,7 +390,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   as non-authoritative context in later Chat and Agent requests; exact duplicates are reused and a
   50-memory account cap prevents unbounded context growth. Authenticated APIs and the conversation
   workspace's Memory section provide inspection and deletion. See D-031.
-- One hundred and eighty-five passing default backend tests and one hundred and seventeen passing frontend tests,
+- Two hundred and twenty-one passing default backend tests and one hundred and twenty passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -396,8 +400,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   migrations, bootstrap, login, authenticated profile, and logout. Every migration through V21 was
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
-  A Testcontainers run also started the complete Java 25 application context against PostgreSQL 18.6,
-  applied all 28 Flyway migrations through the personal-memory schema, and verified the active-request
+  A Testcontainers run also starts the complete Java 25 application context against PostgreSQL 18.6,
+  applies all 33 Flyway migrations through the Team-owned Vault schema, and verifies the active-request
   index. The pgvector-backed local corpus remains migration-compatible.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.6
   instance and asserts that every migration applied, the Agent plan tool bean exists, and the
@@ -418,8 +422,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   rerun the official validator when the dependency is available.
 - The base Compose service starts PostgreSQL, backend, and the production frontend image.
   Development uses `compose.dev.yaml`; production must not apply that database-port override.
-- Organization membership beyond installation-level Owner/Member roles remains a subsequent
-  identity increment.
+- The first Team/membership/profile governance backend slice exists, but active-Team selection,
+  organization administration screens, group usage quotas, shared media/artifacts, and content-matrix
+  administration remain subsequent increments.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - The organization-level audit *view* that unions session and domain trails is a later increment.
@@ -436,8 +441,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   complete approval Permission Engine, MCP secrets/configuration, resumable backend-restart
   execution, and multi-agent workers remain intentionally unavailable. Image jobs remain pending the
   local ComfyUI runtime.
-- Knowledge Vault scopes `project`, `team`, and `organization` are contract-complete but always
-  rejected — no backend project/team/organization entity exists yet to authorize against.
+- Knowledge Vault scopes `project`, `team`, and `organization` remain rejected by the ordinary Vault
+  creation endpoint. Shared Team knowledge uses an authorized Team endpoint and persists a
+  `PERSONAL` corpus with `owner_type=TEAM`; project/organization scope targets remain deferred.
 - No lexical/full-text fallback exists for retrieval; below-threshold or provider-unavailable
   retrieval resolves to an explicit empty result, documented as a deferred follow-up in D-026.
 - PDF and Office sources remain metadata-only (`UNSUPPORTED` status); only Markdown, plain text,

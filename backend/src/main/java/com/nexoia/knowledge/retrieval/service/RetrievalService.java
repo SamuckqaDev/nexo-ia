@@ -13,6 +13,7 @@ import com.nexoia.knowledge.retrieval.repository.KnowledgeChunkRepository;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.model.VaultScope;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.service.TeamMembershipService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -49,6 +50,7 @@ public class RetrievalService {
     private final KnowledgeChunkRepository chunks;
     private final EmbeddingService embeddingService;
     private final KnowledgeRetrievalProperties properties;
+    private final TeamMembershipService teamMembershipService;
 
     @Transactional(readOnly = true)
     public RetrievalResult retrieve(UUID ownerId, RetrievalQuery query) {
@@ -59,8 +61,11 @@ public class RetrievalService {
             return RetrievalResult.empty();
         }
 
+        // A user may retrieve from their own Vaults and from any Vault owned by a Team they belong to.
+        List<UUID> authorizedOwnerIds = teamMembershipService.accessibleOwnerIds(ownerId);
+
         List<KnowledgeVault> authorizedVaults = vaults
-                .findAllByOwnerIdAndArchivedFalseAndIdIn(ownerId, query.vaultIds()).stream()
+                .findAllByOwnerIdInAndArchivedFalseAndIdIn(authorizedOwnerIds, query.vaultIds()).stream()
                 .filter(vault -> RETRIEVABLE_SCOPES.contains(vault.getScope()))
                 .toList();
         if (authorizedVaults.isEmpty()) {
@@ -74,7 +79,7 @@ public class RetrievalService {
         float[] queryVector = embeddingService.embed(ownerId, List.of(query.text())).embeddings().getFirst();
 
         List<KnowledgeChunk> nearest = chunks.findAuthorizedNearest(
-                ownerId, authorizedVaultIds, queryVector, Limit.of(properties.topK()));
+                authorizedOwnerIds, authorizedVaultIds, queryVector, Limit.of(properties.topK()));
         if (nearest.isEmpty()) {
             return RetrievalResult.empty();
         }

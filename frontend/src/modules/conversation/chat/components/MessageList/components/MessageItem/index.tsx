@@ -3,7 +3,7 @@ import {
   Brain,
   Check,
   Copy,
-  MagnifyingGlass,
+  ListChecks,
   Prohibit,
   Quotes,
   Sparkle,
@@ -12,9 +12,8 @@ import {
   WarningCircle
 } from "@phosphor-icons/react";
 import { useEffect, useState, type ReactElement } from "react";
-import { AgentPlan } from "../../../AgentPlan";
 import { parseContextualChatMessage } from "../../../../services/chatContextService";
-import type { AgentPlan as AgentPlanValue, AgentState, ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
+import type { AgentState, ConversationMessage, ToolExecution } from "../../../../types/chatTypes";
 import { MessageContent } from "./components/MessageContent";
 import {
   Avatar,
@@ -29,9 +28,7 @@ import {
   Meta,
   Name,
   Row,
-  ThinkingTrace,
-  ToolActivity,
-  ToolActivityList
+  ThinkingTrace
 } from "./styles";
 
 type MessageItemProps = {
@@ -40,23 +37,7 @@ type MessageItemProps = {
   isStreaming?: boolean;
   thinkingContent?: string;
   activeAgentState?: AgentState | null;
-  activeAgentPlan?: AgentPlanValue | null;
   activeToolExecutions?: ToolExecution[];
-};
-
-const toolActivityLabel = (toolName: string): string => {
-  if (toolName === "update_plan") return "Implementation plan";
-  if (toolName === "search_knowledge") return "Knowledge search";
-  if (toolName === "remember") return "Personal memory";
-
-  if (toolName.startsWith("mcp_")) {
-    const externalToolName: string = toolName
-      .replace(/^mcp_[a-f0-9]{8}_/, "")
-      .replaceAll("_", " ");
-    return `MCP · ${externalToolName}`;
-  }
-
-  return toolName;
 };
 
 /**
@@ -69,7 +50,6 @@ export function MessageItem({
   isStreaming = false,
   thinkingContent = "",
   activeAgentState = null,
-  activeAgentPlan = null,
   activeToolExecutions = []
 }: MessageItemProps): ReactElement {
   const isUser: boolean = message.role === "USER";
@@ -108,9 +88,9 @@ export function MessageItem({
   const toolExecutions: ToolExecution[] = isStreaming && activeToolExecutions.length > 0
     ? activeToolExecutions
     : message.toolExecutions ?? [];
-  const agentPlan: AgentPlanValue | null | undefined = isStreaming
-    ? activeAgentPlan ?? message.agentPlan
-    : message.agentPlan;
+  const agentActive: boolean = !isUser && (Boolean(agentState) || toolExecutions.length > 0);
+  const agentRunning: boolean = isStreaming && Boolean(agentState) && agentState !== "COMPLETED"
+    && agentState !== "FAILED" && agentState !== "CANCELLED";
 
   useEffect((): void => setCopied(false), [content]);
 
@@ -147,36 +127,21 @@ export function MessageItem({
           </ThinkingTrace>
         )}
 
-        {!isUser && agentPlan && <AgentPlan plan={agentPlan} />}
-
         <MessageContent content={content} isStreaming={isStreaming} isUser={isUser} />
 
-        {!isUser && agentState && (
-          <ContextBadges aria-label="Agent execution state">
-            <ContextBadge>
-              <Brain size={13} weight="duotone" /> Agent: {agentState.toLowerCase()}
+        {agentActive && (
+          <ContextBadges aria-label="Agent execution">
+            <ContextBadge title="Open the Plan and Tasks panel to follow the steps">
+              {agentRunning
+                ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
+                : <ListChecks size={13} weight="duotone" />}
+              Agent{agentState ? ` · ${agentState.toLowerCase()}` : ""}
+              {toolExecutions.length > 0
+                ? ` · ${toolExecutions.length} step${toolExecutions.length > 1 ? "s" : ""}`
+                : ""}
+              {" · see the Plan panel"}
             </ContextBadge>
           </ContextBadges>
-        )}
-
-        {!isUser && toolExecutions.length > 0 && (
-          <ToolActivityList aria-label="Agent tool activity">
-            {toolExecutions.map((execution: ToolExecution) => (
-              <ToolActivity key={execution.id}>
-                {execution.status === "RUNNING"
-                  ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
-                  : <MagnifyingGlass size={13} weight="duotone" />}
-                <span title={execution.toolName}>{toolActivityLabel(execution.toolName)}</span>
-                <small>
-                  {execution.status === "RUNNING"
-                    ? "running"
-                    : `${execution.status.toLowerCase().replace("_", " ")}${execution.durationMs !== null
-                      ? ` · ${(execution.durationMs / 1000).toFixed(1)}s`
-                      : ""}`}
-                </small>
-              </ToolActivity>
-            ))}
-          </ToolActivityList>
         )}
 
         {isUser && (contextualMessage.skillName || contextualMessage.vaultSourceNames.length > 0) && (

@@ -1,5 +1,9 @@
 package com.nexoia.auth.bootstrap.service;
 
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.auth.bootstrap.dto.BootstrapStatusResponse;
 import com.nexoia.auth.bootstrap.dto.CreateOwnerRequest;
 import com.nexoia.auth.bootstrap.exception.BootstrapAlreadyCompletedException;
@@ -11,6 +15,7 @@ import com.nexoia.auth.user.model.UserAccount;
 import com.nexoia.auth.user.model.UserRole;
 import com.nexoia.auth.user.model.UserStatus;
 import com.nexoia.auth.user.repository.UserAccountRepository;
+import com.nexoia.permission.model.ProfileKey;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
@@ -29,7 +34,7 @@ public class BootstrapService {
     private final PasswordCredentialRepository passwordCredentialRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
-    private final com.nexoia.audit.service.AuditService audit;
+    private final AuditService audit;
 
     @Transactional(readOnly = true)
     public BootstrapStatusResponse status() {
@@ -58,6 +63,7 @@ public class BootstrapService {
                 .name(request.name().trim())
                 .role(UserRole.OWNER)
                 .status(UserStatus.ACTIVE)
+                .assignedProfile(ProfileKey.OPERATOR)
                 .build();
 
         try {
@@ -68,9 +74,9 @@ public class BootstrapService {
             throw new BootstrapAlreadyCompletedException();
         }
 
-        audit.record(com.nexoia.audit.dto.RecordAuditCommand.success(
-                com.nexoia.audit.model.AuditAction.BOOTSTRAP_OWNER_CREATED, userId, UserRole.OWNER,
-                com.nexoia.audit.model.AuditTargetType.USER, userId));
+        audit.record(RecordAuditCommand.success(
+                AuditAction.BOOTSTRAP_OWNER_CREATED, userId, UserRole.OWNER,
+                AuditTargetType.USER, userId));
 
         return toResponse(owner);
     }

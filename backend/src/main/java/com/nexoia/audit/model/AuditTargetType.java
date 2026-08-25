@@ -9,5 +9,6 @@ public enum AuditTargetType {
     MEMORY,
     SESSION,
     KNOWLEDGE_VAULT,
-    KNOWLEDGE_SOURCE
+    KNOWLEDGE_SOURCE,
+    TEAM
 }

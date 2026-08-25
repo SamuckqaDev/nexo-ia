@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.memory.personal.tool.RememberToolFactory;
@@ -34,6 +35,7 @@ class SpringAiChatCompletionSmokeTest {
             new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
             new SpringAiMessageMapper(),
             Mockito.mock(KnowledgeSearchToolFactory.class),
+            Mockito.mock(KnowledgeWriteToolFactory.class),
             Mockito.mock(AgentPlanToolFactory.class),
             Mockito.mock(RememberToolFactory.class),
             Mockito.mock(McpToolSessionFactory.class),

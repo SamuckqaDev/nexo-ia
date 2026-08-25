@@ -32,6 +32,7 @@ import com.nexoia.mcp.connection.service.McpConnectionService;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
 import com.nexoia.memory.personal.service.PersonalMemoryService;
+import com.nexoia.permission.service.PermissionEngine;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
@@ -87,6 +88,7 @@ class ModelRequestStoreTest {
                 retrieval,
                 mcpConnections,
                 personalMemories,
+                new PermissionEngine(),
                 Clock.fixed(Instant.parse("2026-08-21T12:00:00Z"), ZoneOffset.UTC));
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(Conversation.builder()

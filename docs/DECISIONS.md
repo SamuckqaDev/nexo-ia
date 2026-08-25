@@ -410,7 +410,9 @@ options considered, the selected approach, and its consequences.
   authentication, endpoint validation,
   owner/Vault isolation, context limits, cancellation, persistence, SSE, evidence, and audit. A
   browser disconnect never becomes model cancellation, and raw tool arguments/results remain absent
-  from observations and API responses.
+  from observations and API responses. Model prose is never accepted as proof of external access:
+  capability listings come from request callbacks, and explicit external work must produce recorded
+  `mcp_*` evidence before its answer is released or persisted as successful.
 
 ## D-029 — Make the first Agent runtime bounded, visible, and plan-driven
 

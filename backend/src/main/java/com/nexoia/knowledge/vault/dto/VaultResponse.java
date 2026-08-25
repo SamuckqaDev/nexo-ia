@@ -10,6 +10,7 @@ public record VaultResponse(
         String description,
         VaultScope scope,
         UUID workspaceId,
+        boolean writable,
         Instant createdAt,
         Instant updatedAt) {
 }

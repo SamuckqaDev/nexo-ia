@@ -7,7 +7,9 @@ import {
   FolderOpen,
   ImageSquare,
   ListChecks,
+  MagnifyingGlass,
   Paperclip,
+  SpinnerGap,
   Trash,
   Vault,
   type Icon
@@ -25,6 +27,7 @@ import type { PersonalMemory } from "../../../../memory/personal/types/personalM
 import { WorkspaceTree } from "../../../../project/workspace/components/WorkspaceTree";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { useWorkspaceSnapshot } from "../../../../project/workspace/hooks/useWorkspaceSnapshot";
+import type { ToolExecution } from "../../types/chatTypes";
 import type {
   ConversationContextPanelProps,
   ConversationContextSection
@@ -117,10 +120,23 @@ function VaultContextCard({ vault, selected, disabled, onToggle }: VaultContextC
   );
 }
 
+const toolActivityLabel = (toolName: string): string => {
+  if (toolName === "update_plan") return "Implementation plan";
+  if (toolName === "search_knowledge") return "Knowledge search";
+  if (toolName === "save_to_vault") return "Save to Vault";
+  if (toolName === "remember") return "Personal memory";
+  if (toolName.startsWith("mcp_")) {
+    return `MCP · ${toolName.replace(/^mcp_[a-f0-9]{8}_/, "").replaceAll("_", " ")}`;
+  }
+  return toolName;
+};
+
 export function ConversationContextPanel({
   conversationId,
   mode,
   agentPlan,
+  agentState,
+  toolExecutions,
   open,
   vaults,
   selectedVaultIds,
@@ -228,14 +244,38 @@ export function ConversationContextPanel({
     }
 
     if (section === "tasks") {
+      if (toolExecutions.length === 0 && !agentState) {
+        return (
+          <EmptyState>
+            <EmptyIcon><ListChecks size={22} weight="duotone" /></EmptyIcon>
+            <EmptyCopy>
+              <strong>No tasks yet</strong>
+              <span>Agent tasks and their execution state will stay visible here.</span>
+            </EmptyCopy>
+          </EmptyState>
+        );
+      }
       return (
-        <EmptyState>
-          <EmptyIcon><ListChecks size={22} weight="duotone" /></EmptyIcon>
-          <EmptyCopy>
-            <strong>No tasks yet</strong>
-            <span>Agent tasks and their execution state will stay visible here.</span>
-          </EmptyCopy>
-        </EmptyState>
+        <ResourceList>
+          {agentState && <StatusCopy aria-live="polite">Agent state: {agentState.toLowerCase()}</StatusCopy>}
+          <VaultSourceList aria-label="Agent tool activity">
+            {toolExecutions.map((execution: ToolExecution) => (
+              <VaultSourceRow key={execution.id}>
+                {execution.status === "RUNNING"
+                  ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
+                  : <MagnifyingGlass size={13} weight="duotone" />}
+                <span title={execution.toolName}>{toolActivityLabel(execution.toolName)}</span>
+                <small>
+                  {execution.status === "RUNNING"
+                    ? "running"
+                    : `${execution.status.toLowerCase().replace("_", " ")}${execution.durationMs !== null
+                      ? ` · ${(execution.durationMs / 1000).toFixed(1)}s`
+                      : ""}`}
+                </small>
+              </VaultSourceRow>
+            ))}
+          </VaultSourceList>
+        </ResourceList>
       );
     }
 

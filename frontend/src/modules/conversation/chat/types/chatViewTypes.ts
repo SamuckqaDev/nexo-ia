@@ -1,7 +1,7 @@
 import type { SkillDefinition } from "../../../skill/catalog/types/skillTypes";
 import type { BackendVault } from "../../../knowledge/vault/types/backendVaultTypes";
 import type { VaultSourceReference } from "../../../knowledge/vault/types/vaultTypes";
-import type { AgentPlan, ConversationMode, StreamPhase } from "./chatTypes";
+import type { AgentPlan, AgentState, ConversationMode, StreamPhase, ToolExecution } from "./chatTypes";
 
 export type ConversationContextSection = "workspace" | "vaults" | "memory" | "plan" | "artifacts" | "media" | "tasks";
 
@@ -9,6 +9,8 @@ export type ConversationContextPanelProps = {
   conversationId: string | null;
   mode: ConversationMode;
   agentPlan: AgentPlan | null;
+  agentState: AgentState | null;
+  toolExecutions: ToolExecution[];
   open: boolean;
   vaults: BackendVault[];
   selectedVaultIds: string[];

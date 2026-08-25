@@ -18,6 +18,7 @@ import com.nexoia.knowledge.vault.exception.VaultNotFoundException;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.knowledge.vault.model.VaultScope;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.service.TeamMembershipService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +35,7 @@ class ConversationKnowledgeServiceTest {
     @Mock private ConversationRepository conversations;
     @Mock private ConversationKnowledgeVaultRepository selections;
     @Mock private VaultRepository vaults;
+    @Mock private TeamMembershipService teamMembershipService;
     @Mock private AuditService audit;
 
     private ConversationKnowledgeService service;
@@ -42,7 +44,8 @@ class ConversationKnowledgeServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConversationKnowledgeService(conversations, selections, vaults, audit);
+        service = new ConversationKnowledgeService(
+                conversations, selections, vaults, teamMembershipService, audit);
     }
 
     @Test
@@ -51,8 +54,8 @@ class ConversationKnowledgeServiceTest {
         KnowledgeVault second = vault("Second");
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(conversation()));
-        when(vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(
-                eq(userId), any(Iterable.class)))
+        when(teamMembershipService.accessibleOwnerIds(userId)).thenReturn(List.of(userId));
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(any(), any(Iterable.class)))
                 .thenReturn(List.of(first, second));
 
         List<UUID> result = service.replace(
@@ -74,8 +77,8 @@ class ConversationKnowledgeServiceTest {
         UUID foreign = UUID.randomUUID();
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(conversation()));
-        when(vaults.findAllByOwnerIdAndArchivedFalseAndIdIn(
-                eq(userId), any(Iterable.class)))
+        when(teamMembershipService.accessibleOwnerIds(userId)).thenReturn(List.of(userId));
+        when(vaults.findAllByOwnerIdInAndArchivedFalseAndIdIn(any(), any(Iterable.class)))
                 .thenReturn(List.of(KnowledgeVault.builder()
                         .id(owned)
                         .ownerId(userId)

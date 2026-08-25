@@ -40,7 +40,7 @@ import { useChatStream } from "../../hooks/useChatStream";
 import { parseContextualChatMessage } from "../../services/chatContextService";
 import { useChatDraftStore } from "../../stores/useChatDraftStore";
 import { useConversationModeStore } from "../../stores/useConversationModeStore";
-import type { AgentPlan, Conversation, ConversationMessage, ConversationMode } from "../../types/chatTypes";
+import type { AgentPlan, AgentState, Conversation, ConversationMessage, ConversationMode, ToolExecution } from "../../types/chatTypes";
 import type { ChatDraftState } from "../../types/chatDraftTypes";
 import type { AgentContextSummary } from "../../types/chatViewTypes";
 import {
@@ -173,6 +173,12 @@ export function ChatPage(): ReactElement {
       message.role === "ASSISTANT" && Boolean(message.agentPlan))?.agentPlan ?? null,
   [messages.data]);
   const visibleAgentPlan: AgentPlan | null = stream.agentPlan ?? persistedAgentPlan;
+  const lastAssistantMessage: ConversationMessage | undefined = (messages.data ?? [])
+    .findLast((message: ConversationMessage): boolean => message.role === "ASSISTANT");
+  const visibleAgentState: AgentState | null = stream.agentState ?? lastAssistantMessage?.agentState ?? null;
+  const visibleToolExecutions: ToolExecution[] = stream.toolExecutions.length > 0
+    ? stream.toolExecutions
+    : lastAssistantMessage?.toolExecutions ?? [];
   const selectedVaultNames: string[] = (backendVaults.vaults.data ?? [])
     .filter((vault: BackendVault) => selectedVaultIds.includes(vault.id))
     .map((vault: BackendVault) => vault.name);
@@ -410,7 +416,6 @@ export function ChatPage(): ReactElement {
                 streamingContent={stream.streamingContent}
                 errorMessage={stream.errorMessage}
                 agentState={stream.agentState}
-                agentPlan={stream.agentPlan}
                 toolExecutions={stream.toolExecutions}
                 accountTokenTotal={accountUsage.data?.totals.totalTokens ?? null}
                 mode={mode}
@@ -460,6 +465,8 @@ export function ChatPage(): ReactElement {
               conversationId={selectedId}
               mode={mode}
               agentPlan={visibleAgentPlan}
+              agentState={visibleAgentState}
+              toolExecutions={visibleToolExecutions}
               open={isContextOpen}
               vaults={backendVaults.vaults.data ?? []}
               selectedVaultIds={selectedVaultIds}

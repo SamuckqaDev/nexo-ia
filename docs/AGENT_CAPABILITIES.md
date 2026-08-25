@@ -17,6 +17,10 @@ full approval Permission Engine, Secret Store, or arbitrary computer control. Se
 [Spring AI Agent runtime](SPRING_AI_AGENT_RUNTIME.md) and
 [MCP runtime and implementation plan](MCP_RUNTIME.md).
 
+The model is not the authority on its own tools. Nexo lists capabilities from the request's real
+callbacks and, for an explicit external lookup, releases an answer only after the runtime records an
+`mcp_*` execution. Unsupported prose cannot substitute for tool evidence.
+
 ## Capability model
 
 ```text

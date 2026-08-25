@@ -16,4 +16,10 @@ public interface VaultRepository extends JpaRepository<KnowledgeVault, UUID> {
     Optional<KnowledgeVault> findByIdAndOwnerIdAndArchivedFalse(UUID id, UUID ownerId);
 
     List<KnowledgeVault> findAllByOwnerIdAndArchivedFalseAndIdIn(UUID ownerId, Iterable<UUID> ids);
+
+    /** Vaults among {@code ids} owned by any of {@code ownerIds} — the caller plus their Teams. */
+    List<KnowledgeVault> findAllByOwnerIdInAndArchivedFalseAndIdIn(Iterable<UUID> ownerIds, Iterable<UUID> ids);
+
+    /** Every non-archived Vault owned by any of {@code ownerIds} — the caller's own plus their Teams'. */
+    List<KnowledgeVault> findAllByOwnerIdInAndArchivedFalseOrderByUpdatedAtDesc(Iterable<UUID> ownerIds);
 }

@@ -1,6 +1,7 @@
 package com.nexoia.conversation.inference.service;
 
 import com.nexoia.auth.user.exception.UserNotFoundException;
+import com.nexoia.auth.user.model.UserAccount;
 import com.nexoia.auth.user.repository.UserAccountRepository;
 import com.nexoia.conversation.chat.exception.ConversationBusyException;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
@@ -17,6 +18,16 @@ import com.nexoia.conversation.inference.context.ContextSourceSummary;
 import com.nexoia.conversation.inference.context.KnowledgeCapability;
 import com.nexoia.conversation.inference.context.KnowledgeSearchStatus;
 import com.nexoia.conversation.inference.context.ModelContextEnvelope;
+import com.nexoia.conversation.inference.context.PermissionCapability;
+import com.nexoia.permission.dto.ResolvedPermissions;
+import com.nexoia.permission.model.BuiltInProfiles;
+import com.nexoia.permission.model.CapabilityFamily;
+import com.nexoia.permission.model.ContentStance;
+import com.nexoia.permission.model.PermissionProfile;
+import com.nexoia.permission.model.ProfileKey;
+import com.nexoia.permission.model.UnlockLevel;
+import com.nexoia.permission.service.PermissionEngine;
+import java.util.EnumSet;
 import com.nexoia.conversation.inference.context.ResolvedKnowledgeContext;
 import com.nexoia.conversation.inference.context.SkillCapability;
 import com.nexoia.conversation.inference.context.ToolCapability;
@@ -36,6 +47,7 @@ import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.mcp.connection.service.McpConnectionService;
@@ -48,6 +60,7 @@ import com.nexoia.provider.dto.AgentPlanUpdateObserver;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
+import com.nexoia.provider.dto.KnowledgeWriteToolScope;
 import com.nexoia.provider.dto.McpToolScope;
 import com.nexoia.provider.dto.MemoryToolScope;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
@@ -98,6 +111,7 @@ public class ModelRequestStore {
     private final RetrievalService retrievalService;
     private final McpConnectionService mcpConnections;
     private final PersonalMemoryService personalMemories;
+    private final PermissionEngine permissionEngine;
     private final Clock clock;
 
     /**
@@ -191,9 +205,14 @@ public class ModelRequestStore {
             throw new ConversationBusyException();
         }
 
-        String username = users.findById(userId).orElseThrow(UserNotFoundException::new).getUsername();
+        UserAccount account = users.findById(userId).orElseThrow(UserNotFoundException::new);
+        String username = account.getUsername();
+        ProfileKey assignedProfile = account.getAssignedProfile();
         List<KnowledgeVault> selectedVaults = conversationKnowledge.selectedVaults(userId, conversationId);
         List<UUID> selectedVaultIds = selectedVaults.stream().map(KnowledgeVault::getId).toList();
+        KnowledgeVault writableVault = mode == ConversationMode.AGENT
+                ? selectedVaults.stream().filter(KnowledgeVault::isWritable).findFirst().orElse(null)
+                : null;
         ResolvedKnowledgeContext resolvedKnowledge = mode == ConversationMode.CHAT
                 ? retrieve(userId, selectedVaultIds, content)
                 : selectedVaultIds.isEmpty()
@@ -217,7 +236,7 @@ public class ModelRequestStore {
                                 conversationId, username, citations,
                                 capabilityEnvelope(username, conversation.getSelectedModel(),
                                         processingLocation, selectedVaults, resolvedKnowledge,
-                                        enabledMcpConnections, mode),
+                                        enabledMcpConnections, mode, assignedProfile),
                                 personalMemories.context(userId)),
                         thinkingEnabled,
                         mode,
@@ -238,6 +257,11 @@ public class ModelRequestStore {
                                         userId, assistantMessage.getId(), correlationId,
                                         enabledMcpConnections)
                                 : null,
+                        writableVault == null
+                                ? null
+                                : new KnowledgeWriteToolScope(
+                                        userId, writableVault.getId(), writableVault.getName(),
+                                        assistantMessage.getId(), correlationId),
                         ToolExecutionObserver.NOOP,
                         AgentPlanUpdateObserver.NOOP),
                 processingLocation,
@@ -257,7 +281,7 @@ public class ModelRequestStore {
             List<KnowledgeVault> selectedVaults,
             ResolvedKnowledgeContext resolvedKnowledge,
             List<McpRuntimeConnection> enabledMcpConnections,
-            ConversationMode mode) {
+            ConversationMode mode, ProfileKey assignedProfile) {
         List<CitationResponse> citations = resolvedKnowledge.citations();
         KnowledgeCapability knowledge = new KnowledgeCapability(
                 selectedVaults.stream().map(KnowledgeVault::getName).toList(),
@@ -267,6 +291,9 @@ public class ModelRequestStore {
                 citations.stream()
                         .map(c -> new ContextSourceSummary(c.vaultName(), c.sourceDisplayName(), c.chunkOrdinal()))
                         .toList());
+
+        boolean hasWritableVault = mode == ConversationMode.AGENT
+                && selectedVaults.stream().anyMatch(KnowledgeVault::isWritable);
 
         ToolCapability tools;
         if (mode != ConversationMode.AGENT) {
@@ -278,15 +305,56 @@ public class ModelRequestStore {
             if (!selectedVaults.isEmpty()) {
                 exposedTools.add(KnowledgeSearchToolFactory.TOOL_NAME);
             }
+            if (hasWritableVault) {
+                exposedTools.add(KnowledgeWriteToolFactory.TOOL_NAME);
+            }
             enabledMcpConnections.stream()
                     .flatMap(connection -> connection.enabledTools().stream())
                     .map(tool -> tool.exposedName())
                     .forEach(exposedTools::add);
             tools = new ToolCapability(List.copyOf(exposedTools));
         }
+
+        PermissionCapability permission =
+                resolvePermission(mode, enabledMcpConnections, hasWritableVault, assignedProfile);
+
         return new ModelContextEnvelope(username, mode.name().toLowerCase(),
-                new CapabilityManifest(model, processingLocation, knowledge,
+                new CapabilityManifest(model, processingLocation, permission, knowledge,
                         WorkspaceCapability.none(), SkillCapability.none(), tools));
+    }
+
+    /**
+     * Resolves the request's effective permission level and content matrix through the deterministic
+     * {@link PermissionEngine}, so the envelope tells the model its capability boundary, the honest unlock
+     * path, and the per-area content policy. The user's assigned profile governs the capability ceiling and
+     * carries the content matrix; the conversation mode still clamps Chat to grounded (no tool loop). The
+     * capability axis and the content axis stay independent.
+     */
+    private PermissionCapability resolvePermission(
+            ConversationMode mode, List<McpRuntimeConnection> enabledMcpConnections, boolean hasWritableVault,
+            ProfileKey assignedProfile) {
+        boolean agent = mode == ConversationMode.AGENT;
+        PermissionProfile profile = BuiltInProfiles.of(
+                assignedProfile == null ? ProfileKey.RESEARCHER : assignedProfile);
+        UnlockLevel modeCeiling = agent ? UnlockLevel.L5_OPERATOR : UnlockLevel.L1_GROUNDED;
+
+        EnumSet<CapabilityFamily> authorizedTargets = EnumSet.noneOf(CapabilityFamily.class);
+        if (!enabledMcpConnections.isEmpty()) {
+            authorizedTargets.add(CapabilityFamily.EXTERNAL_READ);
+        }
+        if (hasWritableVault) {
+            authorizedTargets.add(CapabilityFamily.KNOWLEDGE_WRITE);
+        }
+
+        ResolvedPermissions resolved = permissionEngine.resolve(
+                profile, modeCeiling, agent, authorizedTargets, ContentStance.STANDARD);
+
+        List<String> locked = resolved.locked().stream()
+                .filter(family -> !family.prohibited())
+                .map(CapabilityFamily::label)
+                .toList();
+        return new PermissionCapability(
+                profile.name(), resolved.effectiveLevel(), profile.contentMatrix(), locked);
     }
 
     private ResolvedKnowledgeContext retrieve(

@@ -71,7 +71,7 @@ class NexoApplicationContextTest {
                 WHERE indexname = 'ux_conversation_message_active_request'
                 """, Integer.class);
 
-        assertThat(applied).isEqualTo(28);
+        assertThat(applied).isEqualTo(33);
         assertThat(activeRequestIndex).isEqualTo(1);
     }
 }

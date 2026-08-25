@@ -7,7 +7,8 @@ package com.nexoia.conversation.inference.prompt;
  */
 public enum PromptResource {
     IDENTITY("prompts/nexo-identity.md"),
-    RULES("prompts/nexo-rules.md"),
+    CONDUCT("prompts/nexo-conduct.md"),
+    CONTENT_POLICY("prompts/nexo-content-policy.md"),
     AGENT_RULES("prompts/nexo-agent-rules.md"),
     PERSONAL_MEMORY_CONTEXT("prompts/personal-memory-context.md"),
     KNOWLEDGE_CONTEXT("prompts/knowledge-context.md"),

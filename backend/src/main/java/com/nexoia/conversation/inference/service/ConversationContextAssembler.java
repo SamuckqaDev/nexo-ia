@@ -123,7 +123,9 @@ public class ConversationContextAssembler {
     }
 
     private String identityFor(String username, ModelContextEnvelope envelope) {
-        String base = prompts.get(PromptResource.IDENTITY) + "\n\n" + prompts.get(PromptResource.RULES);
+        String base = prompts.get(PromptResource.IDENTITY)
+                + "\n\n" + prompts.get(PromptResource.CONDUCT)
+                + "\n\n" + prompts.get(PromptResource.CONTENT_POLICY);
         if (envelope != null && "agent".equalsIgnoreCase(envelope.conversationMode())) {
             base += "\n\n" + prompts.get(PromptResource.AGENT_RULES);
         }

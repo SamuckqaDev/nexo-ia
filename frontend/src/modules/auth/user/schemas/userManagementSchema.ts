@@ -3,7 +3,8 @@ import { passwordSchema } from "../../../../shared/security/schemas/passwordSche
 
 export const managedUserSchema = z.object({
   id: z.uuid(), username: z.string(), email: z.email(), name: z.string(),
-  role: z.enum(["OWNER", "MEMBER"]), status: z.enum(["ACTIVE", "DISABLED"]),
+  role: z.enum(["OWNER", "ADMIN", "MEMBER"]), status: z.enum(["ACTIVE", "DISABLED"]),
+  assignedProfile: z.enum(["LOCKED", "READER", "RESEARCHER", "BUILDER", "OPERATOR"]),
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime()
 });
 

@@ -11,8 +11,10 @@ import com.nexoia.knowledge.vault.exception.UnsupportedVaultScopeException;
 import com.nexoia.knowledge.vault.exception.VaultNotFoundException;
 import com.nexoia.knowledge.vault.exception.VaultScopeTargetNotFoundException;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
+import com.nexoia.knowledge.vault.model.VaultOwnerType;
 import com.nexoia.knowledge.vault.model.VaultScope;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.service.TeamMembershipService;
 import com.nexoia.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.Set;
@@ -34,11 +36,14 @@ public class VaultService {
 
     private final VaultRepository vaults;
     private final WorkspaceRepository workspaces;
+    private final TeamMembershipService teamMembershipService;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
     public List<VaultResponse> list(UUID ownerId) {
-        return vaults.findAllByOwnerIdAndArchivedFalseOrderByUpdatedAtDesc(ownerId).stream()
+        // The user's own Vaults plus every shared Vault owned by a Team they belong to.
+        return vaults.findAllByOwnerIdInAndArchivedFalseOrderByUpdatedAtDesc(
+                        teamMembershipService.accessibleOwnerIds(ownerId)).stream()
                 .map(this::response)
                 .toList();
     }
@@ -47,9 +52,10 @@ public class VaultService {
     public VaultResponse create(UUID ownerId, CreateVaultRequest request) {
         UUID workspaceId = resolveWorkspaceId(ownerId, request.scope(), request.workspaceId());
 
-        KnowledgeVault vault = vaults.save(KnowledgeVault.builder()
+        KnowledgeVault vault = vaults.saveAndFlush(KnowledgeVault.builder()
                 .id(UUID.randomUUID())
                 .ownerId(ownerId)
+                .ownerType(VaultOwnerType.USER)
                 .name(request.name().trim())
                 .description(blankToNull(request.description()))
                 .scope(request.scope())
@@ -62,10 +68,47 @@ public class VaultService {
         return response(vault);
     }
 
+    /**
+     * Creates a Team-owned Vault: shared knowledge for that Team's members. Authorization that the actor
+     * administers the Team is the caller's responsibility; this just persists the ownership. Team Vaults
+     * use PERSONAL scope (a plain shared corpus, no workspace binding).
+     */
+    @Transactional
+    public VaultResponse createForTeam(UUID actorId, UUID teamId, String name, String description) {
+        KnowledgeVault vault = vaults.saveAndFlush(KnowledgeVault.builder()
+                .id(UUID.randomUUID())
+                .ownerId(teamId)
+                .ownerType(VaultOwnerType.TEAM)
+                .name(name.trim())
+                .description(blankToNull(description))
+                .scope(VaultScope.PERSONAL)
+                .archived(false)
+                .build());
+        audit.record(RecordAuditCommand.success(
+                AuditAction.VAULT_CREATED, actorId, null, AuditTargetType.KNOWLEDGE_VAULT, vault.getId()));
+
+        return response(vault);
+    }
+
     @Transactional
     public VaultResponse update(UUID ownerId, UUID vaultId, UpdateVaultRequest request) {
         KnowledgeVault vault = ownedVault(ownerId, vaultId);
         vault.update(request.name().trim(), blankToNull(request.description()));
+
+        return response(vault);
+    }
+
+    /**
+     * Toggles whether the assistant's governed {@code save_to_vault} tool may append knowledge to this
+     * owned Vault. Read-only by default; the owner opts a Vault in explicitly.
+     */
+    @Transactional
+    public VaultResponse setWritable(UUID ownerId, UUID vaultId, boolean writable) {
+        KnowledgeVault vault = ownedVault(ownerId, vaultId);
+        vault.applyWritable(writable);
+        audit.record(RecordAuditCommand.success(
+                writable ? AuditAction.VAULT_WRITE_ENABLED : AuditAction.VAULT_WRITE_DISABLED,
+                ownerId, null, AuditTargetType.KNOWLEDGE_VAULT, vaultId));
 
         return response(vault);
     }
@@ -114,6 +157,7 @@ public class VaultService {
                 value.getDescription(),
                 value.getScope(),
                 value.getWorkspaceId(),
+                value.isWritable(),
                 value.getCreatedAt(),
                 value.getUpdatedAt());
     }

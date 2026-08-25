@@ -9,6 +9,7 @@ import com.nexoia.provider.model.ProcessingLocation;
 public record CapabilityManifest(
         String providerModel,
         ProcessingLocation processingLocation,
+        PermissionCapability permission,
         KnowledgeCapability knowledge,
         WorkspaceCapability workspace,
         SkillCapability skills,

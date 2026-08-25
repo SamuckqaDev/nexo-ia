@@ -13,7 +13,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Opt-in smoke test against a real authenticated Docker MCP gateway sidecar. It needs the Compose
+ * {@code mcp-duckduckgo} gateway actually running, which the disposable-PostgreSQL {@code docker}
+ * suite does not provide. It carries both tags so the standard {@code -Dexcluded.test.groups=ollama,docker}
+ * gate skips it, and a clean Testcontainers verify can skip only it with
+ * {@code -Dexcluded.test.groups=ollama,mcp-gateway}. Run it deliberately with {@code -Dgroups=mcp-gateway}.
+ */
 @Tag("docker")
+@Tag("mcp-gateway")
 class SpringAiMcpGatewaySmokeTest {
 
     @Test

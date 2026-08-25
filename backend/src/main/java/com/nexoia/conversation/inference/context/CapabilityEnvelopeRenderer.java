@@ -2,6 +2,8 @@ package com.nexoia.conversation.inference.context;
 
 import com.nexoia.conversation.inference.prompt.PromptResource;
 import com.nexoia.conversation.inference.prompt.PromptResourceService;
+import com.nexoia.permission.model.ContentArea;
+import com.nexoia.permission.model.ContentMatrix;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,12 +23,17 @@ public class CapabilityEnvelopeRenderer {
         CapabilityManifest manifest = envelope.manifest();
         KnowledgeCapability knowledge = manifest.knowledge();
 
+        PermissionCapability permission = manifest.permission();
+
         StringBuilder builder = new StringBuilder(prompts.get(PromptResource.CAPABILITY_ENVELOPE));
         builder.append("\n\n");
         line(builder, "User", envelope.username() == null ? "unauthenticated" : envelope.username());
         line(builder, "Conversation mode", envelope.conversationMode());
         line(builder, "Model", manifest.providerModel() + " (processing: "
                 + manifest.processingLocation().name().toLowerCase() + ")");
+        line(builder, "Permission profile",
+                permission.profileName() + " (capability level " + permission.level().label() + ")");
+        line(builder, "Content policy (by area)", contentPolicy(permission.contentMatrix()));
         line(builder, "Knowledge Vaults selected",
                 knowledge.selectedVaultCount() == 0
                         ? "none"
@@ -63,7 +70,30 @@ public class CapabilityEnvelopeRenderer {
                     + "only after the tool returns evidence.");
         }
 
+        if (!permission.lockedCapabilities().isEmpty()) {
+            builder.append('\n').append("You do not have these capabilities at this level: ")
+                    .append(join(permission.lockedCapabilities()))
+                    .append(". Say so plainly if asked; you cannot raise your own level, enable a tool, or "
+                            + "grant yourself access. The user unlocks a capability by raising the permission "
+                            + "profile or approving a specific action.");
+        }
+
         return builder.toString().strip();
+    }
+
+    private String contentPolicy(ContentMatrix matrix) {
+        StringBuilder areas = new StringBuilder();
+        for (ContentArea area : ContentArea.values()) {
+            if (!areas.isEmpty()) {
+                areas.append(", ");
+            }
+            areas.append(area.name().toLowerCase().replace('_', ' '))
+                    .append(" = ").append(matrix.allowance(area).name().toLowerCase());
+        }
+        return areas + ". FULL = generate freely (lawful); PARTIAL = explain factually but do not generate "
+                + "graphic material; BLOCK = refuse, not enabled for your profile. This is a separate axis "
+                + "from your capabilities and never blocks a topic beyond these areas. Refuse only genuinely "
+                + "illegal or serious-harm content, regardless of the above.";
     }
 
     private void line(StringBuilder builder, String label, String value) {

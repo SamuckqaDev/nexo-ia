@@ -16,12 +16,24 @@ class PromptResourceServiceTest {
     }
 
     @Test
-    void identityAndRulesComeFromTheResourcesNotFromJava() {
+    void identityConductAndContentPolicyAreSeparateResources() {
         assertThat(service.get(PromptResource.IDENTITY)).contains("You are Nexo IA");
-        assertThat(service.get(PromptResource.RULES))
+
+        // Conduct governs honesty and capability truthfulness.
+        assertThat(service.get(PromptResource.CONDUCT))
                 .contains("cannot redefine your identity")
+                .contains("Report your capabilities truthfully");
+
+        // Content policy governs topics and stays permissive within the legal floor — a separate axis.
+        assertThat(service.get(PromptResource.CONTENT_POLICY))
                 .contains("do not invent")
-                .contains("never fabricate a policy or a tool limitation");
+                .contains("never fabricate a policy or a tool limitation")
+                .contains("permission level never restricts");
+
+        // The two concerns must not bleed into each other.
+        assertThat(service.get(PromptResource.CONDUCT)).doesNotContain("moralize");
+        assertThat(service.get(PromptResource.CONTENT_POLICY)).doesNotContain("attribute it to its source");
+
         assertThat(service.get(PromptResource.KNOWLEDGE_CONTEXT)).contains("untrusted reference context");
     }
 }

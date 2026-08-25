@@ -101,6 +101,15 @@ descriptions from that same callback list, so questions such as “which tools c
 answered from runtime state instead of prompt claims. Ownership ids, Vault ids, endpoints, secrets,
 and raw MCP configuration are never part of that result.
 
+Capability-list questions are answered deterministically from that request's actual callback
+snapshot instead of asking the selected model to repeat the catalog. For explicit web research or
+URL access with enabled MCP scope, Nexo removes stale assistant refusals from the provider turn,
+requires the next model action to call one of the attached `mcp_*` callbacks, and buffers answer
+text until persisted MCP execution evidence exists. A model response that merely claims that MCP is
+unavailable is discarded and the request fails in a controlled way; it can never be persisted as a
+successful researched answer. If an enabled connection produces no callable callback, Nexo reports
+that runtime condition directly and points the user to the MCP Hub.
+
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
 Nexo publishes a deterministic three-step plan as soon as every Agent request starts. A model may

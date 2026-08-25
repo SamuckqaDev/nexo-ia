@@ -6,5 +6,7 @@ package com.nexoia.knowledge.ingestion.model;
  * the frontend workspace snapshot, so no legitimate byte source exists for it yet.
  */
 public enum SourceKind {
-    UPLOAD
+    UPLOAD,
+    /** Knowledge the assistant appended through the governed {@code save_to_vault} tool. */
+    AGENT
 }
