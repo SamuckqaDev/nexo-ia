@@ -2,6 +2,7 @@ import {
   CaretDoubleLeft,
   CaretDoubleRight,
   Brain,
+  Buildings,
   ClipboardText,
   FileText,
   FolderOpen,
@@ -85,8 +86,8 @@ function VaultContextCard({ vault, selected, disabled, onToggle }: VaultContextC
   return (
     <ResourceCard>
       <header>
-        <span><Vault size={17} weight="duotone" />{vault.name}</span>
-        <small>{selected ? "In retrieval" : vault.scope.toLowerCase()}</small>
+        <span>{vault.ownerType === "TEAM" ? <Buildings size={17} weight="duotone" /> : <Vault size={17} weight="duotone" />}{vault.name}</span>
+        <small>{selected ? "In retrieval" : vault.ownerName}</small>
       </header>
       <SourceButton
         type="button"

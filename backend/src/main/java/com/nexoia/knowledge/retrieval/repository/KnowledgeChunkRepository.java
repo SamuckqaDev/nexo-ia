@@ -19,13 +19,13 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
             SELECT c FROM KnowledgeChunk c
             JOIN KnowledgeSource s ON s.id = c.sourceId
             JOIN KnowledgeVault v ON v.id = s.vaultId
-            WHERE v.ownerId = :ownerId AND v.archived = false AND s.archived = false
+            WHERE v.ownerId IN :authorizedOwnerIds AND v.archived = false AND s.archived = false
               AND s.status = com.nexoia.knowledge.ingestion.model.SourceStatus.READY
               AND c.sourceId IN :sourceIds
             ORDER BY c.createdAt ASC
             """)
     List<KnowledgeChunk> findAuthorizedForGraph(
-            @Param("ownerId") UUID ownerId,
+            @Param("authorizedOwnerIds") Collection<UUID> authorizedOwnerIds,
             @Param("sourceIds") Collection<UUID> sourceIds,
             Limit limit);
 

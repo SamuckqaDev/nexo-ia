@@ -18,3 +18,9 @@ export type CreateVaultInput = {
   scope: BackendVaultScope;
   workspaceId?: string;
 };
+
+export type CreateTeamVaultInput = {
+  teamId: string;
+  name: string;
+  description: string;
+};

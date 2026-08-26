@@ -10,13 +10,19 @@ import com.nexoia.knowledge.ingestion.repository.SourceRepository;
 import com.nexoia.knowledge.retrieval.model.KnowledgeChunk;
 import com.nexoia.knowledge.retrieval.repository.KnowledgeChunkRepository;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
+import com.nexoia.knowledge.vault.model.VaultOwnerType;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.model.Team;
+import com.nexoia.team.repository.TeamRepository;
+import com.nexoia.team.service.TeamMembershipService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
@@ -37,11 +43,14 @@ public class KnowledgeGraphService {
     private final VaultRepository vaults;
     private final SourceRepository sources;
     private final KnowledgeChunkRepository chunks;
+    private final TeamMembershipService teamMembershipService;
+    private final TeamRepository teams;
 
     @Transactional(readOnly = true)
     public KnowledgeGraphResponse graph(UUID ownerId) {
-        List<KnowledgeVault> loadedVaults = vaults.findAllByOwnerIdAndArchivedFalseOrderByUpdatedAtDesc(
-                ownerId, Limit.of(MAX_VAULTS + 1));
+        List<UUID> authorizedOwnerIds = teamMembershipService.accessibleOwnerIds(ownerId);
+        List<KnowledgeVault> loadedVaults = vaults.findAllByOwnerIdInAndArchivedFalseOrderByUpdatedAtDesc(
+                authorizedOwnerIds, Limit.of(MAX_VAULTS + 1));
         boolean truncated = loadedVaults.size() > MAX_VAULTS;
         List<KnowledgeVault> graphVaults = loadedVaults.stream().limit(MAX_VAULTS).toList();
 
@@ -51,14 +60,14 @@ public class KnowledgeGraphService {
 
         List<UUID> vaultIds = graphVaults.stream().map(KnowledgeVault::getId).toList();
         List<KnowledgeSource> loadedSources = sources.findAuthorizedForGraph(
-                ownerId, vaultIds, Limit.of(MAX_SOURCES + 1));
+                authorizedOwnerIds, vaultIds, Limit.of(MAX_SOURCES + 1));
         truncated = truncated || loadedSources.size() > MAX_SOURCES;
         List<KnowledgeSource> graphSources = loadedSources.stream().limit(MAX_SOURCES).toList();
 
         List<KnowledgeChunk> loadedChunks = graphSources.isEmpty()
                 ? List.of()
                 : chunks.findAuthorizedForGraph(
-                        ownerId,
+                        authorizedOwnerIds,
                         graphSources.stream().map(KnowledgeSource::getId).toList(),
                         Limit.of(MAX_CHUNKS + 1));
         truncated = truncated || loadedChunks.size() > MAX_CHUNKS;
@@ -69,6 +78,12 @@ public class KnowledgeGraphService {
         Map<UUID, KnowledgeVault> vaultById = new HashMap<>();
         Map<UUID, KnowledgeSource> sourceById = new HashMap<>();
         Map<UUID, Integer> sourceChunkCounts = new HashMap<>();
+        Map<UUID, Team> teamsById = teams.findAllById(graphVaults.stream()
+                        .filter(vault -> vault.getOwnerType() == VaultOwnerType.TEAM)
+                        .map(KnowledgeVault::getOwnerId)
+                        .distinct()
+                        .toList()).stream()
+                .collect(Collectors.toMap(Team::getId, Function.identity()));
 
         graphVaults.forEach(vault -> vaultById.put(vault.getId(), vault));
         graphSources.forEach(source -> sourceById.put(source.getId(), source));
@@ -80,6 +95,9 @@ public class KnowledgeGraphService {
                     vaultNodeId(vault.getId()),
                     KnowledgeGraphNodeKind.VAULT,
                     vault.getId(),
+                    vault.getOwnerId(),
+                    vault.getOwnerType(),
+                    ownerName(vault, teamsById),
                     null,
                     null,
                     vault.getName(),
@@ -98,6 +116,9 @@ public class KnowledgeGraphService {
                     sourceNodeId(source.getId()),
                     KnowledgeGraphNodeKind.SOURCE,
                     vault.getId(),
+                    vault.getOwnerId(),
+                    vault.getOwnerType(),
+                    ownerName(vault, teamsById),
                     source.getId(),
                     null,
                     source.getDisplayName(),
@@ -117,10 +138,17 @@ public class KnowledgeGraphService {
             if (source == null) {
                 continue;
             }
+            KnowledgeVault vault = vaultById.get(source.getVaultId());
+            if (vault == null) {
+                continue;
+            }
             nodes.add(new KnowledgeGraphNodeResponse(
                     chunkNodeId(chunk.getId()),
                     KnowledgeGraphNodeKind.CHUNK,
                     source.getVaultId(),
+                    vault.getOwnerId(),
+                    vault.getOwnerType(),
+                    ownerName(vault, teamsById),
                     source.getId(),
                     chunk.getOrdinal(),
                     "Chunk " + (chunk.getOrdinal() + 1),
@@ -144,6 +172,14 @@ public class KnowledgeGraphService {
                 graphSources.size(),
                 graphChunks.size(),
                 truncated);
+    }
+
+    private String ownerName(KnowledgeVault vault, Map<UUID, Team> teamsById) {
+        if (vault.getOwnerType() == VaultOwnerType.USER) {
+            return "Personal space";
+        }
+        Team team = teamsById.get(vault.getOwnerId());
+        return team == null ? "Team" : team.getName();
     }
 
     private List<KnowledgeGraphEdgeResponse> semanticEdges(List<KnowledgeChunk> graphChunks) {

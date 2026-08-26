@@ -248,6 +248,10 @@ export const VaultChip = styled.button<{ $active: boolean }>`
   font-weight: 600;
   cursor: pointer;
 
+  > span { display: inline-flex; align-items: center; gap: 0.28rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.55rem; font-weight: 700; }
+  small::before { content: "·"; margin-right: 0.28rem; }
+
   &:hover { border-color: ${({ theme }) => theme.colors.lineStrong}; }
   &:focus-visible { outline: 2px solid ${({ theme }) => theme.colors.primary}; outline-offset: 1px; }
 `;

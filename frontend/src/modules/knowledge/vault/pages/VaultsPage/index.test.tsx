@@ -8,6 +8,8 @@ import { VaultsPage } from "./index";
 const listBackendVaults = vi.fn();
 const listBackendSources = vi.fn();
 const listBackendKnowledgeGraph = vi.fn();
+const listTeams = vi.fn();
+const listKnowledgeWorkspaces = vi.fn();
 
 vi.mock("../../api/vaultApi", () => ({
   listBackendVaults: (): Promise<unknown> => listBackendVaults(),
@@ -26,12 +28,28 @@ vi.mock("../../api/knowledgeGraphApi", () => ({
   listBackendKnowledgeGraph: (): Promise<unknown> => listBackendKnowledgeGraph()
 }));
 
+vi.mock("../../api/knowledgeWorkspaceApi", () => ({
+  listKnowledgeWorkspaces: (): Promise<unknown> => listKnowledgeWorkspaces(),
+  createKnowledgeWorkspace: vi.fn()
+}));
+
+vi.mock("../../../../organization/team/api/teamApi", () => ({
+  listTeams: (): Promise<unknown> => listTeams(),
+  createTeam: vi.fn(),
+  createTeamVault: vi.fn()
+}));
+
 const vault = {
   id: "11111111-1111-4111-8111-111111111111",
   name: "Nexo Knowledge Base",
   description: "Seeded docs",
   scope: "PERSONAL",
   workspaceId: null,
+  ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  ownerType: "USER",
+  ownerName: "Personal space",
+  manageable: true,
+  writable: false,
   createdAt: "2026-08-21T10:00:00Z",
   updatedAt: "2026-08-21T10:00:00Z"
 };
@@ -61,6 +79,8 @@ const renderPage = (): ReturnType<typeof render> => {
 describe("VaultsPage", () => {
   it("shows an empty state when the backend has no Vaults", async () => {
     listBackendVaults.mockResolvedValueOnce([]);
+    listTeams.mockResolvedValue([]);
+    listKnowledgeWorkspaces.mockResolvedValue([]);
     renderPage();
 
     expect(await screen.findByText("No Vaults yet")).toBeInTheDocument();
@@ -68,6 +88,8 @@ describe("VaultsPage", () => {
 
   it("lists real backend Vaults and their embedded sources", async () => {
     listBackendVaults.mockResolvedValue([vault]);
+    listTeams.mockResolvedValue([]);
+    listKnowledgeWorkspaces.mockResolvedValue([]);
     listBackendSources.mockResolvedValue([source]);
     renderPage();
 
@@ -79,6 +101,8 @@ describe("VaultsPage", () => {
 
   it("opens the create-Vault form", async () => {
     listBackendVaults.mockResolvedValue([]);
+    listTeams.mockResolvedValue([]);
+    listKnowledgeWorkspaces.mockResolvedValue([]);
     renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "New Vault" }));
@@ -88,11 +112,13 @@ describe("VaultsPage", () => {
 
   it("opens the semantic workbench with the authenticated backend graph", async () => {
     listBackendVaults.mockResolvedValue([vault]);
+    listTeams.mockResolvedValue([]);
+    listKnowledgeWorkspaces.mockResolvedValue([]);
     listBackendSources.mockResolvedValue([source]);
     listBackendKnowledgeGraph.mockResolvedValue({
       nodes: [
-        { id: `vault:${vault.id}`, kind: "VAULT", vaultId: vault.id, sourceId: null, ordinal: null, label: vault.name, detail: "1 source", excerpt: vault.description, status: "PERSONAL" },
-        { id: `source:${source.id}`, kind: "SOURCE", vaultId: vault.id, sourceId: source.id, ordinal: null, label: source.displayName, detail: "0 chunks", excerpt: null, status: "READY" }
+        { id: `vault:${vault.id}`, kind: "VAULT", vaultId: vault.id, ownerId: vault.ownerId, ownerType: vault.ownerType, ownerName: vault.ownerName, sourceId: null, ordinal: null, label: vault.name, detail: "1 source", excerpt: vault.description, status: "PERSONAL" },
+        { id: `source:${source.id}`, kind: "SOURCE", vaultId: vault.id, ownerId: vault.ownerId, ownerType: vault.ownerType, ownerName: vault.ownerName, sourceId: source.id, ordinal: null, label: source.displayName, detail: "0 chunks", excerpt: null, status: "READY" }
       ],
       edges: [
         { id: "contains:test", relation: "CONTAINS", fromId: `vault:${vault.id}`, toId: `source:${source.id}`, similarity: null }

@@ -5,6 +5,9 @@ import com.nexoia.audit.model.AuditAction;
 import com.nexoia.audit.model.AuditOutcome;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.knowledge.embedding.dto.EmbeddingOutcome;
+import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
+import com.nexoia.knowledge.embedding.service.EmbeddingService;
 import com.nexoia.knowledge.ingestion.dto.SourceIngestionStatusResponse;
 import com.nexoia.knowledge.ingestion.dto.SourceResponse;
 import com.nexoia.knowledge.ingestion.exception.SourceNotFoundException;
@@ -14,9 +17,6 @@ import com.nexoia.knowledge.ingestion.model.KnowledgeSource;
 import com.nexoia.knowledge.ingestion.model.SourceKind;
 import com.nexoia.knowledge.ingestion.model.SourceStatus;
 import com.nexoia.knowledge.ingestion.repository.SourceRepository;
-import com.nexoia.knowledge.embedding.dto.EmbeddingOutcome;
-import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
-import com.nexoia.knowledge.embedding.service.EmbeddingService;
 import com.nexoia.knowledge.retrieval.model.KnowledgeChunk;
 import com.nexoia.knowledge.retrieval.repository.KnowledgeChunkRepository;
 import com.nexoia.knowledge.vault.exception.VaultNotWritableException;
@@ -71,8 +71,8 @@ public class SourceIngestionService {
     private final AuditService audit;
 
     @Transactional(readOnly = true)
-    public List<SourceResponse> list(UUID ownerId, UUID vaultId) {
-        vaultService.ownedVault(ownerId, vaultId);
+    public List<SourceResponse> list(UUID userId, UUID vaultId) {
+        vaultService.accessibleVault(userId, vaultId);
 
         return sources.findAllByVaultIdAndArchivedFalseOrderByCreatedAtDesc(vaultId).stream()
                 .map(this::response)
@@ -80,8 +80,8 @@ public class SourceIngestionService {
     }
 
     @Transactional
-    public SourceResponse register(UUID ownerId, UUID vaultId, MultipartFile file, String displayName) {
-        KnowledgeVault vault = vaultService.ownedVault(ownerId, vaultId);
+    public SourceResponse register(UUID userId, UUID vaultId, MultipartFile file, String displayName) {
+        KnowledgeVault vault = vaultService.manageableVault(userId, vaultId);
 
         if (file.isEmpty() || displayName == null || displayName.isBlank()) {
             throw new UnsupportedSourceTypeException();
@@ -96,18 +96,19 @@ public class SourceIngestionService {
 
         return sources.findByVaultIdAndContentHash(vaultId, contentHash)
                 .map(this::response)
-                .orElseGet(() -> registerNew(vault, displayName.trim(), extension, content, contentHash));
+                .orElseGet(() -> registerNew(
+                        userId, vault, displayName.trim(), extension, content, contentHash));
     }
 
     /**
      * Appends assistant-authored knowledge to a writable Vault: registers an {@code AGENT}-origin
      * source and runs the same normalize/chunk/embed pipeline as an upload, so the note enters the
      * authorized retrieval path and is available to later Chat or Agent requests. The Vault must be
-     * owned by the caller and explicitly writable; identical content is reused rather than duplicated.
+     * visible to the caller and explicitly writable; identical content is reused rather than duplicated.
      */
     @Transactional
-    public SourceResponse saveAgentNote(UUID ownerId, UUID vaultId, String title, String content) {
-        KnowledgeVault vault = vaultService.ownedVault(ownerId, vaultId);
+    public SourceResponse saveAgentNote(UUID userId, UUID vaultId, String title, String content) {
+        KnowledgeVault vault = vaultService.accessibleVault(userId, vaultId);
         if (!vault.isWritable()) {
             throw new VaultNotWritableException();
         }
@@ -126,11 +127,11 @@ public class SourceIngestionService {
         String contentHash = sha256(bytes);
         return sources.findByVaultIdAndContentHash(vaultId, contentHash)
                 .map(this::response)
-                .orElseGet(() -> registerAgentNote(vault, safeTitle, bytes, contentHash));
+                .orElseGet(() -> registerAgentNote(userId, vault, safeTitle, bytes, contentHash));
     }
 
     private SourceResponse registerAgentNote(
-            KnowledgeVault vault, String title, byte[] content, String contentHash) {
+            UUID actorId, KnowledgeVault vault, String title, byte[] content, String contentHash) {
         KnowledgeSource source = sources.save(KnowledgeSource.builder()
                 .id(UUID.randomUUID())
                 .vaultId(vault.getId())
@@ -143,17 +144,17 @@ public class SourceIngestionService {
                 .archived(false)
                 .build());
         audit.record(RecordAuditCommand.success(
-                AuditAction.KNOWLEDGE_WRITE, vault.getOwnerId(), null,
+                AuditAction.KNOWLEDGE_WRITE, actorId, null,
                 AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
 
-        ingest(vault, source, "md", content);
+        ingest(actorId, source, "md", content);
 
         return response(source);
     }
 
     @Transactional(readOnly = true)
-    public SourceIngestionStatusResponse ingestionStatus(UUID ownerId, UUID sourceId) {
-        KnowledgeSource source = ownedSource(ownerId, sourceId);
+    public SourceIngestionStatusResponse ingestionStatus(UUID userId, UUID sourceId) {
+        KnowledgeSource source = accessibleSource(userId, sourceId);
         int chunkCount = chunks.findAllBySourceIdOrderByOrdinalAsc(source.getId()).size();
 
         return new SourceIngestionStatusResponse(
@@ -162,14 +163,19 @@ public class SourceIngestionService {
     }
 
     @Transactional
-    public void archive(UUID ownerId, UUID sourceId) {
-        ownedSource(ownerId, sourceId).archive();
+    public void archive(UUID userId, UUID sourceId) {
+        manageableSource(userId, sourceId).archive();
         audit.record(RecordAuditCommand.success(
-                AuditAction.SOURCE_ARCHIVED, ownerId, null, AuditTargetType.KNOWLEDGE_SOURCE, sourceId));
+                AuditAction.SOURCE_ARCHIVED, userId, null, AuditTargetType.KNOWLEDGE_SOURCE, sourceId));
     }
 
     private SourceResponse registerNew(
-            KnowledgeVault vault, String displayName, String extension, byte[] content, String contentHash) {
+            UUID actorId,
+            KnowledgeVault vault,
+            String displayName,
+            String extension,
+            byte[] content,
+            String contentHash) {
         KnowledgeSource source = sources.save(KnowledgeSource.builder()
                 .id(UUID.randomUUID())
                 .vaultId(vault.getId())
@@ -182,7 +188,7 @@ public class SourceIngestionService {
                 .archived(false)
                 .build());
         audit.record(RecordAuditCommand.success(
-                AuditAction.SOURCE_REGISTERED, vault.getOwnerId(), null,
+                AuditAction.SOURCE_REGISTERED, actorId, null,
                 AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
 
         if (!INGESTIBLE_EXTENSIONS.contains(extension)) {
@@ -190,15 +196,15 @@ public class SourceIngestionService {
             return response(source);
         }
 
-        ingest(vault, source, extension, content);
+        ingest(actorId, source, extension, content);
 
         return response(source);
     }
 
-    private void ingest(KnowledgeVault vault, KnowledgeSource source, String extension, byte[] content) {
+    private void ingest(UUID actorId, KnowledgeSource source, String extension, byte[] content) {
         source.markIngesting();
         audit.record(RecordAuditCommand.success(
-                AuditAction.SOURCE_INGESTION_STARTED, vault.getOwnerId(), null,
+                AuditAction.SOURCE_INGESTION_STARTED, actorId, null,
                 AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
 
         try {
@@ -209,29 +215,30 @@ public class SourceIngestionService {
                 source.markReady(Map.of("chunkCount", 0));
             } else {
                 EmbeddingOutcome outcome = embeddingService.embed(
-                        vault.getOwnerId(), drafts.stream().map(ChunkingService.ChunkDraft::content).toList());
+                        actorId, drafts.stream().map(ChunkingService.ChunkDraft::content).toList());
                 chunks.saveAll(chunkEntities(source, drafts, outcome));
                 source.markReady(Map.of("chunkCount", drafts.size()));
             }
             audit.record(RecordAuditCommand.success(
-                    AuditAction.SOURCE_INGESTION_COMPLETED, vault.getOwnerId(), null,
+                    AuditAction.SOURCE_INGESTION_COMPLETED, actorId, null,
                     AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
         } catch (EmbeddingProviderUnavailableException exception) {
-            failIngestion(vault, source, ERROR_EMBEDDING_UNAVAILABLE, exception);
+            failIngestion(actorId, source, ERROR_EMBEDDING_UNAVAILABLE, exception);
         } catch (RuntimeException exception) {
-            failIngestion(vault, source, isExtractionFailure(exception) ? ERROR_EXTRACTION_FAILED : ERROR_UNEXPECTED,
+            failIngestion(actorId, source,
+                    isExtractionFailure(exception) ? ERROR_EXTRACTION_FAILED : ERROR_UNEXPECTED,
                     exception);
         }
     }
 
-    private void failIngestion(KnowledgeVault vault, KnowledgeSource source, String errorCode, RuntimeException cause) {
+    private void failIngestion(UUID actorId, KnowledgeSource source, String errorCode, RuntimeException cause) {
         UUID correlationId = UUID.randomUUID();
         log.warn("[NEXO-BACK][KNOWLEDGE] Ingestion failed sourceId={} correlationId={} errorCode={} reason={}",
                 source.getId(), correlationId, errorCode, cause.getClass().getSimpleName());
         source.markFailed(errorCode);
         audit.record(new RecordAuditCommand(
                 AuditAction.SOURCE_INGESTION_FAILED, AuditOutcome.FAILURE,
-                vault.getOwnerId(), null, AuditTargetType.KNOWLEDGE_SOURCE, source.getId(),
+                actorId, null, AuditTargetType.KNOWLEDGE_SOURCE, source.getId(),
                 correlationId, errorCode));
     }
 
@@ -261,13 +268,21 @@ public class SourceIngestionService {
 
     /**
      * Resolves a source by id alone (the archive and ingestion-status endpoints are not nested under
-     * a vault path), then confirms the caller owns its vault — PILL-007 style: a source under another
-     * owner's vault answers 404, not 403.
+     * a vault path), then confirms the caller can access its Vault — PILL-007 style: a source outside
+     * the user's personal and Team scope answers 404, not 403.
      */
-    private KnowledgeSource ownedSource(UUID ownerId, UUID sourceId) {
+    private KnowledgeSource accessibleSource(UUID userId, UUID sourceId) {
         KnowledgeSource source = sources.findByIdAndArchivedFalse(sourceId)
                 .orElseThrow(SourceNotFoundException::new);
-        vaultService.ownedVault(ownerId, source.getVaultId());
+        vaultService.accessibleVault(userId, source.getVaultId());
+
+        return source;
+    }
+
+    private KnowledgeSource manageableSource(UUID userId, UUID sourceId) {
+        KnowledgeSource source = sources.findByIdAndArchivedFalse(sourceId)
+                .orElseThrow(SourceNotFoundException::new);
+        vaultService.manageableVault(userId, source.getVaultId());
 
         return source;
     }

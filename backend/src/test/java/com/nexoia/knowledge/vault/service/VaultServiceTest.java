@@ -13,12 +13,16 @@ import com.nexoia.knowledge.vault.exception.UnsupportedVaultScopeException;
 import com.nexoia.knowledge.vault.exception.VaultNotFoundException;
 import com.nexoia.knowledge.vault.exception.VaultScopeTargetNotFoundException;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
+import com.nexoia.knowledge.vault.model.VaultOwnerType;
 import com.nexoia.knowledge.vault.model.VaultScope;
 import com.nexoia.knowledge.vault.repository.VaultRepository;
+import com.nexoia.team.model.Team;
+import com.nexoia.team.repository.TeamRepository;
 import com.nexoia.team.service.TeamMembershipService;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.repository.WorkspaceRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +41,8 @@ class VaultServiceTest {
     @Mock
     private TeamMembershipService teamMembershipService;
     @Mock
+    private TeamRepository teams;
+    @Mock
     private AuditService audit;
     private VaultService service;
 
@@ -45,7 +51,7 @@ class VaultServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new VaultService(vaults, workspaces, teamMembershipService, audit);
+        service = new VaultService(vaults, workspaces, teamMembershipService, teams, audit);
     }
 
     @Test
@@ -56,6 +62,10 @@ class VaultServiceTest {
         var response = service.create(ownerId, new CreateVaultRequest("Notes", null, VaultScope.PERSONAL, null));
 
         assertThat(response.scope()).isEqualTo(VaultScope.PERSONAL);
+        assertThat(response.ownerId()).isEqualTo(ownerId);
+        assertThat(response.ownerType()).isEqualTo(VaultOwnerType.USER);
+        assertThat(response.ownerName()).isEqualTo("Personal space");
+        assertThat(response.manageable()).isTrue();
         assertThat(response.workspaceId()).isNull();
         assertThat(response.createdAt()).isNotNull();
         assertThat(response.updatedAt()).isNotNull();
@@ -99,12 +109,18 @@ class VaultServiceTest {
     @Test
     void flushesATeamVaultBeforeBuildingItsTimestampedResponse() {
         UUID teamId = UUID.randomUUID();
+        when(teams.findById(teamId)).thenReturn(Optional.of(
+                Team.builder().id(teamId).name("Platform").createdBy(ownerId).build()));
+        when(teamMembershipService.canManage(ownerId, teamId)).thenReturn(true);
         when(vaults.saveAndFlush(any(KnowledgeVault.class)))
                 .thenAnswer(call -> persistedVault(call.getArgument(0)));
 
         var response = service.createForTeam(ownerId, teamId, "Shared notes", null);
 
         assertThat(response.name()).isEqualTo("Shared notes");
+        assertThat(response.ownerType()).isEqualTo(VaultOwnerType.TEAM);
+        assertThat(response.ownerName()).isEqualTo("Platform");
+        assertThat(response.manageable()).isTrue();
         assertThat(response.createdAt()).isNotNull();
         assertThat(response.updatedAt()).isNotNull();
     }
@@ -128,7 +144,9 @@ class VaultServiceTest {
 
     @Test
     void hidesAnotherOwnersVaultFromArchive() {
-        when(vaults.findByIdAndOwnerIdAndArchivedFalse(vaultId, ownerId)).thenReturn(Optional.empty());
+        when(teamMembershipService.accessibleOwnerIds(ownerId)).thenReturn(List.of(ownerId));
+        when(vaults.findByIdAndOwnerIdInAndArchivedFalse(vaultId, List.of(ownerId)))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.archive(ownerId, vaultId))
                 .isInstanceOf(VaultNotFoundException.class);

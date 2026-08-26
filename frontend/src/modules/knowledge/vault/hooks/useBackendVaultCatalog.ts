@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient, UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 import { useSnackbarStore } from "../../../../shared/feedback/stores/useSnackbarStore";
 import type { SnackbarState } from "../../../../shared/feedback/types/snackbarTypes";
+import { createTeamVault } from "../../../organization/team/api/teamApi";
 import { archiveBackendVault, createBackendVault, listBackendVaults, updateBackendVault } from "../api/vaultApi";
-import type { BackendVault, CreateVaultInput } from "../types/backendVaultTypes";
+import type { BackendVault, CreateTeamVaultInput, CreateVaultInput } from "../types/backendVaultTypes";
 import { knowledgeGraphKey } from "./useKnowledgeGraph";
 
 export const backendVaultsKey = ["knowledge", "vaults"] as const;
@@ -16,6 +17,7 @@ export const backendVaultsKey = ["knowledge", "vaults"] as const;
 export function useBackendVaultCatalog(): {
   vaults: UseQueryResult<BackendVault[]>;
   create: UseMutationResult<BackendVault, Error, CreateVaultInput>;
+  createTeam: UseMutationResult<BackendVault, Error, CreateTeamVaultInput>;
   update: UseMutationResult<BackendVault, Error, { vaultId: string; name: string; description?: string }>;
   archive: UseMutationResult<void, Error, string>;
 } {
@@ -30,6 +32,17 @@ export function useBackendVaultCatalog(): {
       queryClient.invalidateQueries({ queryKey: backendVaultsKey });
       queryClient.invalidateQueries({ queryKey: knowledgeGraphKey });
       show("Vault created.", { variant: "success" });
+    },
+    onError: (error: Error): void => show(error.message, { variant: "error" })
+  });
+
+  const createTeam = useMutation({
+    mutationFn: ({ teamId, name, description }: CreateTeamVaultInput) =>
+      createTeamVault(teamId, { name, description }),
+    onSuccess: (): void => {
+      queryClient.invalidateQueries({ queryKey: backendVaultsKey });
+      queryClient.invalidateQueries({ queryKey: knowledgeGraphKey });
+      show("Shared Team Vault created.", { variant: "success" });
     },
     onError: (error: Error): void => show(error.message, { variant: "error" })
   });
@@ -55,5 +68,5 @@ export function useBackendVaultCatalog(): {
     onError: (error: Error): void => show(error.message, { variant: "error" })
   });
 
-  return { vaults, create, update, archive };
+  return { vaults, create, createTeam, update, archive };
 }

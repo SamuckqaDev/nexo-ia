@@ -27,6 +27,11 @@ const vault = {
   description: "Product knowledge",
   scope: "PERSONAL" as const,
   workspaceId: null,
+  ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  ownerType: "USER" as const,
+  ownerName: "Personal space",
+  manageable: true,
+  writable: false,
   createdAt: "2026-08-21T10:00:00Z",
   updatedAt: "2026-08-21T10:00:00Z"
 };

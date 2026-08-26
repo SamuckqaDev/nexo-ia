@@ -60,7 +60,7 @@ class TeamServiceTest {
         when(teams.saveAndFlush(any(Team.class))).thenAnswer(invocation -> persistedTeam(
                 invocation.getArgument(0)));
         when(memberships.saveAndFlush(any(TeamMembership.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> persistedMembership(invocation.getArgument(0)));
         when(users.findById(ownerId)).thenReturn(Optional.of(user(ownerId, UserRole.OWNER, ProfileKey.OPERATOR)));
 
         TeamResponse response = service.createTeam(principal(ownerId, UserRole.OWNER),
@@ -69,6 +69,9 @@ class TeamServiceTest {
         assertThat(response.name()).isEqualTo("Platform");
         assertThat(response.createdBy()).isEqualTo(ownerId);
         assertThat(response.defaultProfile()).isEqualTo(ProfileKey.RESEARCHER);
+        assertThat(response.teamRole()).isEqualTo(TeamRole.ADMIN);
+        assertThat(response.assignedProfile()).isEqualTo(ProfileKey.OPERATOR);
+        assertThat(response.manageable()).isTrue();
         assertThat(response.createdAt()).isNotNull();
         assertThat(response.updatedAt()).isNotNull();
     }
@@ -85,6 +88,8 @@ class TeamServiceTest {
                 new AddTeamMemberRequest(targetId, null, null));
 
         assertThat(response.teamRole()).isEqualTo(TeamRole.MEMBER);
+        assertThat(response.name()).isEqualTo("U");
+        assertThat(response.email()).isEqualTo("u@nexo.local");
         assertThat(response.assignedProfile()).isEqualTo(ProfileKey.RESEARCHER);
         assertThat(response.joinedAt()).isNotNull();
     }

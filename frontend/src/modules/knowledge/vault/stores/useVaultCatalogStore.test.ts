@@ -12,6 +12,7 @@ describe("useVaultCatalogStore", () => {
     const firstOwnerVault = useVaultCatalogStore.getState().createVault({
       name: "Private architecture",
       description: "Decisions that belong only to the first account.",
+      ownerTarget: "personal",
       scope: "personal"
     });
     useVaultCatalogStore.getState().toggleSourceAttachment("source-vision");
@@ -24,6 +25,7 @@ describe("useVaultCatalogStore", () => {
     useVaultCatalogStore.getState().createVault({
       name: "Second account notes",
       description: "Knowledge that belongs only to the second account.",
+      ownerTarget: "personal",
       scope: "personal"
     });
     useVaultCatalogStore.getState().initialize(firstOwnerId);

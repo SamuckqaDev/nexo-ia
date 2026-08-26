@@ -8,12 +8,16 @@ import com.nexoia.auth.session.security.NexoUserPrincipal;
 import com.nexoia.auth.user.exception.UserNotFoundException;
 import com.nexoia.auth.user.model.UserAccount;
 import com.nexoia.auth.user.model.UserRole;
+import com.nexoia.auth.user.model.UserStatus;
 import com.nexoia.auth.user.repository.UserAccountRepository;
+import com.nexoia.knowledge.vault.dto.VaultResponse;
+import com.nexoia.knowledge.vault.service.VaultService;
 import com.nexoia.permission.model.ProfileKey;
 import com.nexoia.permission.service.PermissionAdminService;
 import com.nexoia.team.dto.AddTeamMemberRequest;
 import com.nexoia.team.dto.CreateTeamRequest;
 import com.nexoia.team.dto.CreateTeamVaultRequest;
+import com.nexoia.team.dto.TeamCandidateResponse;
 import com.nexoia.team.dto.TeamMemberResponse;
 import com.nexoia.team.dto.TeamResponse;
 import com.nexoia.team.exception.TeamAdministrationDeniedException;
@@ -24,8 +28,6 @@ import com.nexoia.team.model.TeamMembership;
 import com.nexoia.team.model.TeamRole;
 import com.nexoia.team.repository.TeamMembershipRepository;
 import com.nexoia.team.repository.TeamRepository;
-import com.nexoia.knowledge.vault.dto.VaultResponse;
-import com.nexoia.knowledge.vault.service.VaultService;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -52,17 +54,31 @@ public class TeamService {
     @Transactional(readOnly = true)
     public List<TeamResponse> listMyTeams(UUID userId) {
         return memberships.findAllByUserIdOrderByJoinedAtAsc(userId).stream()
-                .map(membership -> teams.findById(membership.getTeamId()).orElseThrow(TeamNotFoundException::new))
-                .map(this::toResponse)
+                .map(membership -> toResponse(
+                        teams.findById(membership.getTeamId()).orElseThrow(TeamNotFoundException::new),
+                        membership))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<TeamMemberResponse> listMembers(NexoUserPrincipal principal, UUID teamId) {
-        requireTeamAdmin(principal, teamId);
+        requireTeamMember(principal, teamId);
         return memberships.findAllByTeamIdOrderByJoinedAtAsc(teamId).stream()
-                .map(membership -> new TeamMemberResponse(membership.getUserId(), membership.getTeamRole(),
-                        membership.getAssignedProfile(), membership.getJoinedAt()))
+                .map(membership -> toMemberResponse(
+                        membership,
+                        users.findById(membership.getUserId()).orElseThrow(UserNotFoundException::new)))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamCandidateResponse> listCandidates(NexoUserPrincipal principal, UUID teamId) {
+        requireTeamAdmin(principal, teamId);
+        return users.findAllByOrderByCreatedAtAsc().stream()
+                .filter(user -> user.getStatus() == UserStatus.ACTIVE)
+                .filter(user -> !memberships.existsByTeamIdAndUserId(teamId, user.getId()))
+                .map(user -> new TeamCandidateResponse(
+                        user.getId(), user.getUsername(), user.getName(), user.getEmail(),
+                        user.getRole(), user.getAssignedProfile()))
                 .toList();
     }
 
@@ -79,7 +95,7 @@ public class TeamService {
                 .build());
 
         // The creator becomes the Team's admin, carrying their own system profile inside the Team.
-        memberships.saveAndFlush(TeamMembership.builder()
+        TeamMembership membership = memberships.saveAndFlush(TeamMembership.builder()
                 .id(UUID.randomUUID())
                 .teamId(team.getId())
                 .userId(principal.userId())
@@ -89,7 +105,7 @@ public class TeamService {
 
         audit.record(RecordAuditCommand.success(AuditAction.TEAM_CREATED, principal.userId(),
                 principal.role(), AuditTargetType.TEAM, team.getId()));
-        return toResponse(team);
+        return toResponse(team, membership);
     }
 
     @Transactional
@@ -120,8 +136,7 @@ public class TeamService {
                 .build());
         audit.record(RecordAuditCommand.success(AuditAction.TEAM_MEMBER_ADDED, principal.userId(),
                 principal.role(), AuditTargetType.TEAM, teamId));
-        return new TeamMemberResponse(membership.getUserId(), membership.getTeamRole(),
-                membership.getAssignedProfile(), membership.getJoinedAt());
+        return toMemberResponse(membership, target);
     }
 
     @Transactional
@@ -145,12 +160,29 @@ public class TeamService {
         return team;
     }
 
+    private Team requireTeamMember(NexoUserPrincipal principal, UUID teamId) {
+        Team team = teams.findById(teamId).orElseThrow(TeamNotFoundException::new);
+        if (principal.role() != UserRole.OWNER
+                && !memberships.existsByTeamIdAndUserId(teamId, principal.userId())) {
+            throw new TeamNotFoundException();
+        }
+        return team;
+    }
+
     private ProfileKey actorProfile(UUID userId) {
         return users.findById(userId).orElseThrow(UserNotFoundException::new).getAssignedProfile();
     }
 
-    private TeamResponse toResponse(Team team) {
+    private TeamResponse toResponse(Team team, TeamMembership membership) {
         return new TeamResponse(team.getId(), team.getName(), team.getCreatedBy(),
-                team.getDefaultProfile(), team.getTokenBudgetLimit(), team.getCreatedAt(), team.getUpdatedAt());
+                team.getDefaultProfile(), team.getTokenBudgetLimit(), membership.getTeamRole(),
+                membership.getAssignedProfile(), membership.getTeamRole() == TeamRole.ADMIN,
+                team.getCreatedAt(), team.getUpdatedAt());
+    }
+
+    private TeamMemberResponse toMemberResponse(TeamMembership membership, UserAccount user) {
+        return new TeamMemberResponse(
+                user.getId(), user.getUsername(), user.getName(), user.getEmail(),
+                membership.getTeamRole(), membership.getAssignedProfile(), membership.getJoinedAt());
     }
 }

@@ -62,7 +62,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Owner-authorized inspection and individual revocation of Member sessions with target ownership
   validation and administrative audit events.
 - Responsive application shell with a collapsible branded sidebar and mapped navigation for Chat,
-  Projects, Cowork, tasks, Vaults, and Skills. The separate workspace header has been removed;
+  Projects, Cowork, tasks, Teams, Vaults, and Skills. The separate workspace header has been removed;
   account actions, profile photo, Settings, and Administration live in the sidebar account menu.
 - Persistent light and dark visual themes derived from the Nexo IA color system, with system-theme
   preference as the initial default and an accessible control in Settings preferences.
@@ -390,7 +390,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   as non-authoritative context in later Chat and Agent requests; exact duplicates are reused and a
   50-memory account cap prevents unbounded context growth. Authenticated APIs and the conversation
   workspace's Memory section provide inspection and deletion. See D-031.
-- Two hundred and twenty-one passing default backend tests and one hundred and twenty passing frontend tests,
+- Two hundred and twenty-one passing default backend tests and one hundred and twenty-one passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -422,9 +422,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   rerun the official validator when the dependency is available.
 - The base Compose service starts PostgreSQL, backend, and the production frontend image.
   Development uses `compose.dev.yaml`; production must not apply that database-port override.
-- The first Team/membership/profile governance backend slice exists, but active-Team selection,
-  organization administration screens, group usage quotas, shared media/artifacts, and content-matrix
-  administration remain subsequent increments.
+- Team/membership/profile governance now has a dedicated administration workspace. It lists the
+  authenticated user's Teams, roles, profiles and members; administrators can add eligible users and
+  create shared Team Vaults. Vault Explorer, Chat knowledge selection and the semantic graph expose
+  Team ownership explicitly. Active-Team conversation selection, group usage quotas, shared
+  media/artifacts, and content-matrix administration remain subsequent increments.
 - Personal usage is aggregated and shown. Organization-level summaries remain a subsequent increment
   because they require the organization entity, and pricing, budgets, and quotas stay out of scope.
 - The organization-level audit *view* that unions session and domain trails is a later increment.

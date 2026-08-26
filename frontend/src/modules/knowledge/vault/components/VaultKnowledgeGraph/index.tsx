@@ -1,4 +1,5 @@
 import {
+  Buildings,
   FileText,
   FolderOpen,
   MagnifyingGlass,
@@ -65,7 +66,7 @@ export function VaultKnowledgeGraph({
   }
 
   const matchesSearch = (node: VaultGraphNode): boolean => !normalizedQuery
-    || `${node.label} ${node.detail} ${node.excerpt ?? ""}`.toLowerCase().includes(normalizedQuery);
+    || `${node.label} ${node.detail} ${node.ownerName} ${node.excerpt ?? ""}`.toLowerCase().includes(normalizedQuery);
 
   const selectNode = (node: VaultGraphNode): void => {
     setSelectedNodeId(node.id);
@@ -86,6 +87,7 @@ export function VaultKnowledgeGraph({
         </GraphSearch>
         <Legend aria-label="Knowledge graph legend">
           <LegendItem $kind="vault">Vault</LegendItem>
+          <LegendItem $kind="team">Team Vault</LegendItem>
           <LegendItem $kind="source">Document</LegendItem>
           <LegendItem $kind="chunk">Knowledge</LegendItem>
           <LegendItem $kind="semantic">Semantic link</LegendItem>
@@ -134,6 +136,7 @@ export function VaultKnowledgeGraph({
                     key={node.id}
                     type="button"
                     $kind={node.kind}
+                    $team={node.ownerType === "TEAM"}
                     $x={node.x}
                     $y={node.y}
                     $selected={selected}
@@ -144,7 +147,9 @@ export function VaultKnowledgeGraph({
                     onClick={(): void => selectNode(node)}
                   >
                     {node.kind === "VAULT"
-                      ? <FolderOpen size={18} weight="duotone" />
+                      ? node.ownerType === "TEAM"
+                        ? <Buildings size={18} weight="duotone" />
+                        : <FolderOpen size={18} weight="duotone" />
                       : node.kind === "SOURCE"
                         ? <Stack size={16} weight="duotone" />
                         : <FileText size={14} weight="duotone" />}
@@ -162,6 +167,7 @@ export function VaultKnowledgeGraph({
               <div><strong>{selectedNode.label}</strong><span>{selectedNode.detail}</span></div>
               <InspectorBadge>{selectedNode.kind.toLowerCase()}</InspectorBadge>
             </header>
+            <InspectorBadge>{selectedNode.ownerType === "TEAM" ? `Team · ${selectedNode.ownerName}` : selectedNode.ownerName}</InspectorBadge>
             <InspectorCopy>
               {selectedNode.excerpt ?? (selectedNode.kind === "SOURCE"
                 ? "Select one of this document's knowledge chunks to inspect its indexed excerpt."

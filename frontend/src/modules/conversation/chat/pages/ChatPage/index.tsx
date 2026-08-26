@@ -1,4 +1,4 @@
-import { BookOpen, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
+import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
@@ -181,7 +181,9 @@ export function ChatPage(): ReactElement {
     : lastAssistantMessage?.toolExecutions ?? [];
   const selectedVaultNames: string[] = (backendVaults.vaults.data ?? [])
     .filter((vault: BackendVault) => selectedVaultIds.includes(vault.id))
-    .map((vault: BackendVault) => vault.name);
+    .map((vault: BackendVault) => vault.ownerType === "TEAM"
+      ? `${vault.name} · Team ${vault.ownerName}`
+      : vault.name);
   const enabledMcpConnections: McpConnection[] = (mcpConnections.data ?? [])
     .filter((connection: McpConnection) => connection.enabled);
   const agentContext: AgentContextSummary = {
@@ -435,7 +437,8 @@ export function ChatPage(): ReactElement {
                       onClick={(): void => toggleVault(vault.id)}
                     >
                       {selectedVaultIds.includes(vault.id) && <Check size={12} weight="bold" />}
-                      {vault.name}
+                      {vault.ownerType === "TEAM" && <Buildings size={12} weight="duotone" />}
+                      <span>{vault.name}{vault.ownerType === "TEAM" && <small>{vault.ownerName}</small>}</span>
                     </VaultChip>
                   ))}
                   {selectKnowledge.isPending && <VaultBarLabel>Saving…</VaultBarLabel>}

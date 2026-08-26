@@ -26,7 +26,13 @@ export type KnowledgeVault = {
 };
 
 export type CreateVaultValues = z.infer<typeof createVaultSchema>;
-export type CreateVaultFormProps = { onCreate: (values: CreateVaultValues) => void; onCancel: () => void };
+export type VaultOwnerOption = { label: string; value: string };
+export type CreateVaultFormProps = {
+  ownerOptions: VaultOwnerOption[];
+  pending: boolean;
+  onCreate: (values: CreateVaultValues) => void;
+  onCancel: () => void;
+};
 export type SourcePickerProps = { onSelect: (event: ChangeEvent<HTMLInputElement>) => void };
 
 export type VaultSourceReference = {

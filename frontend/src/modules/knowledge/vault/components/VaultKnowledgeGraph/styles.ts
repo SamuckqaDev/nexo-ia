@@ -61,7 +61,7 @@ export const Legend = styled.div`
   @media (max-width: 48rem) { order: 3; flex-basis: 100%; }
 `;
 
-export const LegendItem = styled.span<{ $kind: "vault" | "source" | "chunk" | "semantic" }>`
+export const LegendItem = styled.span<{ $kind: "vault" | "team" | "source" | "chunk" | "semantic" }>`
   display: inline-flex;
   align-items: center;
   gap: 0.32rem;
@@ -69,12 +69,13 @@ export const LegendItem = styled.span<{ $kind: "vault" | "source" | "chunk" | "s
   font-size: 0.56rem;
 
   &::before {
-    width: ${({ $kind }) => $kind === "vault" ? ".68rem" : $kind === "source" ? ".56rem" : ".4rem"};
-    height: ${({ $kind }) => $kind === "semantic" ? "0" : $kind === "vault" ? ".68rem" : $kind === "source" ? ".56rem" : ".4rem"};
+    width: ${({ $kind }) => $kind === "vault" || $kind === "team" ? ".68rem" : $kind === "source" ? ".56rem" : ".4rem"};
+    height: ${({ $kind }) => $kind === "semantic" ? "0" : $kind === "vault" || $kind === "team" ? ".68rem" : $kind === "source" ? ".56rem" : ".4rem"};
     border: 1px solid ${({ theme }) => theme.colors.lineStrong};
     border-radius: 50%;
     background: ${({ theme, $kind }) => $kind === "vault"
       ? theme.colors.primary
+      : $kind === "team" ? theme.colors.accent
       : $kind === "source" ? theme.colors.primarySoft : theme.colors.surfaceStrong};
     content: "";
   }
@@ -181,6 +182,7 @@ export const Edge = styled.line<{ $semantic: boolean; $strength: number }>`
 
 export const GraphNode = styled.button<{
   $kind: KnowledgeGraphNodeKind;
+  $team: boolean;
   $x: number;
   $y: number;
   $selected: boolean;
@@ -196,8 +198,9 @@ export const GraphNode = styled.button<{
   align-items: center;
   gap: ${({ $kind }) => $kind === "CHUNK" ? ".34rem" : ".5rem"};
   transform: translate(-50%, -50%);
-  border: 1px solid ${({ theme, $kind, $selected }) => $selected
+  border: 1px solid ${({ theme, $kind, $selected, $team }) => $selected
     ? theme.colors.primary
+    : $team && $kind === "VAULT" ? theme.colors.accentSoft
     : $kind === "CHUNK" ? theme.colors.line : theme.colors.lineStrong};
   border-radius: ${({ theme, $kind }) => $kind === "VAULT" ? theme.radius.round : $kind === "CHUNK" ? ".65rem" : theme.radius.control};
   padding: ${({ $kind }) => $kind === "VAULT" ? ".6rem .75rem" : $kind === "SOURCE" ? ".52rem .62rem" : ".38rem .46rem"};
@@ -205,7 +208,7 @@ export const GraphNode = styled.button<{
     ? theme.colors.backgroundElevated
     : $kind === "SOURCE" ? theme.colors.surfaceStrong : theme.colors.background};
   box-shadow: ${({ theme, $selected }) => $selected ? `0 0 1.2rem ${theme.colors.statusOnlineGlow}` : "none"};
-  color: ${({ theme, $kind }) => $kind === "VAULT" ? theme.colors.primary : $kind === "SOURCE" ? theme.colors.primarySoft : theme.colors.textSubtle};
+  color: ${({ theme, $kind, $team }) => $team && $kind === "VAULT" ? theme.colors.accent : $kind === "VAULT" ? theme.colors.primary : $kind === "SOURCE" ? theme.colors.primarySoft : theme.colors.textSubtle};
   font: inherit;
   text-align: left;
   cursor: pointer;

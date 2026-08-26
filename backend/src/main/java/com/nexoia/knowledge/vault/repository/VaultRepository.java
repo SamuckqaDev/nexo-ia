@@ -1,6 +1,7 @@
 package com.nexoia.knowledge.vault.repository;
 
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,8 @@ public interface VaultRepository extends JpaRepository<KnowledgeVault, UUID> {
 
     Optional<KnowledgeVault> findByIdAndOwnerIdAndArchivedFalse(UUID id, UUID ownerId);
 
+    Optional<KnowledgeVault> findByIdAndOwnerIdInAndArchivedFalse(UUID id, Collection<UUID> ownerIds);
+
     List<KnowledgeVault> findAllByOwnerIdAndArchivedFalseAndIdIn(UUID ownerId, Iterable<UUID> ids);
 
     /** Vaults among {@code ids} owned by any of {@code ownerIds} — the caller plus their Teams. */
@@ -22,4 +25,7 @@ public interface VaultRepository extends JpaRepository<KnowledgeVault, UUID> {
 
     /** Every non-archived Vault owned by any of {@code ownerIds} — the caller's own plus their Teams'. */
     List<KnowledgeVault> findAllByOwnerIdInAndArchivedFalseOrderByUpdatedAtDesc(Iterable<UUID> ownerIds);
+
+    List<KnowledgeVault> findAllByOwnerIdInAndArchivedFalseOrderByUpdatedAtDesc(
+            Iterable<UUID> ownerIds, Limit limit);
 }

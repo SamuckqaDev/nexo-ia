@@ -6,6 +6,7 @@ import com.nexoia.shared.api.BaseResponse;
 import com.nexoia.team.dto.AddTeamMemberRequest;
 import com.nexoia.team.dto.CreateTeamRequest;
 import com.nexoia.team.dto.CreateTeamVaultRequest;
+import com.nexoia.team.dto.TeamCandidateResponse;
 import com.nexoia.team.dto.TeamMemberResponse;
 import com.nexoia.team.dto.TeamResponse;
 import com.nexoia.team.service.TeamService;
@@ -50,7 +51,7 @@ public class TeamController {
     }
 
     @GetMapping("/{teamId}/members")
-    @Operation(summary = "List the members of a Team the caller administers")
+    @Operation(summary = "List the members of a Team the caller belongs to")
     public ResponseEntity<BaseResponse<TeamMemberResponse>> members(
             @AuthenticationPrincipal NexoUserPrincipal principal,
             @PathVariable UUID teamId) {
@@ -58,8 +59,16 @@ public class TeamController {
                 service.listMembers(principal, teamId)));
     }
 
+    @GetMapping("/{teamId}/candidates")
+    @Operation(summary = "List active users that may be added to a Team the caller administers")
+    public ResponseEntity<BaseResponse<TeamCandidateResponse>> candidates(
+            @AuthenticationPrincipal NexoUserPrincipal principal,
+            @PathVariable UUID teamId) {
+        return ResponseEntity.ok(BaseResponse.success(200, "Team candidates retrieved",
+                service.listCandidates(principal, teamId)));
+    }
+
     @PostMapping("/{teamId}/members")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     @Operation(summary = "Add a user to a Team with a bounded capability profile")
     public ResponseEntity<BaseResponse<TeamMemberResponse>> addMember(
             @AuthenticationPrincipal NexoUserPrincipal principal,
@@ -70,7 +79,6 @@ public class TeamController {
     }
 
     @PostMapping("/{teamId}/vaults")
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
     @Operation(summary = "Create a shared Knowledge Vault owned by a Team the caller administers")
     public ResponseEntity<BaseResponse<VaultResponse>> createVault(
             @AuthenticationPrincipal NexoUserPrincipal principal,

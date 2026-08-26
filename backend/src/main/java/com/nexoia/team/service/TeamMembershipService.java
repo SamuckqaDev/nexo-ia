@@ -1,5 +1,6 @@
 package com.nexoia.team.service;
 
+import com.nexoia.team.model.TeamRole;
 import com.nexoia.team.repository.TeamMembershipRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,5 +29,15 @@ public class TeamMembershipService {
         memberships.findAllByUserIdOrderByJoinedAtAsc(userId)
                 .forEach(membership -> ownerIds.add(membership.getTeamId()));
         return ownerIds;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isMember(UUID userId, UUID teamId) {
+        return memberships.existsByTeamIdAndUserId(teamId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canManage(UUID userId, UUID teamId) {
+        return memberships.existsByTeamIdAndUserIdAndTeamRole(teamId, userId, TeamRole.ADMIN);
     }
 }

@@ -6,6 +6,28 @@
 > capability model in [Permission profiles and unlock levels](PERMISSION_PROFILES.md); that document
 > owns *what the AI may do*, this one owns *who governs whom and which resources belong to the team*.
 
+## Current implemented slice
+
+Nexo currently implements the visible Team knowledge vertical end to end:
+
+- authenticated users can list the Teams they belong to; Owner/Admin users can create Teams, and
+  Team administrators can add existing active Nexo users with a bounded profile;
+- the application has a dedicated **Teams** workspace showing membership, Team role, assigned and
+  default profiles, the configured token allocation, and Team-owned Vaults;
+- Vault API responses expose `ownerId`, `ownerType`, `ownerName`, `manageable`, and `writable`, so the
+  frontend never guesses ownership from `scope`;
+- Vault Explorer filters Personal and Team collections, creates Team Vaults through the governed
+  Team endpoint, permits all Team members to read sources, and limits changes to Team administrators;
+- Chat shows the Team origin of selectable knowledge, and the semantic Knowledge Workbench includes
+  authorized Personal and Team nodes with visibly distinct Team Vaults;
+- list, selection, retrieval, ingestion and graph queries share the same authenticated
+  `{user} ∪ {member Teams}` authorization boundary. Embeddings and audit events are attributed to the
+  acting user, never to a Team UUID masquerading as a user.
+
+The `tokenBudgetLimit` value is visible configuration, not yet an enforced quota. Active-Team
+conversation context, Team-attributed usage, budget enforcement, shared media and artifacts remain
+the next verticals; the UI does not claim those are active.
+
 ## 1. The Group is the organization
 
 A **Group** (team / organization) is the tenant boundary. Everything a team shares — knowledge,

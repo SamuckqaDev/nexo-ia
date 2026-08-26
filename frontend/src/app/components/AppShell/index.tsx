@@ -9,6 +9,7 @@ import {
   List,
   PlugsConnected,
   Sparkle,
+  UsersThree,
   Vault,
   X
 } from "@phosphor-icons/react";
@@ -60,6 +61,8 @@ const CoworkPage = lazy(() => import("../../../modules/cowork/session/pages/Cowo
   .then((module) => ({ default: module.CoworkPage })));
 const CalendarPage = lazy(() => import("../../../modules/automation/calendar/pages/CalendarPage")
   .then((module) => ({ default: module.CalendarPage })));
+const TeamsPage = lazy(() => import("../../../modules/organization/team/pages/TeamsPage")
+  .then((module) => ({ default: module.TeamsPage })));
 const VaultsPage = lazy(() => import("../../../modules/knowledge/vault/pages/VaultsPage")
   .then((module) => ({ default: module.VaultsPage })));
 const SkillsPage = lazy(() => import("../../../modules/skill/catalog/pages/SkillsPage")
@@ -73,6 +76,7 @@ const featureNavigation: NavigationItem[] = [
   { id: "projects", label: "Projects", icon: FolderOpen },
   { id: "cowork", label: "Cowork", icon: Brain },
   { id: "tasks", label: "Tasks & calendar", icon: CalendarCheck },
+  { id: "teams", label: "Teams", icon: UsersThree },
   { id: "vaults", label: "Vaults", icon: Vault },
   { id: "skills", label: "Skills", icon: Sparkle },
   { id: "mcp", label: "MCP Hub", icon: PlugsConnected }
@@ -84,6 +88,7 @@ const sectionPaths: Record<AppSection, string> = {
   projects: "/projects",
   cowork: "/cowork",
   tasks: "/tasks",
+  teams: "/teams",
   vaults: "/vaults",
   skills: "/skills",
   mcp: "/mcp",
@@ -220,6 +225,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
               <Route path="/projects" element={<ProjectsPage onOpenChat={(): void => navigate("chat")} />} />
               <Route path="/cowork" element={<CoworkPage />} />
               <Route path="/tasks" element={<CalendarPage />} />
+              <Route path="/teams" element={<TeamsPage user={user} />} />
               <Route path="/vaults" element={<VaultsPage />} />
               <Route path="/skills" element={<SkillsPage />} />
               <Route path="/mcp" element={<McpHubPage />} />

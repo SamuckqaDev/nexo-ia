@@ -7,6 +7,9 @@ import java.util.UUID;
 
 public record TeamMemberResponse(
         UUID userId,
+        String username,
+        String name,
+        String email,
         TeamRole teamRole,
         ProfileKey assignedProfile,
         Instant joinedAt) {
