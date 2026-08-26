@@ -281,7 +281,8 @@ public class ModelRequestService {
                 update.revision(),
                 update.explanation(),
                 update.steps().stream()
-                        .map(step -> new AgentPlanStepEvent(step.step(), step.status()))
+                        .map(step -> new AgentPlanStepEvent(
+                                step.step(), step.description(), step.status()))
                         .toList(),
                 update.updatedAt());
     }

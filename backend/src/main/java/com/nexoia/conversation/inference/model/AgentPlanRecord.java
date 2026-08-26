@@ -51,7 +51,7 @@ public class AgentPlanRecord {
         revision = update.revision();
         explanation = update.explanation();
         steps = update.steps().stream()
-                .map(step -> new AgentPlanStep(step.step(), step.status()))
+                .map(step -> new AgentPlanStep(step.step(), step.description(), step.status()))
                 .toList();
         updatedAt = update.updatedAt();
     }

@@ -112,13 +112,26 @@ that runtime condition directly and points the user to the MCP Hub.
 
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
-Nexo publishes a deterministic three-step plan as soon as every Agent request starts. A model may
-replace it through `update_plan`; if the model returns a normal answer without doing so, Nexo
-completes the fallback plan so the execution never loses its visible plan contract merely because a
-smaller model ignored the tool.
-The same latest revision is rendered in the assistant turn and in the conversation workspace's
-**Plan** section. The workspace follows live `plan_updated` events and falls back to the newest
-persisted assistant plan after navigation or reload; it never substitutes preview-only steps.
+Each step contains a short title plus an observable description, so the user can tell what result
+will prove the step complete. Nexo publishes a deterministic decomposition of the actual user
+objective as soon as every Agent request starts. A model may replace it through `update_plan`; if the
+model returns a normal answer without doing so, Nexo completes only the fallback steps supported by
+the runtime evidence. A Vault lookup, memory write, or MCP action stays pending when the corresponding
+tool never completed successfully.
+
+The newest revision is rendered in the conversation workspace's **Plan** section. A separate
+**Activity** section follows `agent_state`, `plan_updated`, `tool_started`, and `tool_completed`, then
+restores the persisted plan and sanitized evidence after navigation or reload. It shows timestamps,
+duration, terminal status, and safe citations without exposing raw arguments, secrets, or private
+chain-of-thought. The assistant turn keeps only a compact status/action summary that points to the
+Activity panel.
+
+Explicit requests to consult selected Vaults, persist personal memory, or perform external MCP
+research are evidence-gated. The runtime narrows the callback set to the required tools, buffers the
+model's prose, and releases an answer only after each required action has successful tool evidence.
+If a required callback is absent, ignored, denied, unavailable, or failed, Nexo returns a controlled
+runtime result instead of accepting a model-authored success claim. Capability inspection itself is
+also emitted and persisted as a visible `inspect_capabilities` Activity event.
 
 `toolSearchTool` is capped at three calls and `inspect_capabilities` at two calls per request. These
 internal discovery calls are included in the combined tool-call budget. `search_knowledge` accepts

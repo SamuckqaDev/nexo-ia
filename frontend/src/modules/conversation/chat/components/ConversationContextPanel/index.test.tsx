@@ -124,17 +124,71 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText(/latest persisted revision/i)).toBeVisible();
   });
 
-  it("exposes tasks, artifacts and media as conversation resources", () => {
+  it("exposes activity, artifacts and media as conversation resources", () => {
     renderPanel("chat");
 
-    fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
-    expect(screen.getByText("No tasks yet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
+    expect(screen.getByText("No activity yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /artifacts/i }));
     expect(screen.getByText("No artifacts yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /media/i }));
     expect(screen.getByText("No media yet")).toBeInTheDocument();
+  });
+
+  it("shows only runtime-confirmed actions in the Agent activity feed", () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={darkTheme}>
+          <ConversationContextPanel
+            conversationId="conversation-1"
+            mode="agent"
+            agentPlan={{
+              revision: 2,
+              explanation: "Ready",
+              steps: [{
+                step: "Search the selected knowledge",
+                description: "Use only returned Vault evidence.",
+                status: "COMPLETED"
+              }],
+              updatedAt: "2026-08-24T12:00:00Z"
+            }}
+            agentState="COMPLETED"
+            toolExecutions={[{
+              id: "11111111-1111-4111-8111-111111111111",
+              toolName: "search_knowledge",
+              status: "FOUND",
+              durationMs: 120,
+              citations: [{
+                vaultName: "Nexo KB",
+                sourceDisplayName: "Principles.md",
+                chunkOrdinal: 1,
+                excerpt: "Nexo reports only confirmed actions.",
+                score: 0.92
+              }],
+              startedAt: "2026-08-24T12:00:01Z",
+              completedAt: "2026-08-24T12:00:01.120Z"
+            }]}
+            open
+            vaults={[]}
+            selectedVaultIds={[]}
+            isVaultSelectionPending={false}
+            vaultSelectionError={null}
+            onOpenChange={vi.fn()}
+            onToggleVault={vi.fn()}
+            onManageVaults={vi.fn()}
+            onManageWorkspace={vi.fn()}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
+    expect(screen.getByText("Published implementation plan")).toBeVisible();
+    expect(screen.getByText("Searched selected Knowledge Vaults")).toBeVisible();
+    expect(screen.getByText("Nexo KB/Principles.md#1")).toBeVisible();
   });
 
   it("keeps a navigable resource rail when the workspace is minimized", () => {

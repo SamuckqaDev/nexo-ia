@@ -30,6 +30,7 @@ import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
 import com.nexoia.provider.dto.McpToolScope;
+import com.nexoia.provider.dto.MemoryToolScope;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStatus;
@@ -220,7 +221,8 @@ class SpringAiChatCompletionClientTest {
                 ProviderType.OLLAMA,
                 "http://127.0.0.1:" + server.getAddress().getPort(),
                 "qwen3:8b",
-                List.of(new ChatCompletionMessage("user", "Who is Nexo?")),
+                List.of(new ChatCompletionMessage(
+                        "user", "O que a nossa base de conhecimento diz sobre Nexo?")),
                 false,
                 ConversationMode.AGENT,
                 new KnowledgeToolScope(
@@ -235,13 +237,45 @@ class SpringAiChatCompletionClientTest {
         assertThat(outcome.toolExecutions().getFirst().citations()).hasSize(1);
         assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst())
+                .contains("MANDATORY NEXO TOOL EXECUTION GATE")
                 .contains("\"tools\"")
                 .contains("\"name\":\"search_knowledge\"")
-                .contains("\"name\":\"inspect_capabilities\"")
+                .doesNotContain("\"name\":\"inspect_capabilities\"")
                 .doesNotContain("toolSearchTool");
         assertThat(requestBodies.get(1))
                 .contains("\"role\":\"tool\"")
                 .contains("search_knowledge");
+    }
+
+    @Test
+    void refusesToClaimAMemoryWriteWhenRememberIsNotCallable() {
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage(
+                        "user", "Guarde na memória que eu sou engenheiro de software")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                new MemoryToolScope(
+                        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                null,
+                null,
+                ToolExecutionObserver.NOOP,
+                update -> { });
+        StringBuilder streamed = new StringBuilder();
+
+        ChatCompletionOutcome outcome = client.stream(
+                command, delta -> { }, streamed::append, () -> false);
+
+        assertThat(outcome.content())
+                .contains("falta uma ferramenta autorizada")
+                .contains("memória pessoal");
+        assertThat(outcome.doneReason()).isEqualTo("required_tool_unavailable");
+        assertThat(streamed.toString()).isEqualTo(outcome.content());
+        assertThat(requestBody.get()).isNull();
     }
 
     @Test
@@ -477,6 +511,36 @@ class SpringAiChatCompletionClientTest {
         assertThat(outcome.doneReason()).isEqualTo("mcp_unavailable");
         assertThat(requestBody.get()).isNull();
         verify(mcpSession).close();
+    }
+
+    @Test
+    void reportsWhenExternalResearchHasNoAuthorizedMcpConnection() {
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(new ChatCompletionMessage(
+                        "user", "Pesquise na internet a documentação atual do Spring AI")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                null,
+                null,
+                null,
+                ToolExecutionObserver.NOOP,
+                update -> { });
+        StringBuilder streamed = new StringBuilder();
+
+        ChatCompletionOutcome outcome = client.stream(
+                command, delta -> { }, streamed::append, () -> false);
+
+        assertThat(outcome.content())
+                .contains("Nenhuma ferramenta MCP autorizada")
+                .contains("MCP Hub");
+        assertThat(outcome.doneReason()).isEqualTo("mcp_unavailable");
+        assertThat(streamed.toString()).isEqualTo(outcome.content());
+        assertThat(requestBody.get()).isNull();
     }
 
     @Test

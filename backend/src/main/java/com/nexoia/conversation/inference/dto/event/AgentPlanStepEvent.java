@@ -4,4 +4,5 @@ import com.nexoia.conversation.inference.model.AgentPlanStepStatus;
 
 public record AgentPlanStepEvent(
         String step,
+        String description,
         AgentPlanStepStatus status) {}

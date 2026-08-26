@@ -110,7 +110,7 @@ describe("MessageItem", () => {
 
     const chip = screen.getByLabelText("Agent execution");
     expect(chip).toHaveTextContent("Agent · running");
-    expect(chip).toHaveTextContent("see the Plan panel");
+    expect(chip).toHaveTextContent("see Activity");
     // The full implementation plan lives in the side panel now, not the message bubble.
     expect(screen.queryByLabelText("Agent implementation plan")).not.toBeInTheDocument();
     expect(screen.queryByText("Inspect the Vaults")).not.toBeInTheDocument();
@@ -126,8 +126,8 @@ describe("MessageItem", () => {
     }));
 
     const chip = screen.getByLabelText("Agent execution");
-    expect(chip).toHaveTextContent("2 steps");
-    // Per-tool detail belongs to the Tasks panel, not the chat bubble.
+    expect(chip).toHaveTextContent("2 actions");
+    // Per-tool detail belongs to the Activity panel, not the chat bubble.
     expect(screen.queryByText("Knowledge search")).not.toBeInTheDocument();
     expect(screen.queryByText("MCP · fetch url")).not.toBeInTheDocument();
   });

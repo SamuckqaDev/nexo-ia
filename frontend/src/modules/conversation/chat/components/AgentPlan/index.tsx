@@ -7,7 +7,9 @@ import {
   PlanProgress,
   PlanStep,
   PlanStepCopy,
+  PlanStepDescription,
   PlanStepMarker,
+  PlanStepTitle,
   PlanSteps,
   PlanSurface
 } from "./styles";
@@ -45,7 +47,13 @@ export function AgentPlan({ plan }: AgentPlanProps): ReactElement {
               <StepIcon status={item.status} />
               {index < plan.steps.length - 1 && <i aria-hidden />}
             </PlanStepMarker>
-            <PlanStepCopy><small>{index + 1}</small>{item.step}</PlanStepCopy>
+            <PlanStepCopy>
+              <small>{index + 1}</small>
+              <div>
+                <PlanStepTitle>{item.step}</PlanStepTitle>
+                {item.description && <PlanStepDescription>{item.description}</PlanStepDescription>}
+              </div>
+            </PlanStepCopy>
           </PlanStep>
         ))}
       </PlanSteps>

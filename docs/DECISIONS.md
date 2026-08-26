@@ -412,7 +412,9 @@ options considered, the selected approach, and its consequences.
   browser disconnect never becomes model cancellation, and raw tool arguments/results remain absent
   from observations and API responses. Model prose is never accepted as proof of external access:
   capability listings come from request callbacks, and explicit external work must produce recorded
-  `mcp_*` evidence before its answer is released or persisted as successful.
+  `mcp_*` evidence before its answer is released or persisted as successful. Explicit Vault searches
+  and personal-memory writes use the same mandatory-evidence gate, and capability inspection is
+  itself persisted as visible Activity.
 
 ## D-029 — Make the first Agent runtime bounded, visible, and plan-driven
 
@@ -424,10 +426,14 @@ options considered, the selected approach, and its consequences.
   conversation has owner-authorized Vaults attached. `ToolCallingManager` caps `update_plan` at
   eight calls, `search_knowledge` at three, progressive discovery at three, capability inspection at
   two, personal memory at two, MCP at six, and the complete superset at twenty-four calls. Plan replacements
-  contain at most twelve concise steps and at most one `IN_PROGRESS` step. The latest revision is
+  contain at most twelve concise steps with an observable description and at most one `IN_PROGRESS`
+  step. The latest revision is
   persisted per assistant message, streamed as `plan_updated`, restored with conversation messages,
-  and rendered in a compact scroll-owning panel. Tool executions keep sanitized digests, status,
-  duration, citations, correlation, and audit records.
+  and rendered in a compact scroll-owning Plan panel. A separate Activity panel renders the Agent
+  lifecycle, plan publication, and only persisted tool executions. Explicit Vault, personal-memory,
+  and MCP actions are evidence-gated: model prose is buffered and cannot complete the request or its
+  fallback-plan step without matching successful tool evidence. Tool executions keep sanitized
+  digests, status, duration, citations, correlation, and audit records.
 - **Consequence:** Nexo can plan, revise a plan, search selected private knowledge, and return grounded
   evidence without claiming general computer control. Unsupported or absent capabilities remain
   unavailable rather than being simulated in text. Additional tools must reuse this request-scoped

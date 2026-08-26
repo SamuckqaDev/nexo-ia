@@ -19,6 +19,10 @@ import com.nexoia.conversation.inference.context.KnowledgeCapability;
 import com.nexoia.conversation.inference.context.KnowledgeSearchStatus;
 import com.nexoia.conversation.inference.context.ModelContextEnvelope;
 import com.nexoia.conversation.inference.context.PermissionCapability;
+import com.nexoia.conversation.inference.context.ResolvedKnowledgeContext;
+import com.nexoia.conversation.inference.context.SkillCapability;
+import com.nexoia.conversation.inference.context.ToolCapability;
+import com.nexoia.conversation.inference.context.WorkspaceCapability;
 import com.nexoia.permission.dto.ResolvedPermissions;
 import com.nexoia.permission.model.BuiltInProfiles;
 import com.nexoia.permission.model.CapabilityFamily;
@@ -27,11 +31,6 @@ import com.nexoia.permission.model.PermissionProfile;
 import com.nexoia.permission.model.ProfileKey;
 import com.nexoia.permission.model.UnlockLevel;
 import com.nexoia.permission.service.PermissionEngine;
-import java.util.EnumSet;
-import com.nexoia.conversation.inference.context.ResolvedKnowledgeContext;
-import com.nexoia.conversation.inference.context.SkillCapability;
-import com.nexoia.conversation.inference.context.ToolCapability;
-import com.nexoia.conversation.inference.context.WorkspaceCapability;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
@@ -75,6 +74,7 @@ import com.nexoia.provider.service.ProviderEndpointGuard;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -412,7 +412,8 @@ public class ModelRequestStore {
                         .revision(update.revision())
                         .explanation(update.explanation())
                         .steps(update.steps().stream()
-                                .map(step -> new AgentPlanStep(step.step(), step.status()))
+                                .map(step -> new AgentPlanStep(
+                                        step.step(), step.description(), step.status()))
                                 .toList())
                         .createdAt(update.updatedAt())
                         .updatedAt(update.updatedAt())

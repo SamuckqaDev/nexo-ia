@@ -40,6 +40,7 @@ export const agentPlanStepStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "COMP
 
 export const agentPlanStepSchema = z.object({
   step: z.string(),
+  description: z.string().nullable().optional(),
   status: agentPlanStepStatusSchema
 });
 

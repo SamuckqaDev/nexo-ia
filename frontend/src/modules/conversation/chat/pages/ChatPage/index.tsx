@@ -235,6 +235,7 @@ export function ChatPage(): ReactElement {
   const titleFromMessage = (content: string): string => content.trim().split("\\n")[0]?.slice(0, 160) || "New conversation";
 
   const sendMessage = (content: string): void => {
+    if (mode === "agent") setIsContextOpen(true);
     if (selectedId) {
       // Send immediately when the conversation already has a model; otherwise hold the message until
       // the auto-selected model has been persisted, then send it.

@@ -80,7 +80,7 @@ export const PlanStep = styled.li<{ $status: AgentPlanStepStatus }>`
 
 `;
 
-export const PlanStepCopy = styled.span`
+export const PlanStepCopy = styled.div`
   display: grid;
   grid-template-columns: 1rem minmax(0, 1fr);
   gap: 0.2rem;
@@ -91,6 +91,20 @@ export const PlanStepCopy = styled.span`
     font-size: 0.5rem;
     font-variant-numeric: tabular-nums;
   }
+`;
+
+export const PlanStepTitle = styled.span`
+  display: block;
+  color: inherit;
+  font-weight: 650;
+`;
+
+export const PlanStepDescription = styled.p`
+  margin: 0.16rem 0 0;
+  color: ${({ theme }) => theme.colors.textSubtle};
+  font-size: 0.55rem;
+  font-weight: 450;
+  line-height: 1.45;
 `;
 
 export const PlanStepMarker = styled.span<{ $status: AgentPlanStepStatus }>`

@@ -55,12 +55,18 @@ class AgentPlanToolFactoryTest {
             assertThat(update.revision()).isEqualTo(1);
             assertThat(update.steps()).extracting(step -> step.step())
                     .containsExactly(
+                            "Analisar a solicitação",
                             "Pesquisar as fontes disponíveis",
                             "Comparar os resultados encontrados",
-                            "Verificar o resultado e apresentar evidências");
+                            "Verificar ações e evidências",
+                            "Apresentar o resultado");
+            assertThat(update.steps()).extracting(step -> step.description())
+                    .allMatch(description -> description != null && !description.isBlank());
             assertThat(update.steps()).extracting(step -> step.status())
                     .containsExactly(
                             AgentPlanStepStatus.IN_PROGRESS,
+                            AgentPlanStepStatus.PENDING,
+                            AgentPlanStepStatus.PENDING,
                             AgentPlanStepStatus.PENDING,
                             AgentPlanStepStatus.PENDING);
         });
@@ -102,7 +108,7 @@ class AgentPlanToolFactoryTest {
     }
 
     @Test
-    void completesTheVisibleFallbackWhenTheModelDoesNotCreateAPlan() {
+    void leavesEvidenceDependentFallbackStepsPendingWhenNoToolRan() {
         List<AgentPlanUpdate> updates = new ArrayList<>();
         AgentPlanToolSession session = factory.open(
                 scope(), ToolExecutionObserver.NOOP, updates::add, () -> false);
@@ -114,7 +120,9 @@ class AgentPlanToolFactoryTest {
         assertThat(updates.getFirst().revision()).isEqualTo(1);
         assertThat(updates.getLast().revision()).isEqualTo(2);
         assertThat(updates.getLast().steps())
-                .allMatch(step -> step.status() == AgentPlanStepStatus.COMPLETED);
+                .anyMatch(step -> step.status() == AgentPlanStepStatus.PENDING)
+                .anyMatch(step -> step.status() == AgentPlanStepStatus.COMPLETED);
+        assertThat(updates.getLast().explanation()).contains("without runtime evidence");
         assertThat(session.evidence()).isEmpty();
     }
 

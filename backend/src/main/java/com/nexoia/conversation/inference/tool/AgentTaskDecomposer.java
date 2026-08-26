@@ -19,13 +19,13 @@ public class AgentTaskDecomposer {
             "(?m)(?:^|\\n)\\s*(?:[-*•]|\\d+[.)])\\s+");
     private static final Pattern SENTENCE_BOUNDARY = Pattern.compile("(?<=[.!?;])\\s+");
     private static final Pattern ACTION_BOUNDARY = Pattern.compile(
-            "(?iu)(?:,\\s*(?:e\\s+)?|\\s+e\\s+)(?=(?:ajust|adicion|ativ|compar|conect|corrig|cri|"
-                    + "faz|ger|habilit|implement|instal|lig|mont|mostr|padron|reduz|refator|remov|"
+            "(?iu)(?:,\\s*(?:e\\s+)?|\\s+e\\s+)(?=(?:ajust|adicion|ativ|compar|conect|consult|corrig|cri|"
+                    + "faz|ger|guard|habilit|implement|instal|lembr|lig|mont|mostr|padron|reduz|refator|remov|"
                     + "sub|us|valid|verific)\\p{L}*)");
     private static final Pattern FILLER = Pattern.compile(
             "(?iu)^(?:(?:cara|mano|por+ra|poh|por favor|mais um detalhe)[,:;.!?]*\\s*)+");
 
-    public List<String> decompose(String objective) {
+    public List<AgentTaskDraft> decompose(String objective) {
         String request = userRequest(objective);
         Set<String> candidates = new LinkedHashSet<>();
         for (String listed : LIST_BOUNDARY.split(request)) {
@@ -39,17 +39,51 @@ public class AgentTaskDecomposer {
             }
         }
 
-        List<String> steps = new ArrayList<>(candidates.stream().limit(MAX_STEPS - 1L).toList());
-        if (steps.isEmpty()) {
-            steps.add("Executar o objetivo solicitado");
+        List<AgentTaskDraft> steps = new ArrayList<>();
+        steps.add(new AgentTaskDraft(
+                "Analisar a solicitação",
+                "Confirmar o resultado pedido e as capacidades autorizadas para esta execução.",
+                null));
+        candidates.stream()
+                .limit(MAX_STEPS - 3L)
+                .map(step -> new AgentTaskDraft(
+                        step,
+                        "Executar esta parte do pedido e registrar o resultado observável.",
+                        requiredToolPrefix(step)))
+                .forEach(steps::add);
+        if (steps.size() == 1) {
+            steps.add(new AgentTaskDraft(
+                    "Executar o objetivo solicitado",
+                    "Produzir o resultado solicitado dentro das capacidades disponíveis.",
+                    requiredToolPrefix(request)));
         }
-        if (steps.size() == 1 && request.length() > 80) {
-            steps.add("Revisar os detalhes e completar o resultado solicitado");
-        }
-        if (steps.size() < MAX_STEPS) {
-            steps.add("Verificar o resultado e apresentar evidências");
-        }
+        steps.add(new AgentTaskDraft(
+                "Verificar ações e evidências",
+                "Conferir o status real das ferramentas executadas e não declarar ações sem confirmação.",
+                null));
+        steps.add(new AgentTaskDraft(
+                "Apresentar o resultado",
+                "Entregar uma resposta objetiva, indicando evidências, limitações ou etapas pendentes.",
+                null));
         return List.copyOf(steps);
+    }
+
+    private String requiredToolPrefix(String step) {
+        String normalized = step.toLowerCase(Locale.ROOT);
+        if (normalized.contains("memória") || normalized.contains("memoria")
+                || normalized.contains("lembre") || normalized.contains("guarde")) {
+            return "remember";
+        }
+        if (normalized.contains("base de conhecimento") || normalized.contains("knowledge")
+                || normalized.contains("vault") || normalized.contains("conhecimento")) {
+            return "search_knowledge";
+        }
+        if (normalized.contains("internet") || normalized.contains(" web")
+                || normalized.contains("pesquis") || normalized.contains("busc")
+                || normalized.contains("url") || normalized.contains("site")) {
+            return "mcp_";
+        }
+        return null;
     }
 
     private String userRequest(String objective) {

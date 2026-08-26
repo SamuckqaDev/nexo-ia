@@ -8,9 +8,7 @@ import {
   FolderOpen,
   ImageSquare,
   ListChecks,
-  MagnifyingGlass,
   Paperclip,
-  SpinnerGap,
   Trash,
   Vault,
   type Icon
@@ -18,6 +16,7 @@ import {
 import { useEffect, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { AgentPlan } from "../AgentPlan";
+import { AgentActivity } from "./components/AgentActivity";
 import { ImageGenerationProgress } from "../../../media/components/ImageGenerationProgress";
 import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
 import type { ImageGenerationJob, ImageGenerationState } from "../../../media/types/imageGenerationTypes";
@@ -28,7 +27,6 @@ import type { PersonalMemory } from "../../../../memory/personal/types/personalM
 import { WorkspaceTree } from "../../../../project/workspace/components/WorkspaceTree";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { useWorkspaceSnapshot } from "../../../../project/workspace/hooks/useWorkspaceSnapshot";
-import type { ToolExecution } from "../../types/chatTypes";
 import type {
   ConversationContextPanelProps,
   ConversationContextSection
@@ -67,7 +65,7 @@ const contextTabs: ContextTab[] = [
   { id: "vaults", label: "Vaults", icon: Vault },
   { id: "memory", label: "Memory", icon: Brain },
   { id: "plan", label: "Plan", icon: ClipboardText },
-  { id: "tasks", label: "Tasks", icon: ListChecks },
+  { id: "activity", label: "Activity", icon: ListChecks },
   { id: "artifacts", label: "Artifacts", icon: FileText },
   { id: "media", label: "Media", icon: ImageSquare }
 ];
@@ -121,17 +119,6 @@ function VaultContextCard({ vault, selected, disabled, onToggle }: VaultContextC
   );
 }
 
-const toolActivityLabel = (toolName: string): string => {
-  if (toolName === "update_plan") return "Implementation plan";
-  if (toolName === "search_knowledge") return "Knowledge search";
-  if (toolName === "save_to_vault") return "Save to Vault";
-  if (toolName === "remember") return "Personal memory";
-  if (toolName.startsWith("mcp_")) {
-    return `MCP · ${toolName.replace(/^mcp_[a-f0-9]{8}_/, "").replaceAll("_", " ")}`;
-  }
-  return toolName;
-};
-
 export function ConversationContextPanel({
   conversationId,
   mode,
@@ -159,8 +146,15 @@ export function ConversationContextPanel({
     job.status === "QUEUED" || job.status === "GENERATING").length;
 
   useEffect((): void => {
-    if (open && activeImageJobCount > 0) setSection("media");
-  }, [activeImageJobCount, open]);
+    if (!open) return;
+    if (activeImageJobCount > 0) {
+      setSection("media");
+      return;
+    }
+    if (agentState === "PLANNING" || agentState === "RUNNING" || agentState === "VERIFYING") {
+      setSection("activity");
+    }
+  }, [activeImageJobCount, agentState, open]);
 
   const selectSection = (nextSection: ConversationContextSection): void => {
     setSection(nextSection);
@@ -250,40 +244,19 @@ export function ConversationContextPanel({
       );
     }
 
-    if (section === "tasks") {
-      if (toolExecutions.length === 0 && !agentState) {
+    if (section === "activity") {
+      if (toolExecutions.length === 0 && !agentState && !agentPlan) {
         return (
           <EmptyState>
             <EmptyIcon><ListChecks size={22} weight="duotone" /></EmptyIcon>
             <EmptyCopy>
-              <strong>No tasks yet</strong>
-              <span>Agent tasks and their execution state will stay visible here.</span>
+              <strong>No activity yet</strong>
+              <span>Only actions confirmed by the Agent runtime will appear here.</span>
             </EmptyCopy>
           </EmptyState>
         );
       }
-      return (
-        <ResourceList>
-          {agentState && <StatusCopy aria-live="polite">Agent state: {agentState.toLowerCase()}</StatusCopy>}
-          <VaultSourceList aria-label="Agent tool activity">
-            {toolExecutions.map((execution: ToolExecution) => (
-              <VaultSourceRow key={execution.id}>
-                {execution.status === "RUNNING"
-                  ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
-                  : <MagnifyingGlass size={13} weight="duotone" />}
-                <span title={execution.toolName}>{toolActivityLabel(execution.toolName)}</span>
-                <small>
-                  {execution.status === "RUNNING"
-                    ? "running"
-                    : `${execution.status.toLowerCase().replace("_", " ")}${execution.durationMs !== null
-                      ? ` · ${(execution.durationMs / 1000).toFixed(1)}s`
-                      : ""}`}
-                </small>
-              </VaultSourceRow>
-            ))}
-          </VaultSourceList>
-        </ResourceList>
-      );
+      return <AgentActivity plan={agentPlan} state={agentState} executions={toolExecutions} />;
     }
 
     if (section === "artifacts") {

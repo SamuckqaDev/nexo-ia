@@ -227,7 +227,8 @@ public class ConversationService {
                 plan.getRevision(),
                 plan.getExplanation(),
                 plan.getSteps().stream()
-                        .map(step -> new AgentPlanStepResponse(step.step(), step.status()))
+                        .map(step -> new AgentPlanStepResponse(
+                                step.step(), step.description(), step.status()))
                         .toList(),
                 plan.getUpdatedAt());
     }

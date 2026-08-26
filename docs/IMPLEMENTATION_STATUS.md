@@ -270,7 +270,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   is shown in a subtle live trace labelled as not saved; the trace is cleared at the terminal event
   and excluded from persistence and future context. When disabled, Nexo asks the provider not to
   generate it and discards any reasoning a model still emits. A minimized resource rail keeps the
-  selected Project tree, attached Vault sources, governed implementation plan, Agent tasks,
+  selected Project tree, attached Vault sources, governed implementation plan, Agent activity,
   generated artifacts, and media oriented at the right edge and expands the selected section on
   demand. The Plan section renders the conversation's latest persisted plan revision, follows live
   `plan_updated` events during execution, and restores the correct plan after changing conversations
@@ -380,9 +380,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   model-authored answer.
 - Every Agent request now receives a durable visible fallback plan before inference. A compliant
   model can replace it through `update_plan`; a deterministic decomposer also turns the actual user
-  objective into bounded, verifiable steps so small models no longer receive the same generic
-  three-item plan. The compact plan surface shows numbered steps, status, revision, and progress. A
-  normal response from a smaller model completes the fallback. The capability envelope distinguishes
+  objective into bounded, verifiable steps with a concise title and observable description, so small
+  models no longer receive the same generic three-item plan. The compact Plan surface shows numbered
+  steps, descriptions, status, revision, and progress. A separate Activity surface shows lifecycle,
+  plan publication, and only persisted tool executions with timestamp, duration, terminal status,
+  and safe citations. A normal response completes only fallback steps supported by evidence;
+  Knowledge, memory, and MCP steps stay pending when their tools did not succeed. The capability envelope distinguishes
   exact executable tools from language abilities,
   explicitly reports when no MCP tool is connected, and points to the Hub. The Hub no longer uses a
   perpetual wait cursor for unavailable Docker actions and shows the container runtime boundary.
@@ -405,7 +408,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - macOS, Linux, and Windows bootstrap scripts now install the development prerequisites, Ollama
   models, official ComfyUI checkout and local checkpoint before starting the Compose stack. Existing
   installations can still use the smaller `dev-up` scripts without reinstalling runtimes.
-- Two hundred and twenty-six passing default backend tests and one hundred and twenty-two passing frontend tests,
+- Two hundred and twenty-nine passing default backend tests and one hundred and twenty-three passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is

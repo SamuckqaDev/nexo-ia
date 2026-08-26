@@ -43,6 +43,7 @@ public class AgentPlanToolFactory {
     public static final int MAX_UPDATES = 8;
     public static final int MAX_STEPS = 12;
     private static final int MAX_STEP_LENGTH = 240;
+    private static final int MAX_DESCRIPTION_LENGTH = 500;
     private static final int MAX_EXPLANATION_LENGTH = 500;
 
     private final AuditService audit;
@@ -66,8 +67,8 @@ public class AgentPlanToolFactory {
         AtomicBoolean modelPlanUpdated = new AtomicBoolean();
         Set<String> seenPlans = new HashSet<>();
 
-        List<String> initialSteps = decomposer.decompose(scope.objective());
-        planObserver.onUpdated(initialPlan(revision.get(), initialSteps, false));
+        List<AgentTaskDraft> initialSteps = decomposer.decompose(scope.objective());
+        planObserver.onUpdated(initialPlan(revision.get(), initialSteps, false, List.of()));
 
         var callback = FunctionToolCallback
                 .builder(TOOL_NAME, (UpdatePlanInput input, ToolContext ignored) -> execute(
@@ -76,9 +77,10 @@ public class AgentPlanToolFactory {
                 .description("Create or replace the concise implementation plan visible to the user")
                 .inputType(UpdatePlanInput.class)
                 .build();
-        return new AgentPlanToolSession(callback, evidence, () -> {
+        return new AgentPlanToolSession(callback, evidence, executionEvidence -> {
             if (modelPlanUpdated.compareAndSet(false, true)) {
-                planObserver.onUpdated(initialPlan(revision.incrementAndGet(), initialSteps, true));
+                planObserver.onUpdated(initialPlan(
+                        revision.incrementAndGet(), initialSteps, true, executionEvidence));
             }
         });
     }
@@ -117,7 +119,8 @@ public class AgentPlanToolFactory {
                 nextRevision,
                 normalizeExplanation(input.explanation()),
                 input.plan().stream()
-                        .map(step -> new AgentPlanStepUpdate(step.step().trim(), step.status()))
+                        .map(step -> new AgentPlanStepUpdate(
+                                step.step().trim(), normalizeDescription(step.description()), step.status()))
                         .toList(),
                 clock.instant());
         try {
@@ -154,7 +157,9 @@ public class AgentPlanToolFactory {
                         && step.status() != null
                         && step.step() != null
                         && !step.step().trim().isEmpty()
-                        && step.step().trim().length() <= MAX_STEP_LENGTH);
+                        && step.step().trim().length() <= MAX_STEP_LENGTH
+                        && (step.description() == null
+                                || step.description().trim().length() <= MAX_DESCRIPTION_LENGTH));
     }
 
     private String normalizeExplanation(String explanation) {
@@ -164,22 +169,49 @@ public class AgentPlanToolFactory {
         return explanation.trim();
     }
 
-    private AgentPlanUpdate initialPlan(int revision, List<String> steps, boolean completed) {
+    private String normalizeDescription(String description) {
+        return description == null || description.isBlank() ? null : description.trim();
+    }
+
+    private AgentPlanUpdate initialPlan(
+            int revision,
+            List<AgentTaskDraft> steps,
+            boolean completed,
+            List<ToolExecutionEvidence> executionEvidence) {
+        boolean hasUnverifiedAction = completed && steps.stream()
+                .anyMatch(step -> !verified(step, executionEvidence));
         return new AgentPlanUpdate(
                 revision,
                 completed
-                        ? "Objective completed through the executable steps prepared for this request."
+                        ? hasUnverifiedAction
+                                ? "Execution finished; actions without runtime evidence remain pending."
+                                : "Execution finished with every planned action confirmed by the runtime."
                         : "Objective divided into small, verifiable steps before execution.",
                 IntStream.range(0, steps.size())
                         .mapToObj(index -> new AgentPlanStepUpdate(
-                                steps.get(index),
+                                steps.get(index).title(),
+                                steps.get(index).description(),
                                 completed
-                                        ? AgentPlanStepStatus.COMPLETED
+                                        ? verified(steps.get(index), executionEvidence)
+                                                ? AgentPlanStepStatus.COMPLETED
+                                                : AgentPlanStepStatus.PENDING
                                         : index == 0
                                                 ? AgentPlanStepStatus.IN_PROGRESS
                                                 : AgentPlanStepStatus.PENDING))
                         .toList(),
                 clock.instant());
+    }
+
+    private boolean verified(AgentTaskDraft step, List<ToolExecutionEvidence> executionEvidence) {
+        if (step.requiredToolPrefix() == null) {
+            return true;
+        }
+        return executionEvidence.stream().anyMatch(execution ->
+                execution.toolName().startsWith(step.requiredToolPrefix())
+                        && execution.status() != ToolExecutionStatus.RUNNING
+                        && execution.status() != ToolExecutionStatus.DENIED
+                        && execution.status() != ToolExecutionStatus.FAILED
+                        && execution.status() != ToolExecutionStatus.UNAVAILABLE);
     }
 
     private void finish(
