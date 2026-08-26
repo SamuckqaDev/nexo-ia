@@ -76,6 +76,18 @@ nexo:
         poll-interval: ${NEXO_COMFYUI_POLL_INTERVAL:1s}
         timeout: ${NEXO_COMFYUI_TIMEOUT:10m}
         output-directory: ${NEXO_MEDIA_IMAGE_DIRECTORY:.nexo-data/media/images}
+  workspace:
+    # Server-owned execution storage. managed-root and artifact-root are created at startup under the
+    # process owner. An empty import-root disables MOUNTED registration — there is no fallback to /,
+    # $HOME or the working directory. See D-032.
+    managed-root: ${NEXO_WORKSPACE_MANAGED_ROOT:.nexo-data/workspaces}
+    import-root: ${NEXO_WORKSPACE_IMPORT_ROOT:}
+    artifact-root: ${NEXO_WORKSPACE_ARTIFACT_ROOT:.nexo-data/artifacts}
+    max-file-bytes: ${NEXO_WORKSPACE_MAX_FILE_BYTES:1048576}
+    max-tree-entries: ${NEXO_WORKSPACE_MAX_TREE_ENTRIES:500}
+    max-search-matches: ${NEXO_WORKSPACE_MAX_SEARCH_MATCHES:100}
+    approval-timeout: ${NEXO_WORKSPACE_APPROVAL_TIMEOUT:15m}
+    command-timeout: ${NEXO_WORKSPACE_COMMAND_TIMEOUT:10m}
   security:
     token:
       issuer: nexo-ia

@@ -37,6 +37,9 @@ public class Conversation {
     @Column(name = "selected_model", length = 160)
     private String selectedModel;
 
+    @Column(name = "workspace_id")
+    private UUID workspaceId;
+
     @Column(nullable = false)
     private boolean archived;
 
@@ -55,6 +58,15 @@ public class Conversation {
 
     public void rename(String title) {
         this.title = title;
+    }
+
+    /** Binds an already-authorized Workspace to this conversation as durable agent scope. */
+    public void attachWorkspace(UUID workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
+    public void clearWorkspace() {
+        this.workspaceId = null;
     }
 
     public void archive() {

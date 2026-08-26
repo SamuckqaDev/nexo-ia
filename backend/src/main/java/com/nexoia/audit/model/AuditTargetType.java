@@ -11,5 +11,6 @@ public enum AuditTargetType {
     SESSION,
     KNOWLEDGE_VAULT,
     KNOWLEDGE_SOURCE,
-    TEAM
+    TEAM,
+    WORKSPACE
 }
