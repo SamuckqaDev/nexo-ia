@@ -97,7 +97,7 @@ export function AgentActivity({ plan, state, executions }: AgentActivityProps): 
       new Date(left.startedAt).getTime() - new Date(right.startedAt).getTime());
 
   return (
-    <ActivityFeed aria-label="Agent activity feed" aria-live="polite">
+    <ActivityFeed aria-label="Agent tasks" aria-live="polite">
       <ActivitySummary>
         {state === "PLANNING" || state === "RUNNING" || state === "VERIFYING"
           ? <SpinnerGap className="activity-spinner" size={15} weight="bold" />

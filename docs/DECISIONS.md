@@ -414,7 +414,7 @@ options considered, the selected approach, and its consequences.
   capability listings come from request callbacks, and explicit external work must produce recorded
   `mcp_*` evidence before its answer is released or persisted as successful. Explicit Vault searches
   and personal-memory writes use the same mandatory-evidence gate, and capability inspection is
-  itself persisted as visible Activity.
+  itself persisted as a visible Task.
 
 ## D-029 — Make the first Agent runtime bounded, visible, and plan-driven
 
@@ -429,7 +429,7 @@ options considered, the selected approach, and its consequences.
   contain at most twelve concise steps with an observable description and at most one `IN_PROGRESS`
   step. The latest revision is
   persisted per assistant message, streamed as `plan_updated`, restored with conversation messages,
-  and rendered in a compact scroll-owning Plan panel. A separate Activity panel renders the Agent
+  and rendered in a compact scroll-owning Plan panel. A separate Tasks panel renders the Agent
   lifecycle, plan publication, and only persisted tool executions. Explicit Vault, personal-memory,
   and MCP actions are evidence-gated: model prose is buffered and cannot complete the request or its
   fallback-plan step without matching successful tool evidence. Tool executions keep sanitized

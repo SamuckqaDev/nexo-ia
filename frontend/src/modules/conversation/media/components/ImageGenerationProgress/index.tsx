@@ -20,26 +20,30 @@ export function ImageGenerationProgress({ job }: ImageGenerationProgressProps): 
   const status: string = job.status === "QUEUED" ? "Waiting for image runtime"
     : job.status === "GENERATING" ? "Generating image"
       : job.status.toLowerCase();
+  const progressCopy: string = running
+    ? job.progress === null ? "Working…" : `${Math.round(job.progress)}%`
+    : job.status === "FAILED" ? "Failed" : "Stopped";
 
   return (
     <ProgressCard aria-label={`Image generation ${job.status.toLowerCase()}`}>
       <ProgressHeader>
         <strong>{status}</strong>
-        <span>{job.progress === null ? "Working…" : `${Math.round(job.progress)}%`}</span>
+        <span>{progressCopy}</span>
       </ProgressHeader>
-      <ProgressTrack
-        aria-label="Image generation progress"
-        max={100}
-        {...(job.progress === null ? {} : { value: job.progress })}
-      />
+      {running && (
+        <ProgressTrack
+          aria-label="Image generation progress"
+          max={100}
+          {...(job.progress === null ? {} : { value: job.progress })}
+        />
+      )}
       <ProgressMeta>
         <span>{elapsed}s elapsed</span>
-        <span>{job.etaSeconds === null ? "Estimating remaining time…" : `About ${job.etaSeconds}s remaining`}</span>
+        <span>{running
+          ? job.etaSeconds === null ? "Estimating remaining time…" : `About ${job.etaSeconds}s remaining`
+          : job.model ?? job.provider}</span>
       </ProgressMeta>
       <Prompt>{job.prompt}</Prompt>
-      {job.status === "COMPLETED" && job.contentUrl && (
-        <img src={`${job.contentUrl}?v=${encodeURIComponent(job.updatedAt)}`} alt={job.prompt} />
-      )}
       {job.errorMessage && <Prompt role="alert">{job.errorMessage}</Prompt>}
     </ProgressCard>
   );

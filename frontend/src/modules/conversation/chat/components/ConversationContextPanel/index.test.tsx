@@ -124,11 +124,11 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText(/latest persisted revision/i)).toBeVisible();
   });
 
-  it("exposes activity, artifacts and media as conversation resources", () => {
+  it("exposes tasks, artifacts and media as separate conversation resources", () => {
     renderPanel("chat");
 
-    fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
-    expect(screen.getByText("No activity yet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
+    expect(screen.getByText("No tasks yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /artifacts/i }));
     expect(screen.getByText("No artifacts yet")).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText("No media yet")).toBeInTheDocument();
   });
 
-  it("shows only runtime-confirmed actions in the Agent activity feed", () => {
+  it("shows only runtime-confirmed actions in Agent tasks", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={queryClient}>
@@ -185,7 +185,8 @@ describe("ConversationContextPanel", () => {
       </QueryClientProvider>
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: /activity/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
+    expect(screen.getByLabelText("Agent tasks")).toBeVisible();
     expect(screen.getByText("Published implementation plan")).toBeVisible();
     expect(screen.getByText("Searched selected Knowledge Vaults")).toBeVisible();
     expect(screen.getByText("Nexo KB/Principles.md#1")).toBeVisible();
@@ -223,7 +224,7 @@ describe("ConversationContextPanel", () => {
     expect(onToggleVault).toHaveBeenCalledWith(vault.id);
   });
 
-  it("shows reported image progress, elapsed time and remaining estimate", () => {
+  it("shows image processing in Tasks instead of Media", () => {
     useImageGenerationStore.getState().upsertJob({
       id: "image-1",
       conversationId: "conversation-1",
@@ -242,11 +243,92 @@ describe("ConversationContextPanel", () => {
     });
     renderPanel("chat");
 
-    fireEvent.click(screen.getByRole("tab", { name: /media/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
 
     expect(screen.getByRole("progressbar", { name: /image generation progress/i })).toHaveValue(42);
     expect(screen.getByText("42%")).toBeVisible();
     expect(screen.getByText(/about 18s remaining/i)).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: /media/i }));
+    expect(screen.getByText("No media yet")).toBeVisible();
+    expect(screen.queryByRole("progressbar", { name: /image generation progress/i }))
+      .not.toBeInTheDocument();
+  });
+
+  it("keeps simultaneous image executions as separate cards in Tasks", () => {
+    const now = new Date().toISOString();
+    useImageGenerationStore.getState().upsertJob({
+      id: "image-1",
+      conversationId: "conversation-1",
+      prompt: "First generated image",
+      status: "GENERATING",
+      progress: null,
+      etaSeconds: null,
+      provider: "COMFYUI",
+      model: "first.safetensors",
+      contentUrl: null,
+      startedAt: now,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      errorMessage: null
+    });
+    useImageGenerationStore.getState().upsertJob({
+      id: "image-2",
+      conversationId: "conversation-1",
+      prompt: "Second generated image",
+      status: "QUEUED",
+      progress: null,
+      etaSeconds: null,
+      provider: "COMFYUI",
+      model: "second.safetensors",
+      contentUrl: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      errorMessage: null
+    });
+    renderPanel("chat");
+
+    fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
+
+    expect(screen.getByText("2 running")).toBeVisible();
+    expect(screen.getByText("First generated image")).toBeVisible();
+    expect(screen.getByText("Second generated image")).toBeVisible();
+    expect(screen.getAllByRole("progressbar", { name: /image generation progress/i }))
+      .toHaveLength(2);
+  });
+
+  it("lists only completed outputs in the Media gallery", () => {
+    const now = new Date().toISOString();
+    useImageGenerationStore.getState().upsertJob({
+      id: "image-complete",
+      conversationId: "conversation-1",
+      prompt: "Completed architecture image",
+      status: "COMPLETED",
+      progress: 100,
+      etaSeconds: 0,
+      provider: "COMFYUI",
+      model: "sd15.safetensors",
+      contentUrl: "/api/v1/media/images/image-complete/content",
+      startedAt: now,
+      completedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      errorMessage: null
+    });
+    renderPanel("chat");
+
+    fireEvent.click(screen.getByRole("tab", { name: /media/i }));
+
+    expect(screen.getByRole("region", { name: "Generated media" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Completed architecture image" })).toBeVisible();
+    expect(screen.queryByRole("progressbar", { name: /image generation progress/i }))
+      .not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
+    expect(screen.getByText("No tasks yet")).toBeVisible();
   });
 
   it("shows and removes only the authenticated account's personal memories", async () => {

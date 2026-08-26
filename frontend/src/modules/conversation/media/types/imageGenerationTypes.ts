@@ -41,3 +41,7 @@ export type ImageGenerationState = {
 export type ImageGenerationProgressProps = {
   job: ImageGenerationJob;
 };
+
+export type GeneratedMediaGalleryProps = {
+  jobs: ImageGenerationJob[];
+};

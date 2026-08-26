@@ -17,13 +17,17 @@ authenticated user
   -> GENERATING with runtime prompt id and checkpoint
   -> bounded local artifact write
   -> COMPLETED or FAILED audit
-  -> authenticated Media rail and image content endpoint
+  -> active or failed job in Tasks
+  -> completed artifact in Media and the authenticated content endpoint
 ```
 
 The frontend polls only while a job is active. ComfyUI's basic history route does not expose a stable
 portable percentage for this workflow, so Nexo shows an indeterminate progress bar and real elapsed
-time instead of inventing a percentage or ETA. A completed artifact remains attached to its
-conversation and is owner-filtered when listed or downloaded.
+time instead of inventing a percentage or ETA. Every queued, generating, failed, or cancelled image
+job is rendered as its own card in the conversation's **Tasks** section, including when several jobs
+run at the same time. **Media** is a gallery of completed conversation outputs only; it never doubles
+as a processing monitor. A completed artifact remains attached to its conversation and is
+owner-filtered when listed or downloaded.
 
 The runtime response includes the complete checkpoint catalog reported by ComfyUI and the configured
 default. Image mode shows that catalog in a compact selector and sends the exact selected filename

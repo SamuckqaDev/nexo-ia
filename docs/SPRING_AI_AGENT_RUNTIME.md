@@ -120,18 +120,18 @@ the runtime evidence. A Vault lookup, memory write, or MCP action stays pending 
 tool never completed successfully.
 
 The newest revision is rendered in the conversation workspace's **Plan** section. A separate
-**Activity** section follows `agent_state`, `plan_updated`, `tool_started`, and `tool_completed`, then
+**Tasks** section follows `agent_state`, `plan_updated`, `tool_started`, and `tool_completed`, then
 restores the persisted plan and sanitized evidence after navigation or reload. It shows timestamps,
 duration, terminal status, and safe citations without exposing raw arguments, secrets, or private
 chain-of-thought. The assistant turn keeps only a compact status/action summary that points to the
-Activity panel.
+Tasks panel.
 
 Explicit requests to consult selected Vaults, persist personal memory, or perform external MCP
 research are evidence-gated. The runtime narrows the callback set to the required tools, buffers the
 model's prose, and releases an answer only after each required action has successful tool evidence.
 If a required callback is absent, ignored, denied, unavailable, or failed, Nexo returns a controlled
 runtime result instead of accepting a model-authored success claim. Capability inspection itself is
-also emitted and persisted as a visible `inspect_capabilities` Activity event.
+also emitted and persisted as a visible `inspect_capabilities` task event.
 
 `toolSearchTool` is capped at three calls and `inspect_capabilities` at two calls per request. These
 internal discovery calls are included in the combined tool-call budget. `search_knowledge` accepts

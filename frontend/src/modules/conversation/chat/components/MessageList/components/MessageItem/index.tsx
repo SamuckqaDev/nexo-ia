@@ -131,7 +131,7 @@ export function MessageItem({
 
         {agentActive && (
           <ContextBadges aria-label="Agent execution">
-            <ContextBadge title="Open the Activity panel to follow confirmed actions">
+            <ContextBadge title="Open Tasks to follow confirmed actions">
               {agentRunning
                 ? <SpinnerGap className="tool-spinner" size={13} weight="bold" />
                 : <ListChecks size={13} weight="duotone" />}
@@ -139,7 +139,7 @@ export function MessageItem({
               {toolExecutions.length > 0
                 ? ` · ${toolExecutions.length} action${toolExecutions.length > 1 ? "s" : ""}`
                 : ""}
-              {" · see Activity"}
+              {" · see Tasks"}
             </ContextBadge>
           </ContextBadges>
         )}

@@ -8,14 +8,6 @@ export const ProgressCard = styled.article`
   border-radius: ${({ theme }) => theme.radius.control};
   background: ${({ theme }) => theme.colors.background};
 
-  > img {
-    display: block;
-    width: 100%;
-    max-height: 22rem;
-    object-fit: contain;
-    border-radius: ${({ theme }) => theme.radius.button};
-    background: ${({ theme }) => theme.colors.backgroundSoft};
-  }
 `;
 
 export const ProgressHeader = styled.header`

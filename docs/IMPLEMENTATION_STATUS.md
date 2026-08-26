@@ -270,7 +270,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   is shown in a subtle live trace labelled as not saved; the trace is cleared at the terminal event
   and excluded from persistence and future context. When disabled, Nexo asks the provider not to
   generate it and discards any reasoning a model still emits. A minimized resource rail keeps the
-  selected Project tree, attached Vault sources, governed implementation plan, Agent activity,
+  selected Project tree, attached Vault sources, governed implementation plan, Agent tasks,
   generated artifacts, and media oriented at the right edge and expands the selected section on
   demand. The Plan section renders the conversation's latest persisted plan revision, follows live
   `plan_updated` events during execution, and restores the correct plan after changing conversations
@@ -287,9 +287,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   processing location; Chat also shows conversation and all-time account token totals. Model changes
   update optimistically, report persistence progress or errors, and roll back on failure instead of
   silently snapping to the previous selection.
-  Media resources have a typed progress surface for runtime-reported percentage, elapsed time, and
+  The Tasks resource has a typed progress surface for runtime-reported percentage, elapsed time, and
   remaining-time estimates; an indeterminate state is used when the image runtime cannot provide a
-  real percentage. The generation adapter itself remains pending the local image runtime.
+  real percentage. Parallel image jobs and Agent tool executions remain separate, inspectable task
+  cards. Media is reserved for the gallery of completed conversation outputs.
   Capabilities without a connected runtime remain explicit previews or empty states instead of
   suggesting work was executed.
 - A unified security audit trail is recorded in `audit_event` and inspectable only by an Owner at
@@ -382,7 +383,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   model can replace it through `update_plan`; a deterministic decomposer also turns the actual user
   objective into bounded, verifiable steps with a concise title and observable description, so small
   models no longer receive the same generic three-item plan. The compact Plan surface shows numbered
-  steps, descriptions, status, revision, and progress. A separate Activity surface shows lifecycle,
+  steps, descriptions, status, revision, and progress. A separate Tasks surface shows lifecycle,
   plan publication, and only persisted tool executions with timestamp, duration, terminal status,
   and safe citations. A normal response completes only fallback steps supported by evidence;
   Knowledge, memory, and MCP steps stay pending when their tools did not succeed. The capability envelope distinguishes
@@ -402,9 +403,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   workspace's Memory section provide inspection and deletion. See D-031.
 - Migration V34 adds authenticated, per-user and per-conversation image-generation jobs. The local
   ComfyUI adapter queues the official workflow API, reads history and artifacts, persists binaries
-  outside PostgreSQL, and records audit outcomes. Chat now has an honest Image mode; the Media rail
-  shows queued/generating elapsed time, indeterminate progress when ComfyUI provides no percentage,
-  failures, and completed images. Runtime discovery now exposes all installed checkpoints, the Image
+  outside PostgreSQL, and records audit outcomes. Chat now has an honest Image mode; the Tasks rail
+  shows every queued, generating, failed, or cancelled image job as a separate execution, including
+  parallel jobs, while Media lists only completed images. Runtime discovery now exposes all installed checkpoints, the Image
   composer lets the user select one explicitly, and every queued job validates and records that
   selection. A one-shot Compose initializer repairs the media volume ownership before the
   unprivileged backend starts, including for existing development volumes. See
@@ -412,7 +413,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - macOS, Linux, and Windows bootstrap scripts now install the development prerequisites, Ollama
   models, official ComfyUI checkout and local checkpoint before starting the Compose stack. Existing
   installations can still use the smaller `dev-up` scripts without reinstalling runtimes.
-- Two hundred and thirty passing default backend tests and one hundred and twenty-four passing frontend tests,
+- Two hundred and thirty passing default backend tests and one hundred and twenty-six passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is

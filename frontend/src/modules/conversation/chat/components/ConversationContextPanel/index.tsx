@@ -16,8 +16,7 @@ import {
 import { useEffect, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { AgentPlan } from "../AgentPlan";
-import { AgentActivity } from "./components/AgentActivity";
-import { ImageGenerationProgress } from "../../../media/components/ImageGenerationProgress";
+import { GeneratedMediaGallery } from "../../../media/components/GeneratedMediaGallery";
 import { useImageGenerationStore } from "../../../media/stores/useImageGenerationStore";
 import type { ImageGenerationJob, ImageGenerationState } from "../../../media/types/imageGenerationTypes";
 import { useVaultSources } from "../../../../knowledge/vault/hooks/useVaultSources";
@@ -31,6 +30,7 @@ import type {
   ConversationContextPanelProps,
   ConversationContextSection
 } from "../../types/chatViewTypes";
+import { ConversationTasks } from "./components/ConversationTasks";
 import {
   CloseButton,
   EmptyCopy,
@@ -65,7 +65,7 @@ const contextTabs: ContextTab[] = [
   { id: "vaults", label: "Vaults", icon: Vault },
   { id: "memory", label: "Memory", icon: Brain },
   { id: "plan", label: "Plan", icon: ClipboardText },
-  { id: "activity", label: "Activity", icon: ListChecks },
+  { id: "tasks", label: "Tasks", icon: ListChecks },
   { id: "artifacts", label: "Artifacts", icon: FileText },
   { id: "media", label: "Media", icon: ImageSquare }
 ];
@@ -141,18 +141,24 @@ export function ConversationContextPanel({
   const personalMemories = usePersonalMemories(Boolean(conversationId));
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
-    .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId);
-  const activeImageJobCount: number = imageJobs.filter((job: ImageGenerationJob): boolean =>
+    .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId)
+    .sort((left: ImageGenerationJob, right: ImageGenerationJob): number =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  const imageTaskJobs: ImageGenerationJob[] = imageJobs.filter((job: ImageGenerationJob): boolean =>
+    job.status !== "COMPLETED");
+  const completedImageJobs: ImageGenerationJob[] = imageJobs.filter(
+    (job: ImageGenerationJob): boolean => job.status === "COMPLETED" && Boolean(job.contentUrl));
+  const activeImageJobCount: number = imageTaskJobs.filter((job: ImageGenerationJob): boolean =>
     job.status === "QUEUED" || job.status === "GENERATING").length;
 
   useEffect((): void => {
     if (!open) return;
     if (activeImageJobCount > 0) {
-      setSection("media");
+      setSection("tasks");
       return;
     }
     if (agentState === "PLANNING" || agentState === "RUNNING" || agentState === "VERIFYING") {
-      setSection("activity");
+      setSection("tasks");
     }
   }, [activeImageJobCount, agentState, open]);
 
@@ -244,19 +250,26 @@ export function ConversationContextPanel({
       );
     }
 
-    if (section === "activity") {
-      if (toolExecutions.length === 0 && !agentState && !agentPlan) {
+    if (section === "tasks") {
+      if (imageTaskJobs.length === 0 && toolExecutions.length === 0 && !agentState && !agentPlan) {
         return (
           <EmptyState>
             <EmptyIcon><ListChecks size={22} weight="duotone" /></EmptyIcon>
             <EmptyCopy>
-              <strong>No activity yet</strong>
-              <span>Only actions confirmed by the Agent runtime will appear here.</span>
+              <strong>No tasks yet</strong>
+              <span>Image processing and actions confirmed by the Agent runtime will appear here separately.</span>
             </EmptyCopy>
           </EmptyState>
         );
       }
-      return <AgentActivity plan={agentPlan} state={agentState} executions={toolExecutions} />;
+      return (
+        <ConversationTasks
+          plan={agentPlan}
+          state={agentState}
+          executions={toolExecutions}
+          imageJobs={imageTaskJobs}
+        />
+      );
     }
 
     if (section === "artifacts") {
@@ -272,20 +285,15 @@ export function ConversationContextPanel({
     }
 
     if (section === "media") {
-      if (imageJobs.length > 0) {
-        return (
-          <ResourceList>
-            <StatusCopy>Image progress is reported by the runtime when available; otherwise Nexo shows an honest indeterminate state and elapsed time.</StatusCopy>
-            {imageJobs.map((job: ImageGenerationJob) => <ImageGenerationProgress key={job.id} job={job} />)}
-          </ResourceList>
-        );
+      if (completedImageJobs.length > 0) {
+        return <GeneratedMediaGallery jobs={completedImageJobs} />;
       }
       return (
         <EmptyState>
           <EmptyIcon><ImageSquare size={22} weight="duotone" /></EmptyIcon>
           <EmptyCopy>
             <strong>No media yet</strong>
-            <span>Generated images and media will stay attached to this conversation.</span>
+            <span>Completed images and media created in this conversation will appear here.</span>
           </EmptyCopy>
         </EmptyState>
       );
@@ -342,7 +350,7 @@ export function ConversationContextPanel({
       <PanelHeader>
         <div>
           <PanelTitle>Workspace</PanelTitle>
-          <span>Project, knowledge and outputs</span>
+          <span>Project, knowledge, tasks and outputs</span>
         </div>
         <CloseButton type="button" aria-label="Minimize conversation resources" onClick={(): void => onOpenChange(false)}>
           <CaretDoubleRight size={16} />
