@@ -8,5 +8,8 @@ public interface ImageGenerationRuntime {
 
     ImageRuntimeHealth health();
 
-    GeneratedImage generate(String prompt, BiConsumer<String, String> onStarted);
+    GeneratedImage generate(
+            String prompt,
+            String model,
+            BiConsumer<String, String> onStarted);
 }

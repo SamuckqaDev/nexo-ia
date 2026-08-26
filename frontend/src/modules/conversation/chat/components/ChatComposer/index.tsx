@@ -1,5 +1,5 @@
 import { ArrowUp, ChatCircleDots, ImageSquare, PaperPlaneRight, PlugsConnected, Robot, Sparkle, Stop, X } from "@phosphor-icons/react";
-import { useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 import { useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
 import type { SkillCatalogState, SkillDefinition } from "../../../../skill/catalog/types/skillTypes";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
@@ -20,6 +20,9 @@ import {
   HistoryCopy,
   HistoryMenu,
   HistoryOption,
+  ImageModelControl,
+  ImageModelLabel,
+  ImageModelSelect,
   ModeButton,
   ModeControl,
   RemoveContext,
@@ -41,6 +44,8 @@ export function ChatComposer({
   isBusy,
   imageRuntimeAvailable,
   imageRuntimeMessage,
+  imageModels,
+  defaultImageModel,
   imageSubmitting,
   mode,
   agentContext,
@@ -58,10 +63,18 @@ export function ChatComposer({
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [imageMode, setImageMode] = useState<boolean>(false);
+  const [selectedImageModel, setSelectedImageModel] = useState<string>(
+    defaultImageModel ?? imageModels[0] ?? "");
   const field = useRef<HTMLTextAreaElement>(null);
   const draftBeforeHistory = useRef<string>("");
   const skills: SkillDefinition[] = useSkillCatalogStore((state: SkillCatalogState) => state.skills);
   const activeWorkspace = useActiveWorkspace();
+
+  useEffect((): void => {
+    if (selectedImageModel && imageModels.includes(selectedImageModel)) return;
+    setSelectedImageModel(defaultImageModel ?? imageModels[0] ?? "");
+  }, [defaultImageModel, imageModels, selectedImageModel]);
+
   const recentMessages: string[] = useMemo<string[]>(() => {
     const seen = new Set<string>();
     const recent: string[] = [];
@@ -94,8 +107,8 @@ export function ChatComposer({
     if (!content.trim() || isBusy || imageSubmitting
       || (!imageMode && mode === "agent" && agentContext.modelToolCallingSupported === false)) return;
     if (imageMode) {
-      if (!imageRuntimeAvailable) return;
-      onGenerateImage(content.trim());
+      if (!imageRuntimeAvailable || !selectedImageModel) return;
+      onGenerateImage(content.trim(), selectedImageModel);
     } else {
       onSend(buildContextualChatMessage(content, {
         skill: activeSkill,
@@ -227,6 +240,24 @@ export function ChatComposer({
               <RemoveContext type="button" aria-label={`Remove ${activeSkill.name} Skill`} onClick={(): void => setActiveSkill(null)}><X size={14} /></RemoveContext>
             </ActiveContext>
           )}
+          {imageMode && (
+            <ImageModelControl>
+              <ImageSquare size={15} weight="duotone" />
+              <ImageModelLabel htmlFor="nexo-image-model">Image model</ImageModelLabel>
+              <ImageModelSelect
+                id="nexo-image-model"
+                aria-label="Image model"
+                value={selectedImageModel}
+                disabled={imageSubmitting || imageModels.length === 0}
+                onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                  setSelectedImageModel(event.target.value)}
+              >
+                {imageModels.map((model: string) => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </ImageModelSelect>
+            </ImageModelControl>
+          )}
           <Field
             ref={field}
             aria-label="Message"
@@ -278,7 +309,7 @@ export function ChatComposer({
                   type="submit"
                   aria-label="Send message"
                   disabled={disabled || (!imageMode && !hasModel) || !content.trim() || imageSubmitting
-                    || (imageMode && !imageRuntimeAvailable)
+                    || (imageMode && (!imageRuntimeAvailable || !selectedImageModel))
                     || (!imageMode && mode === "agent" && agentContext.modelToolCallingSupported === false)}
                 >
                   <PaperPlaneRight size={19} weight="fill" />

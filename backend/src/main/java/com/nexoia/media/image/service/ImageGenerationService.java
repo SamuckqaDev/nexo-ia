@@ -12,7 +12,9 @@ import com.nexoia.media.image.dto.CreateImageGenerationRequest;
 import com.nexoia.media.image.dto.ImageContent;
 import com.nexoia.media.image.dto.ImageGenerationResponse;
 import com.nexoia.media.image.dto.ImageRuntimeResponse;
+import com.nexoia.media.image.exception.ImageArtifactPersistenceException;
 import com.nexoia.media.image.exception.ImageGenerationNotFoundException;
+import com.nexoia.media.image.exception.ImageModelUnavailableException;
 import com.nexoia.media.image.exception.ImageRuntimeUnavailableException;
 import com.nexoia.media.image.model.ImageGenerationJob;
 import com.nexoia.media.image.model.ImageGenerationStatus;
@@ -39,6 +41,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class ImageGenerationService {
 
     private static final String RUNTIME_FAILURE = "COMFYUI_GENERATION_FAILED";
+    private static final String ARTIFACT_FAILURE = "IMAGE_ARTIFACT_PERSISTENCE_FAILED";
+    private static final String MODEL_FAILURE = "IMAGE_MODEL_UNAVAILABLE";
     private final ImageGenerationJobRepository jobs;
     private final ConversationRepository conversations;
     private final ImageGenerationRuntime runtime;
@@ -72,6 +76,7 @@ public class ImageGenerationService {
                 health.configured(),
                 health.available(),
                 health.model(),
+                health.models(),
                 health.message());
     }
 
@@ -94,6 +99,7 @@ public class ImageGenerationService {
         if (!health.available()) {
             throw new ImageRuntimeUnavailableException();
         }
+        String selectedModel = selectedModel(request.model(), health);
         ImageGenerationJob job = jobs.saveAndFlush(ImageGenerationJob.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
@@ -101,6 +107,7 @@ public class ImageGenerationService {
                 .prompt(request.prompt().trim())
                 .status(ImageGenerationStatus.QUEUED)
                 .provider(runtime.provider())
+                .model(selectedModel)
                 .build());
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
@@ -143,6 +150,7 @@ public class ImageGenerationService {
             ImageGenerationJob queued = required(jobId);
             GeneratedImage generated = runtime.generate(
                     queued.getPrompt(),
+                    queued.getModel(),
                     (runtimeJobId, model) -> markStarted(jobId, runtimeJobId, model));
             String artifact = write(jobId, generated);
             ImageGenerationJob completed = required(jobId);
@@ -157,8 +165,13 @@ public class ImageGenerationService {
         } catch (RuntimeException exception) {
             log.warn("[NEXO-BACK][MEDIA] Image job failed jobId={} reason={}",
                     jobId, exception.getClass().getSimpleName());
+            String failureCode = switch (exception) {
+                case ImageArtifactPersistenceException ignored -> ARTIFACT_FAILURE;
+                case ImageModelUnavailableException ignored -> MODEL_FAILURE;
+                default -> RUNTIME_FAILURE;
+            };
             jobs.findById(jobId).ifPresent(job -> {
-                job.fail(RUNTIME_FAILURE, clock.instant());
+                job.fail(failureCode, clock.instant());
                 jobs.saveAndFlush(job);
                 audit.record(new RecordAuditCommand(
                         AuditAction.IMAGE_GENERATION_FAILED,
@@ -168,7 +181,7 @@ public class ImageGenerationService {
                         AuditTargetType.MEDIA,
                         job.getId(),
                         null,
-                        RUNTIME_FAILURE));
+                        failureCode));
             });
         }
     }
@@ -189,8 +202,18 @@ public class ImageGenerationService {
             Files.write(artifact, generated.bytes());
             return filename;
         } catch (IOException exception) {
-            throw new IllegalStateException("Generated image could not be persisted", exception);
+            throw new ImageArtifactPersistenceException(exception);
         }
+    }
+
+    private String selectedModel(String requestedModel, ImageRuntimeHealth health) {
+        if (requestedModel == null || requestedModel.isBlank()) {
+            return health.model();
+        }
+        return health.models().stream()
+                .filter(requestedModel::equals)
+                .findFirst()
+                .orElseThrow(ImageModelUnavailableException::new);
     }
 
     private String extension(String mediaType) {

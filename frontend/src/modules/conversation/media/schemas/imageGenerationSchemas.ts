@@ -22,5 +22,6 @@ export const imageRuntimeSchema = z.object({
   configured: z.boolean(),
   available: z.boolean(),
   model: z.string().nullable(),
+  models: z.array(z.string()),
   message: z.string()
 });

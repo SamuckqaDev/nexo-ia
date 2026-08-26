@@ -44,6 +44,8 @@ export type ChatComposerProps = {
   isBusy: boolean;
   imageRuntimeAvailable: boolean;
   imageRuntimeMessage: string;
+  imageModels: string[];
+  defaultImageModel: string | null;
   imageSubmitting: boolean;
   mode: ConversationMode;
   agentContext: AgentContextSummary;
@@ -51,7 +53,7 @@ export type ChatComposerProps = {
   onInspectKnowledge: () => void;
   onManageMcp: () => void;
   onSend: (content: string) => void;
-  onGenerateImage: (prompt: string) => void;
+  onGenerateImage: (prompt: string, model: string) => void;
   onCancel: () => void;
 };
 

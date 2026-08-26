@@ -404,11 +404,15 @@ minimal vertical connection plus the first release `0.1` identity slice.
   ComfyUI adapter queues the official workflow API, reads history and artifacts, persists binaries
   outside PostgreSQL, and records audit outcomes. Chat now has an honest Image mode; the Media rail
   shows queued/generating elapsed time, indeterminate progress when ComfyUI provides no percentage,
-  failures, and completed images. See [Local image generation](IMAGE_GENERATION.md).
+  failures, and completed images. Runtime discovery now exposes all installed checkpoints, the Image
+  composer lets the user select one explicitly, and every queued job validates and records that
+  selection. A one-shot Compose initializer repairs the media volume ownership before the
+  unprivileged backend starts, including for existing development volumes. See
+  [Local image generation](IMAGE_GENERATION.md).
 - macOS, Linux, and Windows bootstrap scripts now install the development prerequisites, Ollama
   models, official ComfyUI checkout and local checkpoint before starting the Compose stack. Existing
   installations can still use the smaller `dev-up` scripts without reinstalling runtimes.
-- Two hundred and twenty-nine passing default backend tests and one hundred and twenty-three passing frontend tests,
+- Two hundred and thirty passing default backend tests and one hundred and twenty-four passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is

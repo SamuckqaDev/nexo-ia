@@ -10,6 +10,7 @@ import {
 } from "../api/imageGenerationApi";
 import { useImageGenerationStore } from "../stores/useImageGenerationStore";
 import type {
+  CreateImageGenerationInput,
   ImageGenerationJob,
   ImageGenerationState,
   ImageRuntime
@@ -18,7 +19,7 @@ import type {
 type ImageGenerationResult = {
   runtime: UseQueryResult<ImageRuntime, Error>;
   jobs: UseQueryResult<ImageGenerationJob[], Error>;
-  generate: UseMutationResult<ImageGenerationJob, Error, string>;
+  generate: UseMutationResult<ImageGenerationJob, Error, CreateImageGenerationInput>;
 };
 
 export function useImageGeneration(conversationId: string | null): ImageGenerationResult {
@@ -48,9 +49,9 @@ export function useImageGeneration(conversationId: string | null): ImageGenerati
   }, [jobs.data, upsertJob]);
 
   const generate = useMutation({
-    mutationFn: (prompt: string): Promise<ImageGenerationJob> => {
+    mutationFn: (input: CreateImageGenerationInput): Promise<ImageGenerationJob> => {
       if (!conversationId) return Promise.reject(new Error("Select a conversation first"));
-      return createImageGeneration(conversationId, prompt);
+      return createImageGeneration(conversationId, input);
     },
     onSuccess: (job: ImageGenerationJob): void => {
       upsertJob(job);

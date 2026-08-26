@@ -30,7 +30,8 @@ const renderComposer = (
   messageHistory: string[] = [],
   agentContext: AgentContextSummary = defaultAgentContext,
   imageRuntimeAvailable = false,
-  onGenerateImage = vi.fn()
+  onGenerateImage = vi.fn(),
+  imageModels: string[] = ["v1-5-pruned.safetensors", "medical-study.safetensors"]
 ) => {
   render(
     <ThemeProvider theme={darkTheme}>
@@ -43,6 +44,8 @@ const renderComposer = (
         isBusy={isBusy}
         imageRuntimeAvailable={imageRuntimeAvailable}
         imageRuntimeMessage={imageRuntimeAvailable ? "ComfyUI ready" : "ComfyUI unavailable"}
+        imageModels={imageRuntimeAvailable ? imageModels : []}
+        defaultImageModel={imageRuntimeAvailable ? imageModels[0] ?? null : null}
         imageSubmitting={false}
         mode={mode}
         agentContext={agentContext}
@@ -127,8 +130,30 @@ describe("ChatComposer", () => {
     fireEvent.change(prompt, { target: { value: "A cyan neural knowledge graph" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(onGenerateImage).toHaveBeenCalledWith("A cyan neural knowledge graph");
+    expect(onGenerateImage).toHaveBeenCalledWith(
+      "A cyan neural knowledge graph",
+      "v1-5-pruned.safetensors"
+    );
     expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("lets the user choose an installed ComfyUI checkpoint for the image request", () => {
+    const onGenerateImage = vi.fn();
+    renderComposer(
+      "chat", vi.fn(), "An anatomical fracture study", vi.fn(), false, "idle", [],
+      defaultAgentContext, true, onGenerateImage
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Image model" }), {
+      target: { value: "medical-study.safetensors" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(onGenerateImage).toHaveBeenCalledWith(
+      "An anatomical fracture study",
+      "medical-study.safetensors"
+    );
   });
 
   it("opens the Skill palette with slash and includes the chosen method in the message context", () => {

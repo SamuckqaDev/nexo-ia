@@ -1,6 +1,7 @@
 package com.nexoia.media.image.runtime;
 
 import com.nexoia.media.image.config.ComfyUiProperties;
+import com.nexoia.media.image.exception.ImageModelUnavailableException;
 import com.nexoia.media.image.exception.ImageRuntimeUnavailableException;
 import java.net.URI;
 import java.time.Instant;
@@ -52,32 +53,39 @@ public class ComfyUiImageGenerationRuntime implements ImageGenerationRuntime {
                     false,
                     false,
                     null,
+                    List.of(),
                     "Configure NEXO_COMFYUI_BASE_URL to enable local image generation.");
         }
         try {
-            String checkpoint = checkpoint(client());
+            List<String> models = models(client());
+            String checkpoint = checkpoint(models, null);
             return new ImageRuntimeHealth(
                     true,
                     true,
                     checkpoint,
+                    models,
                     "ComfyUI is connected and has a checkpoint ready.");
         } catch (RuntimeException exception) {
             return new ImageRuntimeHealth(
                     true,
                     false,
                     null,
+                    List.of(),
                     "ComfyUI could not be reached or has no checkpoint installed.");
         }
     }
 
     @Override
-    public GeneratedImage generate(String prompt, BiConsumer<String, String> onStarted) {
+    public GeneratedImage generate(
+            String prompt,
+            String requestedModel,
+            BiConsumer<String, String> onStarted) {
         if (!properties.configured()) {
             throw new ImageRuntimeUnavailableException();
         }
         try {
             RestClient client = client();
-            String checkpoint = checkpoint(client);
+            String checkpoint = checkpoint(models(client), requestedModel);
             String clientId = UUID.randomUUID().toString();
             JsonNode queued = client.post()
                     .uri("/prompt")
@@ -109,7 +117,7 @@ public class ComfyUiImageGenerationRuntime implements ImageGenerationRuntime {
                     ? "image/png"
                     : response.getHeaders().getContentType().toString();
             return new GeneratedImage(promptId, checkpoint, output.filename(), mediaType, bytes);
-        } catch (ImageRuntimeUnavailableException exception) {
+        } catch (ImageModelUnavailableException | ImageRuntimeUnavailableException exception) {
             throw exception;
         } catch (RestClientException | InterruptedException exception) {
             if (exception instanceof InterruptedException) {
@@ -125,7 +133,7 @@ public class ComfyUiImageGenerationRuntime implements ImageGenerationRuntime {
         return restClientBuilder.clone().baseUrl(properties.baseUrl()).build();
     }
 
-    private String checkpoint(RestClient client) {
+    private List<String> models(RestClient client) {
         JsonNode response = client.get()
                 .uri("/models/checkpoints")
                 .retrieve()
@@ -133,15 +141,31 @@ public class ComfyUiImageGenerationRuntime implements ImageGenerationRuntime {
         if (response == null || !response.isArray() || response.isEmpty()) {
             throw new ImageRuntimeUnavailableException();
         }
-        if (!properties.checkpoint().isBlank()) {
-            for (JsonNode model : response) {
-                if (properties.checkpoint().equals(model.asText())) {
-                    return properties.checkpoint();
-                }
-            }
+        List<String> models = response.valueStream()
+                .map(JsonNode::asText)
+                .filter(model -> !model.isBlank())
+                .distinct()
+                .toList();
+        if (models.isEmpty()) {
             throw new ImageRuntimeUnavailableException();
         }
-        return response.get(0).asText();
+        return models;
+    }
+
+    private String checkpoint(List<String> models, String requestedModel) {
+        if (requestedModel != null && !requestedModel.isBlank()) {
+            return models.stream()
+                    .filter(requestedModel::equals)
+                    .findFirst()
+                    .orElseThrow(ImageModelUnavailableException::new);
+        }
+        if (!properties.checkpoint().isBlank()) {
+            return models.stream()
+                    .filter(properties.checkpoint()::equals)
+                    .findFirst()
+                    .orElseThrow(ImageRuntimeUnavailableException::new);
+        }
+        return models.getFirst();
     }
 
     private OutputReference waitForOutput(RestClient client, String promptId)
@@ -154,13 +178,15 @@ public class ComfyUiImageGenerationRuntime implements ImageGenerationRuntime {
                     .body(JsonNode.class);
             JsonNode entry = history == null ? null : history.path(promptId);
             if (entry != null && !entry.isMissingNode()) {
-                JsonNode images = entry.path("outputs").path("9").path("images");
-                if (images.isArray() && !images.isEmpty()) {
-                    JsonNode image = images.get(0);
-                    return new OutputReference(
-                            image.path("filename").asText(),
-                            image.path("subfolder").asText(""),
-                            image.path("type").asText("output"));
+                for (JsonNode output : entry.path("outputs")) {
+                    JsonNode images = output.path("images");
+                    if (images.isArray() && !images.isEmpty()) {
+                        JsonNode image = images.get(0);
+                        return new OutputReference(
+                                image.path("filename").asText(),
+                                image.path("subfolder").asText(""),
+                                image.path("type").asText("output"));
+                    }
                 }
                 if ("error".equalsIgnoreCase(entry.path("status").path("status_str").asText())) {
                     throw new ImageRuntimeUnavailableException();

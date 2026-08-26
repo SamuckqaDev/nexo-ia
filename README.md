@@ -108,6 +108,9 @@ starts authenticated, non-published Docker MCP Gateway sidecars for the free Fet
 catalog servers. Set `NEXO_MCP_GATEWAY_TOKEN` to override the local-only default gateway token.
 When ComfyUI is running on the host, the backend reaches it through
 `NEXO_CONTAINER_COMFYUI_BASE_URL` (default `http://host.containers.internal:8188`).
+Copy additional `.safetensors` checkpoints into
+`.nexo-runtime/comfyui/models/checkpoints/`; Nexo discovers them from ComfyUI and offers them in the
+chat's Image model selector.
 
 ## Documentation site
 

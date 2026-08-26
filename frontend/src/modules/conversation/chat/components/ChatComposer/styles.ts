@@ -41,6 +41,47 @@ export const ActiveContextCopy = styled.span`
   span { overflow: hidden; color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.6rem; text-overflow: ellipsis; white-space: nowrap; }
 `;
 
+export const ImageModelControl = styled.div`
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => `${theme.spacing.xs} ${theme.spacing.md}`};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  background: ${({ theme }) => theme.colors.backgroundSoft};
+  color: ${({ theme }) => theme.colors.primary};
+`;
+
+export const ImageModelLabel = styled.label`
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+export const ImageModelSelect = styled.select`
+  min-width: 0;
+  max-width: 24rem;
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.button};
+  padding: 0.32rem 1.8rem 0.32rem 0.5rem;
+  background: ${({ theme }) => theme.colors.surfaceStrong};
+  color: ${({ theme }) => theme.colors.text};
+  font: inherit;
+  font-size: 0.66rem;
+  cursor: pointer;
+
+  &:focus-visible {
+    border-color: ${({ theme }) => theme.colors.primary};
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+`;
+
 export const RemoveContext = styled.button`
   display: grid;
   width: 1.75rem;

@@ -8,7 +8,8 @@ COPY src ./src
 RUN mvn -B -ntp verify -Dexcluded.test.groups=ollama,docker
 
 FROM eclipse-temurin:25-jre
-RUN useradd --system --uid 10001 --create-home nexo
+RUN groupadd --system --gid 10001 nexo \
+    && useradd --system --uid 10001 --gid 10001 --create-home nexo
 WORKDIR /app
 COPY --from=build --chown=nexo:nexo /workspace/target/nexo-backend-*.jar /app/nexo.jar
 USER nexo

@@ -1,7 +1,17 @@
 import { apiClient } from "../../../../shared/api/client";
 import type { BaseResponse } from "../../../../shared/types/apiTypes";
 import { imageGenerationJobSchema, imageRuntimeSchema } from "../schemas/imageGenerationSchemas";
-import type { ImageGenerationJob, ImageRuntime } from "../types/imageGenerationTypes";
+import type {
+  CreateImageGenerationInput,
+  ImageGenerationJob,
+  ImageRuntime
+} from "../types/imageGenerationTypes";
+
+const errorMessages: Record<string, string> = {
+  COMFYUI_GENERATION_FAILED: "ComfyUI could not finish this image. Check the runtime and try again.",
+  IMAGE_ARTIFACT_PERSISTENCE_FAILED: "The image was generated, but Nexo could not save the file.",
+  IMAGE_MODEL_UNAVAILABLE: "The selected image model is no longer installed in ComfyUI."
+};
 
 const first = <T>(response: BaseResponse<T>): T => {
   const value: T | undefined = response.data?.[0];
@@ -11,7 +21,10 @@ const first = <T>(response: BaseResponse<T>): T => {
 
 const parseJob = (value: unknown): ImageGenerationJob => {
   const parsed = imageGenerationJobSchema.parse(value);
-  return { ...parsed, errorMessage: parsed.errorCode };
+  return {
+    ...parsed,
+    errorMessage: parsed.errorCode ? errorMessages[parsed.errorCode] ?? parsed.errorCode : null
+  };
 };
 
 export function getImageRuntime(): Promise<ImageRuntime> {
@@ -26,10 +39,10 @@ export function listImageGenerations(conversationId: string): Promise<ImageGener
 
 export function createImageGeneration(
   conversationId: string,
-  prompt: string
+  input: CreateImageGenerationInput
 ): Promise<ImageGenerationJob> {
   return apiClient.post<BaseResponse<unknown>>(
     `/media/images/conversations/${conversationId}`,
-    { prompt }
+    input
   ).then(({ data }) => parseJob(first(data)));
 }

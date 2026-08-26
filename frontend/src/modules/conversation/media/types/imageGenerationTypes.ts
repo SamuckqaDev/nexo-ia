@@ -22,7 +22,13 @@ export type ImageRuntime = {
   configured: boolean;
   available: boolean;
   model: string | null;
+  models: string[];
   message: string;
+};
+
+export type CreateImageGenerationInput = {
+  prompt: string;
+  model: string;
 };
 
 export type ImageGenerationState = {

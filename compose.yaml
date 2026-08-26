@@ -35,11 +35,25 @@ services:
     extra_hosts:
       - "host.containers.internal:host-gateway"
     depends_on:
+      media-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     networks:
       - nexo-internal
       - nexo-edge
+
+  media-init:
+    build:
+      context: ./backend
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - mkdir -p /var/lib/nexo/media/images && chown -R 10001:10001 /var/lib/nexo/media
+    volumes:
+      - nexo-media-data:/var/lib/nexo/media
+    network_mode: "none"
+    restart: "no"
 
   postgres:
     image: pgvector/pgvector:0.8.6-pg18-bookworm

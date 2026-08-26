@@ -463,6 +463,8 @@ export function ChatPage(): ReactElement {
                   ?? (imageGeneration.runtime.isLoading
                     ? "Checking the local ComfyUI runtime…"
                     : "The local ComfyUI runtime is unavailable")}
+                imageModels={imageGeneration.runtime.data?.models ?? []}
+                defaultImageModel={imageGeneration.runtime.data?.model ?? null}
                 imageSubmitting={imageGeneration.generate.isPending}
                 mode={mode}
                 agentContext={agentContext}
@@ -470,9 +472,9 @@ export function ChatPage(): ReactElement {
                 onInspectKnowledge={(): void => setIsContextOpen(true)}
                 onManageMcp={(): void => { navigate("/mcp"); }}
                 onSend={sendMessage}
-                onGenerateImage={(prompt: string): void => {
+                onGenerateImage={(prompt: string, model: string): void => {
                   setIsContextOpen(true);
-                  imageGeneration.generate.mutate(prompt);
+                  imageGeneration.generate.mutate({ prompt, model });
                 }}
                 onCancel={stream.cancel}
               />
