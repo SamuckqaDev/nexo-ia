@@ -1,18 +1,4 @@
-import {
-  Brain,
-  CalendarCheck,
-  CaretLeft,
-  CaretRight,
-  ChatCircleDots,
-  House,
-  FolderOpen,
-  List,
-  PlugsConnected,
-  Sparkle,
-  UsersThree,
-  Vault,
-  X
-} from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, List, X } from "@phosphor-icons/react";
 import { lazy, Suspense, useEffect, useState, type ReactElement } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
 import { cancelAllChatStreams, resetChatStreams } from "../../../modules/conversation/chat/hooks/useChatStream";
@@ -26,20 +12,15 @@ import type { SettingsSection } from "../../../modules/settings/types/settingsTy
 import { useSkillCatalogStore } from "../../../modules/skill/catalog/stores/useSkillCatalogStore";
 import type { SkillCatalogState } from "../../../modules/skill/catalog/types/skillTypes";
 import { Loading } from "../../../shared/components/Loading";
-import type { AppSection, AppShellProps, NavigationItem } from "../../types/navigationTypes";
+import type { AppSection, AppShellProps } from "../../types/navigationTypes";
 import { SidebarAccount } from "../SidebarAccount";
+import { AppBrand } from "./components/AppBrand";
+import { SidebarNavigation } from "./components/SidebarNavigation";
 import {
-  Brand,
-  BrandName,
   EdgeToggle,
-  Logo,
   Main,
   MobileMenuButton,
   MobileScrim,
-  NavButton,
-  NavLabel,
-  Navigation,
-  NavigationLabel,
   Shell,
   Sidebar,
   Workspace
@@ -69,18 +50,6 @@ const SkillsPage = lazy(() => import("../../../modules/skill/catalog/pages/Skill
   .then((module) => ({ default: module.SkillsPage })));
 const McpHubPage = lazy(() => import("../../../modules/mcp/catalog/pages/McpHubPage")
   .then((module) => ({ default: module.McpHubPage })));
-
-const featureNavigation: NavigationItem[] = [
-  { id: "home", label: "Home", icon: House },
-  { id: "chat", label: "Chat", icon: ChatCircleDots },
-  { id: "projects", label: "Projects", icon: FolderOpen },
-  { id: "cowork", label: "Cowork", icon: Brain },
-  { id: "tasks", label: "Tasks & calendar", icon: CalendarCheck },
-  { id: "teams", label: "Teams", icon: UsersThree },
-  { id: "vaults", label: "Vaults", icon: Vault },
-  { id: "skills", label: "Skills", icon: Sparkle },
-  { id: "mcp", label: "MCP Hub", icon: PlugsConnected }
-];
 
 const sectionPaths: Record<AppSection, string> = {
   home: "/",
@@ -164,31 +133,13 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
           {collapsed ? <CaretRight size={13} weight="bold" /> : <CaretLeft size={13} weight="bold" />}
         </EdgeToggle>
 
-        <Brand>
-          <Logo src="/assets/logo/nexo-ia-symbol.png" alt="" />
-          <BrandName $hidden={sidebarCollapsed}>Nexo IA</BrandName>
-        </Brand>
+        <AppBrand collapsed={sidebarCollapsed} />
 
         <Suspense fallback={null}>
           <WorkspaceSwitcher collapsed={sidebarCollapsed} onManage={(): void => navigate("projects")} />
         </Suspense>
 
-        <NavigationLabel $hidden={sidebarCollapsed}>Workspace</NavigationLabel>
-        <Navigation aria-label="Nexo features">
-          {featureNavigation.map((item: NavigationItem) => (
-            <NavButton
-              key={item.id}
-              type="button"
-              title={sidebarCollapsed ? item.label : undefined}
-              $active={section === item.id}
-              $collapsed={sidebarCollapsed}
-              onClick={(): void => navigate(item.id)}
-            >
-              <item.icon size={20} weight={section === item.id ? "fill" : "duotone"} />
-              <NavLabel $hidden={sidebarCollapsed}>{item.label}</NavLabel>
-            </NavButton>
-          ))}
-        </Navigation>
+        <SidebarNavigation section={section} collapsed={sidebarCollapsed} onNavigate={navigate} />
 
         <SidebarAccount
           user={user}

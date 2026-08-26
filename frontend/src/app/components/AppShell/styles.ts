@@ -49,39 +49,6 @@ export const Sidebar = styled.aside<{ $collapsed: boolean; $mobileOpen: boolean 
   }
 `;
 
-export const Brand = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-  padding-bottom: ${({ theme }) => theme.spacing.md};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-  font-size: 1.05rem;
-  font-weight: 700;
-
-  &::after {
-    position: absolute;
-    right: 0;
-    bottom: -1px;
-    left: 0;
-    height: 1px;
-    background: linear-gradient(90deg, ${({ theme }) => theme.colors.primary}, ${({ theme }) => theme.colors.accent}, transparent 85%);
-    content: "";
-  }
-`;
-
-export const BrandName = styled.span<{ $hidden: boolean }>`
-  display: ${({ $hidden }) => ($hidden ? "none" : "inline")};
-  white-space: nowrap;
-`;
-
-export const Logo = styled.img`
-  width: 2.4rem;
-  height: 2.4rem;
-  object-fit: contain;
-`;
-
 export const EdgeToggle = styled.button<{ $collapsed?: boolean }>`
   position: absolute;
   top: 5.4rem;
@@ -112,69 +79,6 @@ export const EdgeToggle = styled.button<{ $collapsed?: boolean }>`
   @media (max-width: 56rem) {
     display: none;
   }
-`;
-
-export const Navigation = styled.nav`
-  display: grid;
-  min-height: 0;
-  flex: 1;
-  align-content: start;
-  gap: 0.25rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-`;
-
-export const NavigationLabel = styled.span<{ $hidden: boolean }>`
-  display: ${({ $hidden }) => ($hidden ? "none" : "block")};
-  margin: 0 0 ${({ theme }) => theme.spacing.xs};
-  padding: 0 0.25rem;
-  color: ${({ theme }) => theme.colors.textSubtle};
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-`;
-
-export const NavButton = styled.button<{ $active: boolean; $collapsed: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: ${({ $collapsed }) => ($collapsed ? "center" : "flex-start")};
-  gap: ${({ theme }) => theme.spacing.sm};
-  width: 100%;
-  border: 1px solid ${({ theme, $active }) => ($active ? theme.colors.lineStrong : theme.colors.line)};
-  border-radius: ${({ theme }) => theme.radius.control};
-  padding: 0.55rem 0.7rem;
-  background: ${({ theme, $active }) => ($active ? theme.colors.surfaceAccent : "transparent")};
-  color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textMuted)};
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    position: absolute;
-    top: 0.4rem;
-    bottom: 0.4rem;
-    left: 0;
-    width: 0.2rem;
-    border-radius: ${({ theme }) => theme.radius.round};
-    background: ${({ theme, $active }) => ($active ? `linear-gradient(${theme.colors.primary}, ${theme.colors.accent})` : "transparent")};
-    content: "";
-  }
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.lineStrong};
-    color: ${({ theme }) => theme.colors.primary};
-    background: ${({ theme }) => theme.colors.surface};
-  }
-`;
-
-export const NavLabel = styled.span<{ $hidden: boolean }>`
-  display: ${({ $hidden }) => ($hidden ? "none" : "inline")};
 `;
 
 export const Workspace = styled.div`

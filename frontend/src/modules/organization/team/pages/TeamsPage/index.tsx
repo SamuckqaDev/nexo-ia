@@ -1,28 +1,12 @@
-import {
-  BookOpen,
-  Buildings,
-  Crown,
-  Plus,
-  ShieldCheck,
-  User,
-  UsersThree
-} from "@phosphor-icons/react";
+import { Plus, UsersThree } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
-import type { AuthenticatedUser } from "../../../../auth/types/authTypes";
+import { Button } from "../../../../../shared/components/Button";
+import { WorkspacePage } from "../../../../../shared/components/WorkspacePage";
 import { useBackendVaultCatalog } from "../../../../knowledge/vault/hooks/useBackendVaultCatalog";
 import type { BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
-import { Button } from "../../../../../shared/components/Button";
-import { Loading } from "../../../../../shared/components/Loading";
-import {
-  WorkspaceBadge,
-  WorkspaceEmptyState,
-  WorkspacePage,
-  WorkspacePanel
-} from "../../../../../shared/components/WorkspacePage";
-import { CreateTeamForm } from "../../components/CreateTeamForm";
-import { TeamAdminForms } from "../../components/TeamAdminForms";
 import { useTeams } from "../../hooks/useTeams";
 import { useTeamWorkspace } from "../../hooks/useTeamWorkspace";
+import type { TeamsPageProps } from "../../types/teamPageTypes";
 import type {
   AddTeamMemberValues,
   CreateTeamValues,
@@ -30,30 +14,9 @@ import type {
   Team,
   TeamMember
 } from "../../types/teamTypes";
-import {
-  AdminArea,
-  Detail,
-  DetailScroll,
-  EmptyList,
-  Library,
-  MemberCard,
-  MemberGrid,
-  MetaGrid,
-  MetaItem,
-  PageActions,
-  SectionHeading,
-  SharedVault,
-  SharedVaultGrid,
-  TeamButton,
-  TeamCopy,
-  TeamList,
-  Workspace
-} from "./styles";
-
-type TeamsPageProps = { user: AuthenticatedUser };
-
-const formatBudget = (budget: number | null): string =>
-  budget === null ? "Not allocated" : new Intl.NumberFormat("en-US").format(budget);
+import { TeamDetails } from "./components/TeamDetails";
+import { TeamExplorer } from "./components/TeamExplorer";
+import { PageActions, Workspace } from "./styles";
 
 export function TeamsPage({ user }: TeamsPageProps): ReactElement {
   const teamsState = useTeams();
@@ -76,6 +39,10 @@ export function TeamsPage({ user }: TeamsPageProps): ReactElement {
     setSelectedId(teams[0].id);
   }, [creating, selected, teams]);
 
+  const selectTeam = (teamId: string): void => {
+    setSelectedId(teamId);
+    setCreating(false);
+  };
   const createTeam = (values: CreateTeamValues): void => {
     teamsState.create.mutate(values, {
       onSuccess: (team: Team): void => {
@@ -84,7 +51,6 @@ export function TeamsPage({ user }: TeamsPageProps): ReactElement {
       }
     });
   };
-
   const addMember = (values: AddTeamMemberValues): void => teamWorkspace.addMember.mutate(values);
   const createVault = (values: CreateTeamVaultValues): void => {
     if (!selected) return;
@@ -99,99 +65,37 @@ export function TeamsPage({ user }: TeamsPageProps): ReactElement {
       icon={UsersThree}
       contentMode="contained"
       actions={canCreateTeam ? (
-        <PageActions><Button type="button" size="compact" icon={Plus} onClick={(): void => setCreating(true)}>New Team</Button></PageActions>
+        <PageActions>
+          <Button type="button" size="compact" icon={Plus} onClick={(): void => setCreating(true)}>New Team</Button>
+        </PageActions>
       ) : undefined}
     >
       <Workspace>
-        <WorkspacePanel title="Your Teams" description="Organizations you belong to and your role in each one.">
-          <Library>
-            {teamsState.teams.isLoading ? <Loading label="Loading Teams…" /> : teams.length ? (
-              <TeamList>
-                {teams.map((team: Team) => (
-                  <TeamButton
-                    key={team.id}
-                    type="button"
-                    $active={selected?.id === team.id && !creating}
-                    onClick={(): void => { setSelectedId(team.id); setCreating(false); }}
-                  >
-                    <Buildings size={19} weight="duotone" />
-                    <TeamCopy><strong>{team.name}</strong><span>{team.teamRole.toLowerCase()} · {team.assignedProfile.toLowerCase()}</span></TeamCopy>
-                    {team.manageable ? <Crown size={14} weight="fill" /> : <User size={14} />}
-                  </TeamButton>
-                ))}
-              </TeamList>
-            ) : (
-              <EmptyList>
-                <WorkspaceEmptyState
-                  icon={UsersThree}
-                  title="No Teams yet"
-                  description={canCreateTeam ? "Create a Team to share governed knowledge and capabilities." : "An administrator must add you to a Team."}
-                  action={canCreateTeam ? <Button type="button" size="compact" icon={Plus} onClick={(): void => setCreating(true)}>Create Team</Button> : undefined}
-                />
-              </EmptyList>
-            )}
-          </Library>
-        </WorkspacePanel>
-
-        <WorkspacePanel
-          title={creating ? "Create a Team" : selected?.name ?? "Select a Team"}
-          description={creating ? "Set the default capability boundary and an optional allocation." : selected ? `${selected.teamRole.toLowerCase()} access in this organization.` : undefined}
-          action={selected && !creating ? <WorkspaceBadge tone={selected.manageable ? "positive" : "default"}>{selected.manageable ? "Administrator" : "Member"}</WorkspaceBadge> : undefined}
-        >
-          {creating ? (
-            <CreateTeamForm pending={teamsState.create.isPending} onSubmit={createTeam} onCancel={(): void => setCreating(false)} />
-          ) : selected ? (
-            <Detail>
-              <DetailScroll>
-                <MetaGrid>
-                  <MetaItem><ShieldCheck size={18} /><span>Default profile</span><strong>{selected.defaultProfile.toLowerCase()}</strong></MetaItem>
-                  <MetaItem><User size={18} /><span>Your profile</span><strong>{selected.assignedProfile.toLowerCase()}</strong></MetaItem>
-                  <MetaItem><Crown size={18} /><span>Team role</span><strong>{selected.teamRole.toLowerCase()}</strong></MetaItem>
-                  <MetaItem><BookOpen size={18} /><span>Token allocation</span><strong>{formatBudget(selected.tokenBudgetLimit)}</strong></MetaItem>
-                </MetaGrid>
-
-                <SectionHeading><div><h3>Members</h3><p>Identity, Team authority and the capability profile applied in this organization.</p></div><WorkspaceBadge>{members.length} people</WorkspaceBadge></SectionHeading>
-                {teamWorkspace.members.isLoading ? <Loading label="Loading members…" /> : (
-                  <MemberGrid>
-                    {members.map((member: TeamMember) => (
-                      <MemberCard key={member.userId}>
-                        <span><strong>{member.name}</strong><small>@{member.username} · {member.email}</small></span>
-                        <div><WorkspaceBadge tone={member.teamRole === "ADMIN" ? "positive" : "default"}>{member.teamRole.toLowerCase()}</WorkspaceBadge><WorkspaceBadge>{member.assignedProfile.toLowerCase()}</WorkspaceBadge></div>
-                      </MemberCard>
-                    ))}
-                  </MemberGrid>
-                )}
-
-                <SectionHeading><div><h3>Shared Knowledge Vaults</h3><p>These collections belong to {selected.name}, not to an individual account.</p></div><WorkspaceBadge tone="positive">{teamVaults.length} Vaults</WorkspaceBadge></SectionHeading>
-                {teamVaults.length ? (
-                  <SharedVaultGrid>
-                    {teamVaults.map((vault: BackendVault) => (
-                      <SharedVault key={vault.id}>
-                        <BookOpen size={19} weight="duotone" />
-                        <span><strong>{vault.name}</strong><small>{vault.description ?? "Shared Team knowledge"}</small></span>
-                        <WorkspaceBadge>{vault.manageable ? "Manage" : "Read"}</WorkspaceBadge>
-                      </SharedVault>
-                    ))}
-                  </SharedVaultGrid>
-                ) : <WorkspaceEmptyState icon={BookOpen} title="No shared Vaults" description={selected.manageable ? "Create the first Team-owned knowledge collection below." : "A Team administrator has not shared knowledge yet."} />}
-
-                {selected.manageable && (
-                  <AdminArea>
-                    <SectionHeading><div><h3>Team administration</h3><p>Add people and create shared knowledge without leaving this workspace.</p></div></SectionHeading>
-                    <TeamAdminForms
-                      candidates={teamWorkspace.candidates.data ?? []}
-                      canAppointAdmin={user.role === "OWNER"}
-                      memberPending={teamWorkspace.addMember.isPending}
-                      vaultPending={vaultCatalog.createTeam.isPending}
-                      onAddMember={addMember}
-                      onCreateVault={createVault}
-                    />
-                  </AdminArea>
-                )}
-              </DetailScroll>
-            </Detail>
-          ) : <WorkspaceEmptyState icon={UsersThree} title="Select a Team" description="Choose an organization from the list to inspect its people and knowledge." />}
-        </WorkspacePanel>
+        <TeamExplorer
+          teams={teams}
+          selectedId={selectedId}
+          creating={creating}
+          loading={teamsState.teams.isLoading}
+          canCreateTeam={canCreateTeam}
+          onSelect={selectTeam}
+          onCreate={(): void => setCreating(true)}
+        />
+        <TeamDetails
+          creating={creating}
+          selected={selected}
+          members={members}
+          teamVaults={teamVaults}
+          candidates={teamWorkspace.candidates.data ?? []}
+          createPending={teamsState.create.isPending}
+          membersLoading={teamWorkspace.members.isLoading}
+          memberPending={teamWorkspace.addMember.isPending}
+          vaultPending={vaultCatalog.createTeam.isPending}
+          canAppointAdmin={user.role === "OWNER"}
+          onCreateTeam={createTeam}
+          onCancelCreate={(): void => setCreating(false)}
+          onAddMember={addMember}
+          onCreateVault={createVault}
+        />
       </Workspace>
     </WorkspacePage>
   );

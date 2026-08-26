@@ -8,4 +8,10 @@ export type AppShellProps = {
   onLogout: () => void;
   isLoggingOut: boolean;
 };
+export type AppBrandProps = { collapsed: boolean };
+export type SidebarNavigationProps = {
+  section: AppSection;
+  collapsed: boolean;
+  onNavigate: (section: AppSection) => void;
+};
 export type SidebarAccountProps = AppShellProps & { onNavigate: (section: AppSection) => void; collapsed: boolean };
