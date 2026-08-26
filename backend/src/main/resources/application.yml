@@ -68,6 +68,14 @@ nexo:
     # Empty in production unless a separately isolated gateway boundary is deployed.
     docker-gateway-endpoints: ${NEXO_MCP_DOCKER_GATEWAY_ENDPOINTS:}
     docker-gateway-token: ${NEXO_MCP_DOCKER_GATEWAY_TOKEN:}
+  media:
+    image:
+      comfyui:
+        base-url: ${NEXO_COMFYUI_BASE_URL:}
+        checkpoint: ${NEXO_COMFYUI_CHECKPOINT:}
+        poll-interval: ${NEXO_COMFYUI_POLL_INTERVAL:1s}
+        timeout: ${NEXO_COMFYUI_TIMEOUT:10m}
+        output-directory: ${NEXO_MEDIA_IMAGE_DIRECTORY:.nexo-data/media/images}
   security:
     token:
       issuer: nexo-ia

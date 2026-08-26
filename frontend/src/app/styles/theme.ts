@@ -3,7 +3,7 @@ import type { NexoTheme } from "../types/themeTypes";
 const foundation = {
   typography: { family: '"Poppins", ui-sans-serif, system-ui, sans-serif' },
   spacing: { xs: "0.5rem", sm: "0.75rem", md: "1rem", lg: "1.5rem", xl: "2.5rem" },
-  radius: { control: "0.8rem", md: "1.2rem", round: "999px" }
+  radius: { button: "0.45rem", control: "0.8rem", md: "1.2rem", round: "999px" }
 };
 
 export const darkTheme: NexoTheme = { ...foundation, colors: {

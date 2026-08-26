@@ -9,7 +9,7 @@ export const Button = styled.button<{
   justify-content: center;
   gap: ${({ theme, $size }) => $size === "compact" ? theme.spacing.xs : theme.spacing.sm};
   border: 1px solid ${({ theme }) => theme.colors.primary};
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   padding: ${({ $size }) => $size === "compact" ? "0.36rem 0.55rem" : "0.65rem 0.82rem"};
   font: inherit;
   font-size: ${({ $size }) => $size === "compact" ? "0.64rem" : "0.78rem"};

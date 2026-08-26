@@ -177,7 +177,13 @@ describe("ConversationContextPanel", () => {
       status: "GENERATING",
       progress: 42,
       etaSeconds: 18,
+      provider: "COMFYUI",
+      model: "sd15.safetensors",
+      contentUrl: null,
       startedAt: new Date().toISOString(),
+      completedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       errorMessage: null
     });
     renderPanel("chat");

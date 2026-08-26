@@ -374,9 +374,16 @@ minimal vertical connection plus the first release `0.1` identity slice.
   recall. Explicit external research compacts away stale assistant refusals, requires a matching
   `mcp_*` call, buffers provider prose until tool evidence exists, and rejects a false successful
   answer when the selected model ignores the required tool.
+- Explicit research now narrows the callable MCP set before inference: ordinary research exposes
+  search/query/find tools, while a request containing a concrete URL exposes fetch/content/open
+  tools. Failed or denied MCP evidence is reported as a failed lookup and can no longer authorize a
+  model-authored answer.
 - Every Agent request now receives a durable visible fallback plan before inference. A compliant
-  model can replace it through `update_plan`; a normal response from a smaller model completes the
-  fallback. The capability envelope distinguishes exact executable tools from language abilities,
+  model can replace it through `update_plan`; a deterministic decomposer also turns the actual user
+  objective into bounded, verifiable steps so small models no longer receive the same generic
+  three-item plan. The compact plan surface shows numbered steps, status, revision, and progress. A
+  normal response from a smaller model completes the fallback. The capability envelope distinguishes
+  exact executable tools from language abilities,
   explicitly reports when no MCP tool is connected, and points to the Hub. The Hub no longer uses a
   perpetual wait cursor for unavailable Docker actions and shows the container runtime boundary.
 - The Compose development profile now starts pinned Docker MCP Gateway sidecars for Fetch and
@@ -390,7 +397,15 @@ minimal vertical connection plus the first release `0.1` identity slice.
   as non-authoritative context in later Chat and Agent requests; exact duplicates are reused and a
   50-memory account cap prevents unbounded context growth. Authenticated APIs and the conversation
   workspace's Memory section provide inspection and deletion. See D-031.
-- Two hundred and twenty-one passing default backend tests and one hundred and twenty-one passing frontend tests,
+- Migration V34 adds authenticated, per-user and per-conversation image-generation jobs. The local
+  ComfyUI adapter queues the official workflow API, reads history and artifacts, persists binaries
+  outside PostgreSQL, and records audit outcomes. Chat now has an honest Image mode; the Media rail
+  shows queued/generating elapsed time, indeterminate progress when ComfyUI provides no percentage,
+  failures, and completed images. See [Local image generation](IMAGE_GENERATION.md).
+- macOS, Linux, and Windows bootstrap scripts now install the development prerequisites, Ollama
+  models, official ComfyUI checkout and local checkpoint before starting the Compose stack. Existing
+  installations can still use the smaller `dev-up` scripts without reinstalling runtimes.
+- Two hundred and twenty-six passing default backend tests and one hundred and twenty-two passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -401,8 +416,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
   A Testcontainers run also starts the complete Java 25 application context against PostgreSQL 18.6,
-  applies all 33 Flyway migrations through the Team-owned Vault schema, and verifies the active-request
-  index. The pgvector-backed local corpus remains migration-compatible.
+  applies all 34 Flyway migrations through the conversation-owned image job schema, and verifies the
+  active-request index. The pgvector-backed local corpus remains migration-compatible.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.6
   instance and asserts that every migration applied, the Agent plan tool bean exists, and the
   active-request index exists. It
@@ -441,8 +456,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   the assistant message, stream live, and
   restore after navigation or reload. Native filesystem, terminal, Git, browser, write actions, the
   complete approval Permission Engine, MCP secrets/configuration, resumable backend-restart
-  execution, and multi-agent workers remain intentionally unavailable. Image jobs remain pending the
-  local ComfyUI runtime.
+  execution, and multi-agent workers remain intentionally unavailable. Image cancellation,
+  resumable ComfyUI jobs after backend restart, source-image editing, and remote image providers are
+  later increments; local generation requires a running ComfyUI checkpoint.
 - Knowledge Vault scopes `project`, `team`, and `organization` remain rejected by the ordinary Vault
   creation endpoint. Shared Team knowledge uses an authorized Team endpoint and persists a
   `PERSONAL` corpus with `owner_type=TEAM`; project/organization scope targets remain deferred.

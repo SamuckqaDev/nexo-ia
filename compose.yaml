@@ -28,6 +28,10 @@ services:
       NEXO_SMTP_HOST: ${NEXO_CONTAINER_SMTP_HOST:-host.containers.internal}
       NEXO_SMTP_PORT: ${NEXO_CONTAINER_SMTP_PORT:-1025}
       NEXO_MCP_ALLOW_PRIVATE_ENDPOINTS: ${NEXO_MCP_ALLOW_PRIVATE_ENDPOINTS:-false}
+      NEXO_COMFYUI_BASE_URL: ${NEXO_CONTAINER_COMFYUI_BASE_URL:-http://host.containers.internal:8188}
+      NEXO_MEDIA_IMAGE_DIRECTORY: /var/lib/nexo/media/images
+    volumes:
+      - nexo-media-data:/var/lib/nexo/media
     extra_hosts:
       - "host.containers.internal:host-gateway"
     depends_on:
@@ -55,6 +59,7 @@ services:
 
 volumes:
   nexo-postgres-data:
+  nexo-media-data:
 
 networks:
   nexo-internal:

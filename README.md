@@ -55,6 +55,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 - [Spring AI Agent runtime](docs/SPRING_AI_AGENT_RUNTIME.md)
 - [MCP runtime and implementation plan](docs/MCP_RUNTIME.md)
 - [Execution plans](docs/EXECUTION_PLANS.md)
+- [Local image generation](docs/IMAGE_GENERATION.md)
 - [Enterprise architecture](docs/ENTERPRISE_ARCHITECTURE.md)
 - [Device management and execution audit](docs/DEVICE_MANAGEMENT.md)
 - [Technology stack](docs/TECH_STACK.md)
@@ -73,6 +74,25 @@ captures one finding, its evidence, and its concrete impact on Nexo IA.
 
 ## Development startup
 
+On a new workstation, use the platform bootstrap that installs the host prerequisites, pulls the
+default Ollama models, installs the official local ComfyUI runtime and checkpoint, and starts Nexo:
+
+```bash
+# macOS
+./scripts/setup-macos.sh
+
+# conventional Linux (apt, dnf, or pacman)
+./scripts/setup-linux.sh
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\setup-windows.ps1
+```
+
+The image checkpoint is roughly 2 GB. Set `NEXO_SKIP_IMAGE_RUNTIME=1` on macOS/Linux or pass
+`-SkipImageRuntime` on Windows when image generation is intentionally not required.
+
 Start or recreate the complete development environment with:
 
 ```bash
@@ -86,6 +106,8 @@ builds the backend image and starts PostgreSQL, Mailpit, and the React frontend 
 `http://127.0.0.1:8080`, and Mailpit `http://127.0.0.1:8025`. With Docker Compose, development also
 starts authenticated, non-published Docker MCP Gateway sidecars for the free Fetch and DuckDuckGo
 catalog servers. Set `NEXO_MCP_GATEWAY_TOKEN` to override the local-only default gateway token.
+When ComfyUI is running on the host, the backend reaches it through
+`NEXO_CONTAINER_COMFYUI_BASE_URL` (default `http://host.containers.internal:8188`).
 
 ## Documentation site
 

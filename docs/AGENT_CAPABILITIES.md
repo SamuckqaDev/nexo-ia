@@ -21,6 +21,11 @@ The model is not the authority on its own tools. Nexo lists capabilities from th
 callbacks and, for an explicit external lookup, releases an answer only after the runtime records an
 `mcp_*` execution. Unsupported prose cannot substitute for tool evidence.
 
+Every Agent request also receives a persisted starter plan derived from the current objective. Nexo
+splits lists, sentences, and action clauses into at most eight concise steps, marks one step in
+progress, and appends verification. A capable model may refine that plan through `update_plan`, but a
+small model cannot collapse the interface back to a generic hard-coded plan.
+
 ## Capability model
 
 ```text

@@ -42,12 +42,16 @@ export type ChatComposerProps = {
   hasModel: boolean;
   phase: StreamPhase;
   isBusy: boolean;
+  imageRuntimeAvailable: boolean;
+  imageRuntimeMessage: string;
+  imageSubmitting: boolean;
   mode: ConversationMode;
   agentContext: AgentContextSummary;
   onModeChange: (mode: ConversationMode) => void;
   onInspectKnowledge: () => void;
   onManageMcp: () => void;
   onSend: (content: string) => void;
+  onGenerateImage: (prompt: string) => void;
   onCancel: () => void;
 };
 

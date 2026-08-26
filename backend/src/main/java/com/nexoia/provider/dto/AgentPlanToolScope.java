@@ -6,4 +6,5 @@ import java.util.UUID;
 public record AgentPlanToolScope(
         UUID userId,
         UUID assistantMessageId,
-        UUID correlationId) {}
+        UUID correlationId,
+        String objective) {}

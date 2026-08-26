@@ -15,7 +15,7 @@ import {
   Vault,
   type Icon
 } from "@phosphor-icons/react";
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import { AgentPlan } from "../AgentPlan";
 import { ImageGenerationProgress } from "../../../media/components/ImageGenerationProgress";
@@ -155,6 +155,12 @@ export function ConversationContextPanel({
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
     .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId);
+  const activeImageJobCount: number = imageJobs.filter((job: ImageGenerationJob): boolean =>
+    job.status === "QUEUED" || job.status === "GENERATING").length;
+
+  useEffect((): void => {
+    if (open && activeImageJobCount > 0) setSection("media");
+  }, [activeImageJobCount, open]);
 
   const selectSection = (nextSection: ConversationContextSection): void => {
     setSection(nextSection);

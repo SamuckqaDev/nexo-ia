@@ -47,7 +47,7 @@ export const RemoveContext = styled.button`
   height: 1.75rem;
   place-items: center;
   border: 0;
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   background: transparent;
   color: ${({ theme }) => theme.colors.textSubtle};
   cursor: pointer;
@@ -88,7 +88,7 @@ export const SkillOption = styled.button<{ $active: boolean }>`
   gap: ${({ theme }) => theme.spacing.sm};
   width: 100%;
   border: 1px solid ${({ theme, $active }) => $active ? theme.colors.lineStrong : "transparent"};
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   padding: ${({ theme }) => theme.spacing.sm};
   background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
   color: ${({ theme }) => theme.colors.primary};
@@ -122,7 +122,7 @@ export const HistoryOption = styled.button<{ $active: boolean }>`
   gap: ${({ theme }) => theme.spacing.sm};
   width: 100%;
   border: 1px solid ${({ theme, $active }) => $active ? theme.colors.lineStrong : "transparent"};
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   padding: ${({ theme }) => theme.spacing.sm};
   background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
   color: ${({ theme }) => theme.colors.primary};
@@ -199,7 +199,7 @@ export const ModeButton = styled.button<{ $active: boolean; $agent?: boolean }>`
   align-items: center;
   gap: 0.35rem;
   border: 0;
-  border-radius: 0.6rem;
+  border-radius: ${({ theme }) => theme.radius.button};
   padding: 0.42rem 0.62rem;
   background: ${({ theme, $active, $agent }) => $active
     ? $agent ? theme.colors.dangerSurface : theme.colors.surfaceAccent
@@ -213,17 +213,20 @@ export const ModeButton = styled.button<{ $active: boolean; $agent?: boolean }>`
   cursor: pointer;
 `;
 
-export const CapabilityButton = styled.button`
+export const CapabilityButton = styled.button<{ $active?: boolean }>`
   display: flex;
   align-items: center;
   gap: 0.3rem;
   border: 0;
   padding: 0.4rem;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.textSubtle};
+  border-radius: ${({ theme }) => theme.radius.button};
+  background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
+  color: ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.textSubtle};
   font: inherit;
   font-size: 0.7rem;
-  &:disabled { cursor: not-allowed; opacity: 0.65; }
+  cursor: pointer;
+  &:hover:not(:disabled), &:focus-visible { background: ${({ theme }) => theme.colors.surfaceAccent}; color: ${({ theme }) => theme.colors.primary}; }
+  &:disabled { cursor: not-allowed; opacity: 0.45; }
   @media (max-width: 38rem) { span { display: none; } }
 `;
 
@@ -242,7 +245,7 @@ export const HistoryButton = styled.button`
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   background: ${({ theme }) => theme.colors.backgroundSoft};
   color: ${({ theme }) => theme.colors.textMuted};
   cursor: pointer;
@@ -264,7 +267,7 @@ export const SendButton = styled.button`
   margin-left: auto;
   place-items: center;
   border: 0;
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   background: ${({ theme }) => theme.colors.primary};
   color: ${({ theme }) => theme.colors.background};
   cursor: pointer;

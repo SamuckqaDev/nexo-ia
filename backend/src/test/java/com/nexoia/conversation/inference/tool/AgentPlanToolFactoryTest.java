@@ -32,7 +32,8 @@ class AgentPlanToolFactoryTest {
     void setUp() {
         factory = new AgentPlanToolFactory(
                 audit,
-                Clock.fixed(Instant.parse("2026-08-24T12:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-08-24T12:00:00Z"), ZoneOffset.UTC),
+                new AgentTaskDecomposer());
     }
 
     @Test
@@ -52,6 +53,11 @@ class AgentPlanToolFactoryTest {
         assertThat(updates).hasSize(2);
         assertThat(updates.getFirst()).satisfies(update -> {
             assertThat(update.revision()).isEqualTo(1);
+            assertThat(update.steps()).extracting(step -> step.step())
+                    .containsExactly(
+                            "Pesquisar as fontes disponíveis",
+                            "Comparar os resultados encontrados",
+                            "Verificar o resultado e apresentar evidências");
             assertThat(update.steps()).extracting(step -> step.status())
                     .containsExactly(
                             AgentPlanStepStatus.IN_PROGRESS,
@@ -113,6 +119,10 @@ class AgentPlanToolFactoryTest {
     }
 
     private AgentPlanToolScope scope() {
-        return new AgentPlanToolScope(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        return new AgentPlanToolScope(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Pesquisar as fontes disponíveis e comparar os resultados encontrados");
     }
 }

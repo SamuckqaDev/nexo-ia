@@ -39,12 +39,16 @@ export function ChatComposer({
   hasModel,
   phase,
   isBusy,
+  imageRuntimeAvailable,
+  imageRuntimeMessage,
+  imageSubmitting,
   mode,
   agentContext,
   onModeChange,
   onInspectKnowledge,
   onManageMcp,
   onSend,
+  onGenerateImage,
   onCancel
 }: ChatComposerProps): ReactElement {
   const [content, setContent] = useState<string>(initialContent);
@@ -53,6 +57,7 @@ export function ChatComposer({
   const [skillMenuDismissed, setSkillMenuDismissed] = useState<boolean>(false);
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const [imageMode, setImageMode] = useState<boolean>(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const draftBeforeHistory = useRef<string>("");
   const skills: SkillDefinition[] = useSkillCatalogStore((state: SkillCatalogState) => state.skills);
@@ -86,12 +91,18 @@ export function ChatComposer({
   };
 
   const send = (): void => {
-    if (!content.trim() || isBusy || (mode === "agent" && agentContext.modelToolCallingSupported === false)) return;
-    onSend(buildContextualChatMessage(content, {
-      skill: activeSkill,
-      vaultSources: [],
-      workspace: activeWorkspace ? { id: activeWorkspace.id, name: activeWorkspace.name } : null
-    }));
+    if (!content.trim() || isBusy || imageSubmitting
+      || (!imageMode && mode === "agent" && agentContext.modelToolCallingSupported === false)) return;
+    if (imageMode) {
+      if (!imageRuntimeAvailable) return;
+      onGenerateImage(content.trim());
+    } else {
+      onSend(buildContextualChatMessage(content, {
+        skill: activeSkill,
+        vaultSources: [],
+        workspace: activeWorkspace ? { id: activeWorkspace.id, name: activeWorkspace.name } : null
+      }));
+    }
     setContent("");
     setActiveSkill(null);
     setHistoryOpen(false);
@@ -202,7 +213,7 @@ export function ChatComposer({
         {!hasModel && !disabled && <Hint>Select a model to enable this conversation.</Hint>}
         {phase === "cancelling" && <Hint>Stopping the answer…</Hint>}
         <Composer onSubmit={submit}>
-          {mode === "agent" && (
+          {mode === "agent" && !imageMode && (
             <AgentContextIndicator
               context={agentContext}
               onInspectKnowledge={onInspectKnowledge}
@@ -219,22 +230,24 @@ export function ChatComposer({
           <Field
             ref={field}
             aria-label="Message"
-            placeholder={hasModel
+            placeholder={imageMode
+              ? "Describe the image Nexo should generate…"
+              : hasModel
               ? mode === "agent" ? "Describe an objective for Nexo Agent…" : "Message Nexo IA…"
               : "Type your first message…"}
             value={content}
             maxLength={8000}
-            disabled={disabled || isBusy}
+            disabled={disabled || isBusy || imageSubmitting}
             onChange={updateContent}
             onKeyDown={submitOnEnter}
           />
 
           <ComposerFooter>
             <ModeControl aria-label="Conversation mode">
-              <ModeButton type="button" $active={mode === "chat"} onClick={(): void => onModeChange("chat")}>
+              <ModeButton type="button" $active={!imageMode && mode === "chat"} onClick={(): void => { setImageMode(false); onModeChange("chat"); }}>
                 <ChatCircleDots size={15} weight="duotone" /> Chat
               </ModeButton>
-              <ModeButton type="button" $active={mode === "agent"} $agent onClick={(): void => onModeChange("agent")}>
+              <ModeButton type="button" $active={!imageMode && mode === "agent"} $agent onClick={(): void => { setImageMode(false); onModeChange("agent"); }}>
                 <Robot size={15} weight="duotone" /> Agent
               </ModeButton>
             </ModeControl>
@@ -245,7 +258,14 @@ export function ChatComposer({
             <CapabilityButton type="button" title="Choose a Skill or type /" onClick={openSkills}>
               <Sparkle size={16} weight="duotone" /> <span>Skills</span>
             </CapabilityButton>
-            <CapabilityButton type="button" disabled title="Image generation requires the ComfyUI runtime">
+            <CapabilityButton
+              type="button"
+              $active={imageMode}
+              disabled={!imageRuntimeAvailable || imageSubmitting}
+              aria-pressed={imageMode}
+              title={imageRuntimeMessage}
+              onClick={(): void => setImageMode((current: boolean): boolean => !current)}
+            >
               <ImageSquare size={16} weight="duotone" /> <span>Image</span>
             </CapabilityButton>
             <ComposerActions>
@@ -257,8 +277,9 @@ export function ChatComposer({
                 <SendButton
                   type="submit"
                   aria-label="Send message"
-                  disabled={disabled || !hasModel || !content.trim()
-                    || (mode === "agent" && agentContext.modelToolCallingSupported === false)}
+                  disabled={disabled || (!imageMode && !hasModel) || !content.trim() || imageSubmitting
+                    || (imageMode && !imageRuntimeAvailable)
+                    || (!imageMode && mode === "agent" && agentContext.modelToolCallingSupported === false)}
                 >
                   <PaperPlaneRight size={19} weight="fill" />
                 </SendButton>

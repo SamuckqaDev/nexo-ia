@@ -246,7 +246,7 @@ public class ModelRequestStore {
                                 : null,
                         mode == ConversationMode.AGENT
                                 ? new AgentPlanToolScope(
-                                        userId, assistantMessage.getId(), correlationId)
+                                        userId, assistantMessage.getId(), correlationId, content.trim())
                                 : null,
                         mode == ConversationMode.AGENT
                                 ? new MemoryToolScope(

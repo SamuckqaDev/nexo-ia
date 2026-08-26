@@ -18,6 +18,7 @@ import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
+import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
@@ -77,6 +78,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private static final String CANCELLED_REASON = "cancelled";
     private static final String CAPABILITY_LISTING_REASON = "capability_listing";
     private static final String MCP_UNAVAILABLE_REASON = "mcp_unavailable";
+    private static final String MCP_FAILED_REASON = "mcp_failed";
     private static final String TOOL_DISCOVERY_SESSION_ID = "nexoToolDiscoverySessionId";
     private static final String TOOL_SEARCH_NAME = "toolSearchTool";
     private static final String CAPABILITY_INSPECTION_NAME = "inspect_capabilities";
@@ -203,6 +205,22 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             throw new ProviderStreamException(
                     new IllegalStateException("The model ignored the required MCP tool call"));
         }
+        boolean mcpCompleted = outcome.toolExecutions().stream()
+                .anyMatch(execution -> execution.toolName().startsWith("mcp_")
+                        && execution.status() == ToolExecutionStatus.COMPLETED);
+        if (!mcpCompleted) {
+            String failure = "A ferramenta MCP foi acionada, mas não concluiu a pesquisa. "
+                    + "Inspecione a conexão no MCP Hub ou tente novamente.";
+            onToken.accept(failure);
+            return new ChatCompletionOutcome(
+                    failure,
+                    outcome.inputTokens(),
+                    outcome.outputTokens(),
+                    outcome.tokenSource(),
+                    false,
+                    MCP_FAILED_REASON,
+                    outcome.toolExecutions());
+        }
         if (hasAnswer(outcome)) {
             onToken.accept(outcome.content());
         }
@@ -243,15 +261,17 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         if (mcpSession != null) {
             callbacks.addAll(mcpSession.callbacks());
         }
-        if (!callbacks.isEmpty()) {
-            callbacks.add(capabilityInspectionCallback(callbacks));
-        }
         List<ToolCallback> mcpCallbacks = callbacks.stream()
                 .filter(callback -> callback.getToolDefinition().name().startsWith("mcp_"))
                 .toList();
-        if (!mcpCallbacks.isEmpty() && requiresExternalToolEvidence(command)) {
+        boolean externalEvidenceRequired = requiresExternalToolEvidence(command);
+        if (!mcpCallbacks.isEmpty() && externalEvidenceRequired) {
+            mcpCallbacks = preferredExternalCallbacks(command, mcpCallbacks);
+            callbacks = new ArrayList<>(mcpCallbacks);
             conversation = compactExternalToolConversation(conversation);
             systemContext.add(new SystemMessage(requiredExternalToolInstruction(mcpCallbacks)));
+        } else if (!callbacks.isEmpty()) {
+            callbacks.add(capabilityInspectionCallback(callbacks));
         }
 
         try {
@@ -265,7 +285,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         listing, null, null, null, false, CAPABILITY_LISTING_REASON,
                         evidence(planSession, rememberSession, knowledgeSession, writeSession, mcpSession));
             }
-            if (requiresExternalToolEvidence(command) && mcpCallbacks.isEmpty()) {
+            if (externalEvidenceRequired && mcpCallbacks.isEmpty()) {
                 String unavailable = "A conexão MCP está configurada, mas não forneceu uma ferramenta "
                         + "callable para esta execução. Abra o MCP Hub e inspecione a conexão.";
                 if (planSession != null) {
@@ -667,6 +687,28 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 Do not answer with prose and do not call update_plan first. After the tool returns,
                 answer only from its evidence. Never claim MCP is unavailable for this request.
                 """.formatted(names).strip();
+    }
+
+    private List<ToolCallback> preferredExternalCallbacks(
+            ChatCompletionCommand command,
+            List<ToolCallback> callbacks) {
+        String request = normalizedLatestUserRequest(command);
+        boolean explicitUrl = request.contains("http://") || request.contains("https://");
+        List<ToolCallback> preferred = callbacks.stream()
+                .filter(callback -> {
+                    String name = callback.getToolDefinition().name().toLowerCase(Locale.ROOT);
+                    if (explicitUrl) {
+                        return name.contains("fetch")
+                                || name.contains("content")
+                                || name.contains("open")
+                                || name.contains("url");
+                    }
+                    return name.contains("search")
+                            || name.contains("query")
+                            || name.contains("find");
+                })
+                .toList();
+        return preferred.isEmpty() ? callbacks : preferred;
     }
 
     private String capabilityListing(

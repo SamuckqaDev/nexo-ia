@@ -57,6 +57,8 @@ class NexoApplicationContextTest {
         assertThat(context.getBean("personalMemoryService")).isNotNull();
         assertThat(context.getBean("springAiMcpClientFactory")).isNotNull();
         assertThat(context.getBean("mcpConnectionService")).isNotNull();
+        assertThat(context.getBean("comfyUiImageGenerationRuntime")).isNotNull();
+        assertThat(context.getBean("imageGenerationService")).isNotNull();
         assertThat(context.getBean("auditService")).isNotNull();
     }
 
@@ -71,7 +73,13 @@ class NexoApplicationContextTest {
                 WHERE indexname = 'ux_conversation_message_active_request'
                 """, Integer.class);
 
-        assertThat(applied).isEqualTo(33);
+        Integer imageJobTable = jdbc.queryForObject("""
+                SELECT count(*) FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'image_generation_job'
+                """, Integer.class);
+
+        assertThat(applied).isEqualTo(34);
         assertThat(activeRequestIndex).isEqualTo(1);
+        assertThat(imageJobTable).isEqualTo(1);
     }
 }

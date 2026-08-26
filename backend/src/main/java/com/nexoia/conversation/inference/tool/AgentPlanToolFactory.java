@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.function.FunctionToolCallback;
@@ -46,10 +47,12 @@ public class AgentPlanToolFactory {
 
     private final AuditService audit;
     private final Clock clock;
+    private final AgentTaskDecomposer decomposer;
 
-    public AgentPlanToolFactory(AuditService audit, Clock clock) {
+    public AgentPlanToolFactory(AuditService audit, Clock clock, AgentTaskDecomposer decomposer) {
         this.audit = audit;
         this.clock = clock;
+        this.decomposer = decomposer;
     }
 
     public AgentPlanToolSession open(
@@ -63,7 +66,8 @@ public class AgentPlanToolFactory {
         AtomicBoolean modelPlanUpdated = new AtomicBoolean();
         Set<String> seenPlans = new HashSet<>();
 
-        planObserver.onUpdated(fallbackPlan(revision.get(), false));
+        List<String> initialSteps = decomposer.decompose(scope.objective());
+        planObserver.onUpdated(initialPlan(revision.get(), initialSteps, false));
 
         var callback = FunctionToolCallback
                 .builder(TOOL_NAME, (UpdatePlanInput input, ToolContext ignored) -> execute(
@@ -74,7 +78,7 @@ public class AgentPlanToolFactory {
                 .build();
         return new AgentPlanToolSession(callback, evidence, () -> {
             if (modelPlanUpdated.compareAndSet(false, true)) {
-                planObserver.onUpdated(fallbackPlan(revision.incrementAndGet(), true));
+                planObserver.onUpdated(initialPlan(revision.incrementAndGet(), initialSteps, true));
             }
         });
     }
@@ -160,24 +164,21 @@ public class AgentPlanToolFactory {
         return explanation.trim();
     }
 
-    private AgentPlanUpdate fallbackPlan(int revision, boolean completed) {
-        AgentPlanStepStatus status = completed
-                ? AgentPlanStepStatus.COMPLETED
-                : AgentPlanStepStatus.IN_PROGRESS;
+    private AgentPlanUpdate initialPlan(int revision, List<String> steps, boolean completed) {
         return new AgentPlanUpdate(
                 revision,
                 completed
-                        ? "Request assessed against the capabilities actually available to Nexo."
-                        : "Assessing the request before using any authorized capability.",
-                List.of(
-                        new AgentPlanStepUpdate(
-                                "Assess the request and available capabilities", status),
-                        new AgentPlanStepUpdate(
-                                "Use authorized tools or identify the missing connection",
-                                completed ? AgentPlanStepStatus.COMPLETED : AgentPlanStepStatus.PENDING),
-                        new AgentPlanStepUpdate(
-                                "Verify evidence and report the result honestly",
-                                completed ? AgentPlanStepStatus.COMPLETED : AgentPlanStepStatus.PENDING)),
+                        ? "Objective completed through the executable steps prepared for this request."
+                        : "Objective divided into small, verifiable steps before execution.",
+                IntStream.range(0, steps.size())
+                        .mapToObj(index -> new AgentPlanStepUpdate(
+                                steps.get(index),
+                                completed
+                                        ? AgentPlanStepStatus.COMPLETED
+                                        : index == 0
+                                                ? AgentPlanStepStatus.IN_PROGRESS
+                                                : AgentPlanStepStatus.PENDING))
+                        .toList(),
                 clock.instant());
     }
 

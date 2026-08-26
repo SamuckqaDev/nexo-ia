@@ -72,6 +72,10 @@ Docker-maintained catalog source remains available in the
   before answer text is released or the request can complete successfully. Earlier assistant
   refusals are excluded from that forced tool turn so a small local model cannot imitate stale,
   false capability claims.
+- For the forced external turn, Nexo exposes only the relevant external family: search/query/find for
+  a normal research prompt, or fetch/content/open/url for a concrete URL. This prevents small models
+  from selecting a fetch tool with a fabricated URL when a real search tool is available. Only a
+  completed MCP call unlocks the final answer; failed and denied calls produce an explicit failure.
 - A request may execute at most six MCP calls and at most two calls to one external tool. Repeated
   identical tool arguments are denied.
 - Calls honor explicit cancellation, record an argument digest rather than raw input, emit the normal

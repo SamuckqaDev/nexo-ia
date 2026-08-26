@@ -32,4 +32,6 @@ tmp/
 
 # Container volumes and runtime secrets
 .nexo/
+.nexo-runtime/
+.nexo-data/
 secrets/

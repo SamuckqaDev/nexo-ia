@@ -7,8 +7,22 @@ export type ImageGenerationJob = {
   status: ImageGenerationStatus;
   progress: number | null;
   etaSeconds: number | null;
-  startedAt: string;
+  provider: string;
+  model: string | null;
+  contentUrl: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   errorMessage: string | null;
+};
+
+export type ImageRuntime = {
+  provider: string;
+  configured: boolean;
+  available: boolean;
+  model: string | null;
+  message: string;
 };
 
 export type ImageGenerationState = {

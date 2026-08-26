@@ -37,6 +37,7 @@ import {
   useSelectConversationModel
 } from "../../hooks/useChat";
 import { useChatStream } from "../../hooks/useChatStream";
+import { useImageGeneration } from "../../../media/hooks/useImageGeneration";
 import { parseContextualChatMessage } from "../../services/chatContextService";
 import { useChatDraftStore } from "../../stores/useChatDraftStore";
 import { useConversationModeStore } from "../../stores/useConversationModeStore";
@@ -110,6 +111,7 @@ export function ChatPage(): ReactElement {
   const selectedVaultIds: string[] = selected?.knowledgeVaultIds ?? [];
   const selectKnowledge = useSelectConversationKnowledge(selectedId);
   const mcpConnections = useMcpConnections(mode === "agent");
+  const imageGeneration = useImageGeneration(selectedId);
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
     .filter((message: ConversationMessage): boolean => message.role === "USER")
     .map((message: ConversationMessage): string => parseContextualChatMessage(message.content).content)
@@ -455,12 +457,22 @@ export function ChatPage(): ReactElement {
                 hasModel={hasModel}
                 phase={stream.phase}
                 isBusy={stream.isBusy}
+                imageRuntimeAvailable={Boolean(selectedId) && imageGeneration.runtime.data?.available === true}
+                imageRuntimeMessage={imageGeneration.runtime.data?.message
+                  ?? (imageGeneration.runtime.isLoading
+                    ? "Checking the local ComfyUI runtime…"
+                    : "The local ComfyUI runtime is unavailable")}
+                imageSubmitting={imageGeneration.generate.isPending}
                 mode={mode}
                 agentContext={agentContext}
                 onModeChange={setMode}
                 onInspectKnowledge={(): void => setIsContextOpen(true)}
                 onManageMcp={(): void => { navigate("/mcp"); }}
                 onSend={sendMessage}
+                onGenerateImage={(prompt: string): void => {
+                  setIsContextOpen(true);
+                  imageGeneration.generate.mutate(prompt);
+                }}
                 onCancel={stream.cancel}
               />
             </ConversationColumn>

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
+import com.nexoia.conversation.inference.tool.AgentTaskDecomposer;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
@@ -251,7 +252,8 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 mock(KnowledgeWriteToolFactory.class),
-                new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
+                new AgentPlanToolFactory(
+                        mock(AuditService.class), Clock.systemUTC(), new AgentTaskDecomposer()),
                 mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
@@ -290,7 +292,8 @@ class SpringAiChatCompletionClientTest {
                 false,
                 ConversationMode.AGENT,
                 null,
-                new AgentPlanToolScope(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                new AgentPlanToolScope(
+                        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Inspect the tools"),
                 null,
                 ToolExecutionObserver.NOOP,
                 planUpdate::set);
@@ -322,7 +325,8 @@ class SpringAiChatCompletionClientTest {
                 new SpringAiMessageMapper(),
                 mock(KnowledgeSearchToolFactory.class),
                 mock(KnowledgeWriteToolFactory.class),
-                new AgentPlanToolFactory(mock(AuditService.class), Clock.systemUTC()),
+                new AgentPlanToolFactory(
+                        mock(AuditService.class), Clock.systemUTC(), new AgentTaskDecomposer()),
                 mock(RememberToolFactory.class),
                 mock(McpToolSessionFactory.class),
                 ObservationRegistry.NOOP);
@@ -367,7 +371,8 @@ class SpringAiChatCompletionClientTest {
                 false,
                 ConversationMode.AGENT,
                 null,
-                new AgentPlanToolScope(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                new AgentPlanToolScope(
+                        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Inspect the tools"),
                 null,
                 ToolExecutionObserver.NOOP,
                 update -> { });
@@ -630,6 +635,41 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
+    void directsResearchToSearchBeforeFetchWhenBothToolsAreAuthorized() {
+        ToolCallback search = mockCallback("mcp_private_search", "Search the public web");
+        ToolCallback fetch = mockCallback("mcp_fetch", "Fetch one known URL");
+        McpToolSessionFactory mcpFactory = mock(McpToolSessionFactory.class);
+        McpToolSession mcpSession = mock(McpToolSession.class);
+        when(mcpSession.callbacks()).thenReturn(List.of(fetch, search));
+        when(mcpSession.evidence()).thenReturn(List.of());
+        when(mcpFactory.open(any(), any(), any())).thenReturn(mcpSession);
+        SpringAiChatCompletionClient agentClient = new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
+                mcpFactory,
+                ObservationRegistry.NOOP);
+        serve("""
+                {"model":"granite4.1:8b","message":{"role":"assistant",\
+                "content":"Usei a busca."},"done":true,"done_reason":"stop",\
+                "prompt_eval_count":20,"eval_count":8}
+                """);
+
+        assertThatThrownBy(() -> agentClient.stream(
+                externalResearchCommand(), delta -> { }, delta -> { }, () -> false))
+                .isInstanceOf(ProviderStreamException.class);
+
+        String body = requestBody.get();
+        String gate = body.substring(body.indexOf("MANDATORY MCP EXECUTION GATE"));
+        assertThat(gate).contains("mcp_private_search");
+        assertThat(gate.substring(0, gate.indexOf("Your next response")))
+                .doesNotContain("mcp_fetch");
+    }
+
+    @Test
     void discardsAModelsFalseUnavailableAnswerWhenResearchRequiredMcp() {
         ToolDefinition definition = mock(ToolDefinition.class);
         when(definition.name()).thenReturn("mcp_private_search");
@@ -775,6 +815,16 @@ class SpringAiChatCompletionClientTest {
                 new McpToolScope(userId, UUID.randomUUID(), UUID.randomUUID(), List.of(connection)),
                 ToolExecutionObserver.NOOP,
                 update -> { });
+    }
+
+    private ToolCallback mockCallback(String name, String description) {
+        ToolDefinition definition = mock(ToolDefinition.class);
+        when(definition.name()).thenReturn(name);
+        when(definition.description()).thenReturn(description);
+        when(definition.inputSchema()).thenReturn("{\"type\":\"object\"}");
+        ToolCallback callback = mock(ToolCallback.class);
+        when(callback.getToolDefinition()).thenReturn(definition);
+        return callback;
     }
 
     private record SearchInput(String query) {}

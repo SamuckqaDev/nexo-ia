@@ -88,6 +88,7 @@ create_environment() {
     printf 'NEXO_DATABASE_PASSWORD=%s\n' "$(random_secret 32)"
     printf 'NEXO_JWT_SECRET=%s\n' "$(random_secret 48)"
     printf 'NEXO_CONTAINER_OLLAMA_BASE_URL=http://host.containers.internal:11434\n'
+    printf 'NEXO_CONTAINER_COMFYUI_BASE_URL=http://host.containers.internal:8188\n'
     printf 'NEXO_SERVER_PORT=8080\n'
     printf 'NEXO_FRONTEND_DEV_PORT=5173\n'
     printf 'NEXO_SECURE_COOKIE=false\n'

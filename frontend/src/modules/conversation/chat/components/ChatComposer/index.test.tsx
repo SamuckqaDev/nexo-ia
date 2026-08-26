@@ -28,7 +28,9 @@ const renderComposer = (
   isBusy = false,
   phase: StreamPhase = "idle",
   messageHistory: string[] = [],
-  agentContext: AgentContextSummary = defaultAgentContext
+  agentContext: AgentContextSummary = defaultAgentContext,
+  imageRuntimeAvailable = false,
+  onGenerateImage = vi.fn()
 ) => {
   render(
     <ThemeProvider theme={darkTheme}>
@@ -39,17 +41,21 @@ const renderComposer = (
         hasModel
         phase={phase}
         isBusy={isBusy}
+        imageRuntimeAvailable={imageRuntimeAvailable}
+        imageRuntimeMessage={imageRuntimeAvailable ? "ComfyUI ready" : "ComfyUI unavailable"}
+        imageSubmitting={false}
         mode={mode}
         agentContext={agentContext}
         onModeChange={onModeChange}
         onInspectKnowledge={vi.fn()}
         onManageMcp={vi.fn()}
         onSend={onSend}
+        onGenerateImage={onGenerateImage}
         onCancel={vi.fn()}
       />
     </ThemeProvider>
   );
-  return { onSend };
+  return { onSend, onGenerateImage };
 };
 
 describe("ChatComposer", () => {
@@ -103,6 +109,26 @@ describe("ChatComposer", () => {
     expect(screen.getByText(/selected model has no tool calling/i)).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  });
+
+  it("switches to local image mode and queues the prompt instead of sending chat", () => {
+    const onSend = vi.fn();
+    const onGenerateImage = vi.fn();
+    renderComposer(
+      "agent", vi.fn(), "", onSend, false, "idle", [], defaultAgentContext,
+      true, onGenerateImage
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    const prompt = screen.getByRole("textbox", { name: "Message" });
+    expect(screen.queryByRole("region", { name: "Agent context" })).not.toBeInTheDocument();
+    expect(prompt).toHaveAttribute("placeholder", "Describe the image Nexo should generate…");
+
+    fireEvent.change(prompt, { target: { value: "A cyan neural knowledge graph" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(onGenerateImage).toHaveBeenCalledWith("A cyan neural knowledge graph");
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it("opens the Skill palette with slash and includes the chosen method in the message context", () => {

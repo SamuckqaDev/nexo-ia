@@ -43,6 +43,12 @@ satisfied become ready.
 
 ## Incremental execution
 
+The current bounded Agent runtime persists a request-specific starter plan before inference. Its
+deterministic decomposer creates small steps from the actual objective even when the selected local
+model never calls `update_plan`; the model may still publish a better revision through that tool.
+The plan UI is a compact numbered timeline with progress and revision state. This current slice does
+not yet dispatch steps to independent worker models.
+
 The orchestrator executes one bounded task at a time by default. Each task receives the overall goal
 summary, its local objective, relevant decisions and context, dependency results, limits, and
 completion criteria—not the complete accumulated history. Its structured result and evidence are

@@ -145,7 +145,7 @@ export const ConnectionButton = styled.button<{ $active: boolean }>`
   gap: ${({ theme }) => theme.spacing.sm};
   width: 100%;
   border: 1px solid ${({ theme, $active }) => $active ? theme.colors.lineStrong : "transparent"};
-  border-radius: ${({ theme }) => theme.radius.control};
+  border-radius: ${({ theme }) => theme.radius.button};
   padding: 0.7rem;
   background: ${({ theme, $active }) => $active ? theme.colors.surfaceAccent : "transparent"};
   color: ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.textMuted};

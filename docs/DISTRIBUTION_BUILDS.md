@@ -2,7 +2,7 @@
 
 ## Status
 
-**Accepted product requirement; executable packaging begins with release `0.1`.**
+**Development bootstrap implemented; signed release packaging remains planned for release `0.1`.**
 
 Nexo IA will publish four supported distribution profiles from the same source and version:
 
@@ -40,11 +40,17 @@ The Compose application contains:
 - `nexo-backend`: Java 25/Spring Boot application;
 - `nexo-frontend`: compiled static React application and web gateway;
 - `nexo-postgres`: PostgreSQL 18 with a persistent named volume;
-- optional future profiles such as observability, RAG, image generation, and selected MCP servers.
+- optional future profiles such as observability and production-selected MCP servers.
 
 Ollama is external to the default Compose application. Nexo connects to a configurable host endpoint.
 Containerizing Ollama remains an optional server/DGX profile when GPU runtime support is deliberately
 configured and tested.
+
+ComfyUI is also host-local in the development bootstrap so it can use the platform's GPU runtime.
+`scripts/setup-macos.sh`, `scripts/setup-linux.sh`, and `scripts/setup-windows.ps1` install the
+development dependencies, Ollama models, official ComfyUI checkout, and a default local checkpoint.
+They then delegate to the shared Compose startup. These are repeatable developer installers, not yet
+signed production packages, updaters, backup tools, or uninstallers.
 
 ## Profile matrix
 
@@ -220,4 +226,3 @@ required on representative release machines before claiming GPU support.
 
 This order affects implementation sequence, not product importance. Platform-specific behavior must
 remain isolated in installer and Companion adapters rather than entering the Nexo domain core.
-
