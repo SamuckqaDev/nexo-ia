@@ -23,12 +23,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
+@RequestMapping("/api/v1/knowledge")
 @RequiredArgsConstructor
 public class SourceController {
 
     private final SourceIngestionService service;
 
-    @GetMapping("/api/v1/knowledge/vaults/{vaultId}/sources")
+    @GetMapping("/vaults/{vaultId}/sources")
     @Operation(summary = "List the sources registered under a Knowledge Vault owned by the authenticated user")
     public ResponseEntity<BaseResponse<SourceResponse>> list(
             @AuthenticationPrincipal NexoUserPrincipal principal,
@@ -37,7 +38,7 @@ public class SourceController {
                 200, "Sources retrieved", service.list(principal.userId(), vaultId)));
     }
 
-    @PostMapping(value = "/api/v1/knowledge/vaults/{vaultId}/sources", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/vaults/{vaultId}/sources", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Register and ingest a bounded local source under a Knowledge Vault")
     public ResponseEntity<BaseResponse<SourceResponse>> register(
             @AuthenticationPrincipal NexoUserPrincipal principal,
@@ -48,7 +49,7 @@ public class SourceController {
                 201, "Source registered", service.register(principal.userId(), vaultId, file, displayName)));
     }
 
-    @GetMapping("/api/v1/knowledge/sources/{sourceId}/ingestion")
+    @GetMapping("/sources/{sourceId}/ingestion")
     @Operation(summary = "Read the ingestion status of a registered source")
     public ResponseEntity<BaseResponse<SourceIngestionStatusResponse>> ingestionStatus(
             @AuthenticationPrincipal NexoUserPrincipal principal,
@@ -58,7 +59,7 @@ public class SourceController {
                 service.ingestionStatus(principal.userId(), sourceId)));
     }
 
-    @DeleteMapping("/api/v1/knowledge/sources/{sourceId}")
+    @DeleteMapping("/sources/{sourceId}")
     @Operation(summary = "Archive a source registered under a Knowledge Vault")
     public ResponseEntity<BaseResponse<Void>> archive(
             @AuthenticationPrincipal NexoUserPrincipal principal,
