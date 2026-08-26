@@ -74,7 +74,7 @@ class ConversationControllerTest {
     void listsOnlyTheAuthenticatedCallersConversations() throws Exception {
         when(service.list(userId)).thenReturn(List.of(new ConversationResponse(
                 conversationId, "First chat", null, null,
-                List.of(),
+                List.of(), null,
                 Instant.parse("2026-08-20T12:00:00Z"), Instant.parse("2026-08-20T12:00:00Z"))));
 
         mockMvc.perform(get("/api/v1/conversations").with(principal()))
@@ -88,7 +88,7 @@ class ConversationControllerTest {
     void createsAConversationOwnedByTheAuthenticatedCaller() throws Exception {
         when(service.create(eq(userId), any())).thenReturn(new ConversationResponse(
                 conversationId, "New chat", null, null,
-                List.of(),
+                List.of(), null,
                 Instant.parse("2026-08-20T12:00:00Z"), Instant.parse("2026-08-20T12:00:00Z")));
 
         mockMvc.perform(post("/api/v1/conversations").with(principal()).with(csrf())
@@ -145,6 +145,21 @@ class ConversationControllerTest {
 
         mockMvc.perform(get("/api/v1/conversations/{id}/messages", conversationId).with(principal()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void selectsAWorkspaceForTheConversation() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        when(service.selectWorkspace(eq(userId), eq(conversationId), any())).thenReturn(new ConversationResponse(
+                conversationId, "First chat", null, null, List.of(), workspaceId,
+                Instant.parse("2026-08-20T12:00:00Z"), Instant.parse("2026-08-20T12:00:00Z")));
+
+        mockMvc.perform(put("/api/v1/conversations/{id}/workspace", conversationId)
+                        .with(principal()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"workspaceId\":\"" + workspaceId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].workspaceId").value(workspaceId.toString()));
     }
 
     private RequestPostProcessor principal() {

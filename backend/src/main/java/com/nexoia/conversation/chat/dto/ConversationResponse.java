@@ -10,5 +10,6 @@ public record ConversationResponse(
         UUID providerConfigurationId,
         String selectedModel,
         List<UUID> knowledgeVaultIds,
+        UUID workspaceId,
         Instant createdAt,
         Instant updatedAt) {}

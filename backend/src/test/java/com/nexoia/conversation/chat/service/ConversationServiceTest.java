@@ -12,6 +12,7 @@ import com.nexoia.conversation.chat.dto.ConversationMessageResponse;
 import com.nexoia.conversation.chat.dto.CreateConversationRequest;
 import com.nexoia.conversation.chat.dto.RenameConversationRequest;
 import com.nexoia.conversation.chat.dto.UpdateConversationModelRequest;
+import com.nexoia.conversation.chat.dto.UpdateConversationWorkspaceRequest;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
@@ -50,6 +51,8 @@ class ConversationServiceTest {
     private AuditService audit;
     @Mock
     private ConversationKnowledgeService knowledge;
+    @Mock
+    private com.nexoia.workspace.service.WorkspaceService workspaceService;
     private ConversationService service;
 
     private final UUID userId = UUID.randomUUID();
@@ -59,7 +62,7 @@ class ConversationServiceTest {
     void setUp() {
         service = new ConversationService(
                 conversations, messages, toolExecutions, agentPlans, providers, audit,
-                new ConversationContextProperties(8000, 4), knowledge);
+                new ConversationContextProperties(8000, 4), knowledge, workspaceService);
     }
 
     @Test
@@ -191,6 +194,36 @@ class ConversationServiceTest {
 
         service.archive(userId, conversationId);
         assertThat(conversation.isArchived()).isTrue();
+    }
+
+    @Test
+    void attachesAnOwnedWorkspaceToTheConversation() {
+        UUID workspaceId = UUID.randomUUID();
+        Conversation conversation = conversation();
+        when(conversations.findOwnedForUpdate(conversationId, userId)).thenReturn(Optional.of(conversation));
+        when(knowledge.selectionIds(conversationId)).thenReturn(List.of());
+
+        var response = service.selectWorkspace(
+                userId, conversationId, new UpdateConversationWorkspaceRequest(workspaceId));
+
+        verify(workspaceService).ownedWorkspace(userId, workspaceId);
+        assertThat(conversation.getWorkspaceId()).isEqualTo(workspaceId);
+        assertThat(response.workspaceId()).isEqualTo(workspaceId);
+    }
+
+    @Test
+    void clearsTheConversationWorkspaceWithoutAuthorizingAnyWorkspace() {
+        Conversation conversation = conversation();
+        conversation.attachWorkspace(UUID.randomUUID());
+        when(conversations.findOwnedForUpdate(conversationId, userId)).thenReturn(Optional.of(conversation));
+        when(knowledge.selectionIds(conversationId)).thenReturn(List.of());
+
+        var response = service.selectWorkspace(
+                userId, conversationId, new UpdateConversationWorkspaceRequest(null));
+
+        verify(workspaceService, never()).ownedWorkspace(any(), any());
+        assertThat(conversation.getWorkspaceId()).isNull();
+        assertThat(response.workspaceId()).isNull();
     }
 
     private Conversation conversation() {

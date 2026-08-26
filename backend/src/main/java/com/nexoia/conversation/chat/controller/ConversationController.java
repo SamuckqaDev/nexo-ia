@@ -8,6 +8,7 @@ import com.nexoia.conversation.chat.dto.RenameConversationRequest;
 import com.nexoia.conversation.chat.dto.SendMessageRequest;
 import com.nexoia.conversation.chat.dto.UpdateConversationKnowledgeRequest;
 import com.nexoia.conversation.chat.dto.UpdateConversationModelRequest;
+import com.nexoia.conversation.chat.dto.UpdateConversationWorkspaceRequest;
 import com.nexoia.conversation.chat.service.ConversationService;
 import com.nexoia.shared.api.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -91,6 +92,17 @@ public class ConversationController {
         return ResponseEntity.ok(BaseResponse.success(
                 200, "Conversation Knowledge Vaults selected",
                 service.selectKnowledge(principal.userId(), conversationId, request)));
+    }
+
+    @PutMapping("/{conversationId}/workspace")
+    @Operation(summary = "Select or clear the server workspace bound to a conversation")
+    public ResponseEntity<BaseResponse<ConversationResponse>> selectWorkspace(
+            @AuthenticationPrincipal NexoUserPrincipal principal,
+            @PathVariable UUID conversationId,
+            @Valid @RequestBody UpdateConversationWorkspaceRequest request) {
+        return ResponseEntity.ok(BaseResponse.success(
+                200, "Conversation workspace selected",
+                service.selectWorkspace(principal.userId(), conversationId, request)));
     }
 
     @GetMapping("/{conversationId}/messages")

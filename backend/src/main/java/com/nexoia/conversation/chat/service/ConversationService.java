@@ -27,8 +27,10 @@ import com.nexoia.conversation.inference.model.AgentPlanRecord;
 import com.nexoia.conversation.inference.model.ToolExecutionRecord;
 import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
+import com.nexoia.conversation.chat.dto.UpdateConversationWorkspaceRequest;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.workspace.service.WorkspaceService;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,6 +51,7 @@ public class ConversationService {
     private final AuditService audit;
     private final ConversationContextProperties contextProperties;
     private final ConversationKnowledgeService knowledge;
+    private final WorkspaceService workspaceService;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> list(UUID userId) {
@@ -154,6 +157,28 @@ public class ConversationService {
         return conversationResponse(conversation, knowledge.selectionIds(conversationId));
     }
 
+    /**
+     * Binds an owned Workspace to the conversation as durable agent scope, or clears it when the
+     * request carries a null id. The Workspace is authorized against the caller here so later requests
+     * can re-read the persisted selection without trusting any workspace id sent inside a message.
+     */
+    @Transactional
+    public ConversationResponse selectWorkspace(
+            UUID userId, UUID conversationId, UpdateConversationWorkspaceRequest request) {
+        Conversation conversation = writableConversation(userId, conversationId);
+        if (request.workspaceId() == null) {
+            conversation.clearWorkspace();
+        } else {
+            workspaceService.ownedWorkspace(userId, request.workspaceId());
+            conversation.attachWorkspace(request.workspaceId());
+        }
+        audit.record(RecordAuditCommand.success(
+                AuditAction.CONVERSATION_WORKSPACE_SELECTED, userId, null,
+                AuditTargetType.CONVERSATION, conversationId));
+
+        return conversationResponse(conversation, knowledge.selectionIds(conversationId));
+    }
+
     @Transactional
     public ConversationResponse selectKnowledge(
             UUID userId, UUID conversationId, UpdateConversationKnowledgeRequest request) {
@@ -181,6 +206,7 @@ public class ConversationService {
                 value.getProviderConfigurationId(),
                 value.getSelectedModel(),
                 knowledgeVaultIds,
+                value.getWorkspaceId(),
                 value.getCreatedAt(),
                 value.getUpdatedAt());
     }
