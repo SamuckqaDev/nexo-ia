@@ -30,8 +30,13 @@ services:
       NEXO_MCP_ALLOW_PRIVATE_ENDPOINTS: ${NEXO_MCP_ALLOW_PRIVATE_ENDPOINTS:-false}
       NEXO_COMFYUI_BASE_URL: ${NEXO_CONTAINER_COMFYUI_BASE_URL:-http://host.containers.internal:8188}
       NEXO_MEDIA_IMAGE_DIRECTORY: /var/lib/nexo/media/images
+      NEXO_WORKSPACE_MANAGED_ROOT: /var/lib/nexo/workspaces
+      NEXO_WORKSPACE_IMPORT_ROOT: ${NEXO_CONTAINER_WORKSPACE_IMPORT_ROOT:-}
+      NEXO_WORKSPACE_ARTIFACT_ROOT: /var/lib/nexo/artifacts
     volumes:
       - nexo-media-data:/var/lib/nexo/media
+      - nexo-workspace-data:/var/lib/nexo/workspaces
+      - nexo-artifact-data:/var/lib/nexo/artifacts
     extra_hosts:
       - "host.containers.internal:host-gateway"
     depends_on:
@@ -74,6 +79,8 @@ services:
 volumes:
   nexo-postgres-data:
   nexo-media-data:
+  nexo-workspace-data:
+  nexo-artifact-data:
 
 networks:
   nexo-internal:

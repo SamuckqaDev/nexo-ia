@@ -2,89 +2,68 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
-import { useWorkspaceStore } from "../../stores/useWorkspaceStore";
-import type { ProjectWorkspace } from "../../types/workspaceTypes";
+import type { ServerWorkspace } from "../../types/serverWorkspaceTypes";
 import { ProjectsPage } from "./index";
 
-const { chooseFolderMock, checkActiveWorkspaceMock, acceptCurrentStructureMock } = vi.hoisted(() => ({
-  chooseFolderMock: vi.fn(),
-  checkActiveWorkspaceMock: vi.fn(),
-  acceptCurrentStructureMock: vi.fn()
+const { refreshMock, workspace } = vi.hoisted(() => ({
+  refreshMock: vi.fn(),
+  workspace: {
+    id: "427d6713-f2d4-4b0d-8f72-eaa7f19ebd23",
+    name: "nexo-ia",
+    storageType: "MOUNTED",
+    accessMode: "READ_ONLY",
+    status: "AVAILABLE",
+    relativePath: "projects/nexo-ia",
+    lastScannedAt: "2026-08-20T00:00:00Z",
+    createdAt: "2026-08-20T00:00:00Z",
+    updatedAt: "2026-08-20T00:00:00Z"
+  } satisfies ServerWorkspace
 }));
 
-vi.mock("../../hooks/useWorkspaceRegistration", () => ({
-  useWorkspaceRegistration: () => ({
-    isSupported: true,
-    isPicking: false,
-    platform: "macos",
-    actionLabel: "Choose with Finder",
-    error: null,
-    chooseFolder: chooseFolderMock
-  })
+vi.mock("../../hooks/useServerWorkspaces", () => ({
+  useServerWorkspaces: () => ({ data: [workspace], isLoading: false, isError: false }),
+  useServerWorkspaceStatus: () => ({
+    data: {
+      status: "AVAILABLE",
+      storageType: "MOUNTED",
+      accessMode: "READ_ONLY",
+      relativePath: "projects/nexo-ia",
+      structureFingerprint: "abc",
+      lastScannedAt: "2026-08-20T00:00:00Z",
+      git: { branch: "main", head: "abc", detached: false },
+      detectedStack: ["maven"],
+      reason: null
+    },
+    isLoading: false,
+    isError: false
+  }),
+  useCreateServerWorkspace: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
+  useDeleteServerWorkspace: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
+  useRefreshServerWorkspace: () => ({ mutate: refreshMock, isPending: false })
 }));
 
-vi.mock("../../hooks/useWorkspaceCheck", () => ({
-  useWorkspaceCheck: () => ({
-    checkActiveWorkspace: checkActiveWorkspaceMock,
-    acceptCurrentStructure: acceptCurrentStructureMock
-  })
+vi.mock("../../components/ServerWorkspaceTree", () => ({
+  ServerWorkspaceTree: () => <div>server tree</div>
 }));
-
-vi.mock("../../hooks/useWorkspaceSnapshot", () => ({
-  useWorkspaceSnapshot: () => ({ snapshot: null, status: "ready" })
-}));
-
-const workspace: ProjectWorkspace = {
-  id: "427d6713-f2d4-4b0d-8f72-eaa7f19ebd23",
-  ownerId: "0c0d3611-301c-4ff4-8656-30a3cf16edbd",
-  name: "nexo-ia",
-  directoryName: "nexo-ia",
-  access: "read",
-  platform: "macos",
-  source: "local-directory",
-  addedAt: "2026-08-20T00:00:00Z"
-};
 
 describe("ProjectsPage", () => {
-  beforeEach(() => {
-    chooseFolderMock.mockReset();
-    checkActiveWorkspaceMock.mockReset();
-    checkActiveWorkspaceMock.mockResolvedValue({ workspaceId: workspace.id, status: "unchanged", checkedAt: null, message: null, changes: null });
-    acceptCurrentStructureMock.mockReset();
-    acceptCurrentStructureMock.mockResolvedValue(undefined);
-    chooseFolderMock.mockImplementation(() => {
-      useWorkspaceStore.getState().registerWorkspace(workspace);
-      return Promise.resolve(workspace);
-    });
-    useWorkspaceStore.setState({ ownerId: null, workspaces: [], activeWorkspaceId: null, persistenceError: null });
-  });
+  beforeEach(() => refreshMock.mockReset());
 
-  it("selects a native project folder and makes it the active workspace", async () => {
+  it("shows the server workspace and opens Chat", async () => {
     const onOpenChat = vi.fn();
     render(<ThemeProvider theme={darkTheme}><ProjectsPage onOpenChat={onOpenChat} /></ThemeProvider>);
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose first folder" }));
-    fireEvent.click(screen.getByRole("button", { name: "Choose with Finder" }));
+    expect(await screen.findAllByText("nexo-ia")).not.toHaveLength(0);
+    expect(screen.getByText("server tree")).toBeVisible();
 
-    expect((await screen.findAllByText("Active workspace")).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("nexo-ia").length).toBeGreaterThan(0);
-    expect(useWorkspaceStore.getState().activeWorkspaceId).not.toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open Chat" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Open Chat" })[0]);
     expect(onOpenChat).toHaveBeenCalledOnce();
   });
 
-  it("rescans the selected directory when the user requests a fresher tree", () => {
-    useWorkspaceStore.setState({
-      ownerId: workspace.ownerId,
-      workspaces: [workspace],
-      activeWorkspaceId: workspace.id,
-      persistenceError: null
-    });
-
+  it("refreshes the live server structure", async () => {
     render(<ThemeProvider theme={darkTheme}><ProjectsPage onOpenChat={vi.fn()} /></ThemeProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "Rescan" }));
 
-    expect(checkActiveWorkspaceMock).toHaveBeenCalledWith(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
+    expect(refreshMock).toHaveBeenCalledWith(workspace.id);
   });
 });

@@ -20,6 +20,7 @@ public record ChatCompletionCommand(
         MemoryToolScope memoryToolScope,
         McpToolScope mcpToolScope,
         KnowledgeWriteToolScope knowledgeWriteToolScope,
+        WorkspaceToolScope workspaceToolScope,
         ToolExecutionObserver toolExecutionObserver,
         AgentPlanUpdateObserver agentPlanUpdateObserver) {
 
@@ -30,7 +31,7 @@ public record ChatCompletionCommand(
             List<ChatCompletionMessage> messages,
             boolean thinkingEnabled) {
         this(providerType, endpoint, model, messages, thinkingEnabled,
-                ConversationMode.CHAT, null, null, null, null, null,
+                ConversationMode.CHAT, null, null, null, null, null, null,
                 ToolExecutionObserver.NOOP, AgentPlanUpdateObserver.NOOP);
     }
 
@@ -44,8 +45,28 @@ public record ChatCompletionCommand(
             KnowledgeToolScope knowledgeToolScope,
             ToolExecutionObserver toolExecutionObserver) {
         this(providerType, endpoint, model, messages, thinkingEnabled, mode,
-                knowledgeToolScope, null, null, null, null,
+                knowledgeToolScope, null, null, null, null, null,
                 toolExecutionObserver, AgentPlanUpdateObserver.NOOP);
+    }
+
+    /** Backward-compatible constructor for callers with no attached workspace scope. */
+    public ChatCompletionCommand(
+            ProviderType providerType,
+            String endpoint,
+            String model,
+            List<ChatCompletionMessage> messages,
+            boolean thinkingEnabled,
+            ConversationMode mode,
+            KnowledgeToolScope knowledgeToolScope,
+            AgentPlanToolScope agentPlanToolScope,
+            MemoryToolScope memoryToolScope,
+            McpToolScope mcpToolScope,
+            KnowledgeWriteToolScope knowledgeWriteToolScope,
+            ToolExecutionObserver toolExecutionObserver,
+            AgentPlanUpdateObserver agentPlanUpdateObserver) {
+        this(providerType, endpoint, model, messages, thinkingEnabled, mode,
+                knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
+                knowledgeWriteToolScope, null, toolExecutionObserver, agentPlanUpdateObserver);
     }
 
     public ChatCompletionCommand(
@@ -61,7 +82,7 @@ public record ChatCompletionCommand(
             ToolExecutionObserver toolExecutionObserver,
             AgentPlanUpdateObserver agentPlanUpdateObserver) {
         this(providerType, endpoint, model, messages, thinkingEnabled, mode,
-                knowledgeToolScope, agentPlanToolScope, null, mcpToolScope, null,
+                knowledgeToolScope, agentPlanToolScope, null, mcpToolScope, null, null,
                 toolExecutionObserver, agentPlanUpdateObserver);
     }
 
@@ -69,7 +90,7 @@ public record ChatCompletionCommand(
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
                 mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
-                knowledgeWriteToolScope, observer, agentPlanUpdateObserver);
+                knowledgeWriteToolScope, workspaceToolScope, observer, agentPlanUpdateObserver);
     }
 
     public ChatCompletionCommand withExecutionObservers(
@@ -78,6 +99,6 @@ public record ChatCompletionCommand(
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
                 mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
-                knowledgeWriteToolScope, toolObserver, planObserver);
+                knowledgeWriteToolScope, workspaceToolScope, toolObserver, planObserver);
     }
 }

@@ -7,7 +7,8 @@ import {
   listMessages,
   renameConversation,
   selectConversationKnowledge,
-  selectConversationModel
+  selectConversationModel,
+  selectConversationWorkspace
 } from "../api/chatApi";
 import type { Conversation, ConversationMessage } from "../types/chatTypes";
 
@@ -130,5 +131,33 @@ export const useSelectConversationKnowledge = (
     },
     onSettled: (): Promise<void> =>
       queryClient.invalidateQueries({ queryKey: conversationsKey })
+  });
+};
+
+export const useSelectConversationWorkspace = (
+  conversationId: string | null
+): UseMutationResult<
+  Conversation,
+  Error,
+  string | null,
+  { previous: Conversation[] | undefined }
+> => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (workspaceId: string | null): Promise<Conversation> =>
+      selectConversationWorkspace(conversationId ?? "", workspaceId),
+    onMutate: (workspaceId: string | null): Promise<{ previous: Conversation[] | undefined }> =>
+      queryClient.cancelQueries({ queryKey: conversationsKey }).then(() => {
+        const previous = queryClient.getQueryData<Conversation[]>(conversationsKey);
+        queryClient.setQueryData<Conversation[]>(conversationsKey, (current) =>
+          (current ?? []).map((conversation) => conversation.id === conversationId
+            ? { ...conversation, workspaceId }
+            : conversation));
+        return { previous };
+      }),
+    onError: (_error, _variables, context): void => {
+      if (context?.previous) queryClient.setQueryData(conversationsKey, context.previous);
+    },
+    onSettled: (): Promise<void> => queryClient.invalidateQueries({ queryKey: conversationsKey })
   });
 };

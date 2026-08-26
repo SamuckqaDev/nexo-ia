@@ -156,7 +156,7 @@ export const PrivacyBadge = styled.span`
   color: ${({ theme }) => theme.colors.accentSoft};
 `;
 
-export const WorkspaceContext = styled.button<{ $active: boolean }>`
+export const WorkspaceContext = styled.div<{ $active: boolean }>`
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
@@ -167,13 +167,44 @@ export const WorkspaceContext = styled.button<{ $active: boolean }>`
   padding: 0.35rem 0.6rem;
   background: ${({ theme, $active }) => ($active ? theme.colors.surfaceAccent : "transparent")};
   color: ${({ theme, $active }) => ($active ? theme.colors.primarySoft : theme.colors.textSubtle)};
-  font: inherit;
   font-size: 0.74rem;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+  &:hover, &:focus-within { color: ${({ theme }) => theme.colors.primary}; }
+`;
+
+export const WorkspaceSelect = styled.select`
+  max-width: 13rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  outline: 0;
   cursor: pointer;
-  &:hover, &:focus-visible { color: ${({ theme }) => theme.colors.primary}; }
+  text-overflow: ellipsis;
+  &:disabled { cursor: not-allowed; opacity: 0.55; }
+`;
+
+export const WorkspaceServerNotice = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${({ theme }) => theme.spacing.sm};
+  width: min(60rem, calc(100% - 2rem));
+  box-sizing: border-box;
+  justify-self: center;
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.control};
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 0.64rem;
+  > span { display: grid; gap: 0.12rem; }
+  strong { color: ${({ theme }) => theme.colors.text}; text-transform: capitalize; }
 `;
 
 export const ModelArea = styled.div`

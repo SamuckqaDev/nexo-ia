@@ -103,10 +103,8 @@ public class WorkspaceController {
             @AuthenticationPrincipal NexoUserPrincipal principal,
             @PathVariable UUID workspaceId,
             @RequestParam(required = false) String path,
-            @RequestParam(required = false) Integer depth,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer limit) {
-        // depth is accepted for contract completeness; children are loaded on demand one level at a time.
         return ResponseEntity.ok(BaseResponse.success(
                 200, "Workspace tree retrieved", service.tree(principal.userId(), workspaceId, path, limit, cursor)));
     }

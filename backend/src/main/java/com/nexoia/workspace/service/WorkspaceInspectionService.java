@@ -8,7 +8,9 @@ import com.nexoia.workspace.dto.WorkspaceStatusResponse;
 import com.nexoia.workspace.dto.WorkspaceTreeEntryResponse;
 import com.nexoia.workspace.dto.WorkspaceTreeResponse;
 import com.nexoia.workspace.exception.WorkspaceAccessDeniedException;
+import com.nexoia.workspace.exception.WorkspaceFileNotTextException;
 import com.nexoia.workspace.exception.WorkspaceFileTooLargeException;
+import com.nexoia.workspace.exception.WorkspaceInvalidPathException;
 import com.nexoia.workspace.exception.WorkspaceUnavailableException;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.model.WorkspaceEntryType;
@@ -30,7 +32,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +46,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class WorkspaceInspectionService {
-
-    /** Heavy or internal directories excluded from listings and fingerprints by default. */
-    private static final Set<String> IGNORED_DIRECTORIES = Set.of(
-            ".git", "node_modules", "target", "build", ".gradle",
-            ".idea", ".vscode", ".nexo-runtime", "dist", "coverage");
 
     /** Manifest file name -> stack label, for lightweight project detection. */
     private static final Map<String, String> STACK_MANIFESTS = Map.ofEntries(
@@ -72,6 +68,7 @@ public class WorkspaceInspectionService {
 
     private final WorkspaceProperties properties;
     private final WorkspacePathResolver pathResolver;
+    private final WorkspaceContentPolicy contentPolicy;
 
     /** Lists one Workspace-relative directory, paginated by an opaque cursor and bounded server-side. */
     public WorkspaceTreeResponse tree(Workspace workspace, String relativePath, Integer limit, String cursor) {
@@ -80,6 +77,11 @@ public class WorkspaceInspectionService {
         Path directory = normalizedRelative.isEmpty()
                 ? requireDirectory(root)
                 : requireDirectory(pathResolver.resolveExisting(workspace, normalizedRelative));
+        if (!normalizedRelative.isEmpty()
+                && (contentPolicy.isIgnored(root, directory)
+                        || contentPolicy.isSensitive(normalizedRelative))) {
+            throw new WorkspaceAccessDeniedException();
+        }
 
         int cappedLimit = boundedLimit(limit);
         List<WorkspaceTreeEntryResponse> entries = new ArrayList<>();
@@ -99,8 +101,14 @@ public class WorkspaceInspectionService {
                 index++;
                 continue;
             }
-            if (Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS) && IGNORED_DIRECTORIES.contains(name)) {
+            if (Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)
+                    && contentPolicy.isIgnoredDirectoryName(name)) {
                 omissions.add(new WorkspaceOmissionResponse(name, "ignored"));
+                index++;
+                continue;
+            }
+            if (contentPolicy.isSensitive(relative(root, child))) {
+                omissions.add(new WorkspaceOmissionResponse(name, "sensitive"));
                 index++;
                 continue;
             }
@@ -160,8 +168,11 @@ public class WorkspaceInspectionService {
 
     /** Bounded, text-only file preview with an optional 1-based line range. Binary files are refused. */
     public WorkspaceFileResponse file(Workspace workspace, String relativePath, Integer startLine, Integer endLine) {
+        contentPolicy.requireReadable(relativePath);
+        Path root = pathResolver.workspaceRoot(workspace);
         Path file = pathResolver.resolveExisting(workspace, relativePath);
-        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+        if (contentPolicy.isIgnored(root, file)
+                || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw new WorkspaceAccessDeniedException();
         }
         try {
@@ -169,9 +180,16 @@ public class WorkspaceInspectionService {
             if (size > properties.maxFileBytes()) {
                 throw new WorkspaceFileTooLargeException();
             }
-            byte[] bytes = Files.readAllBytes(file);
-            if (looksBinary(bytes)) {
+            int readLimit = Math.toIntExact(Math.min(properties.maxFileBytes(), Integer.MAX_VALUE - 1L));
+            byte[] bytes;
+            try (var input = Files.newInputStream(file)) {
+                bytes = input.readNBytes(readLimit + 1);
+            }
+            if (bytes.length > readLimit) {
                 throw new WorkspaceFileTooLargeException();
+            }
+            if (looksBinary(bytes)) {
+                throw new WorkspaceFileNotTextException();
             }
             String content = decodeUtf8(bytes);
             String[] lines = content.isEmpty() ? new String[0] : content.split("\n", -1);
@@ -196,15 +214,7 @@ public class WorkspaceInspectionService {
     /** Deterministic hash of the relevant structure, ignoring heavy/internal directories. */
     public String fingerprint(Path root) {
         TreeMap<String, String> ordered = new TreeMap<>();
-        try (Stream<Path> walk = Files.walk(root)) {
-            walk.filter(path -> !path.equals(root))
-                    .filter(path -> !isWithinIgnored(root, path))
-                    .filter(path -> !Files.isSymbolicLink(path))
-                    .limit(FINGERPRINT_ENTRY_CAP)
-                    .forEach(path -> ordered.put(relative(root, path), descriptor(path)));
-        } catch (IOException exception) {
-            throw new WorkspaceUnavailableException();
-        }
+        collectFingerprintEntries(root, root, ordered);
         MessageDigest digest = sha256Digest();
         ordered.forEach((relative, descriptor) -> {
             digest.update(relative.getBytes(StandardCharsets.UTF_8));
@@ -213,6 +223,40 @@ public class WorkspaceInspectionService {
             digest.update((byte) 0);
         });
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private void collectFingerprintEntries(
+            Path root,
+            Path directory,
+            TreeMap<String, String> ordered) {
+        if (ordered.size() >= FINGERPRINT_ENTRY_CAP) {
+            return;
+        }
+        for (Path child : fingerprintChildren(directory)) {
+            if (ordered.size() >= FINGERPRINT_ENTRY_CAP) {
+                return;
+            }
+            String relative = relative(root, child);
+            if (Files.isSymbolicLink(child)
+                    || contentPolicy.isIgnored(root, child)
+                    || contentPolicy.isSensitive(relative)) {
+                continue;
+            }
+            ordered.put(relative, descriptor(child));
+            if (Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) {
+                collectFingerprintEntries(root, child, ordered);
+            }
+        }
+    }
+
+    private List<Path> fingerprintChildren(Path directory) {
+        try (Stream<Path> children = Files.list(directory)) {
+            return children.sorted(Comparator.comparing(
+                            path -> path.getFileName().toString()))
+                    .toList();
+        } catch (IOException exception) {
+            throw new WorkspaceUnavailableException();
+        }
     }
 
     /** Reads branch and HEAD from {@code .git} using only file reads — no process is spawned. */
@@ -316,22 +360,13 @@ public class WorkspaceInspectionService {
         return path;
     }
 
-    private boolean isWithinIgnored(Path root, Path path) {
-        Path relative = root.relativize(path);
-        for (Path segment : relative) {
-            if (IGNORED_DIRECTORIES.contains(segment.toString())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private String descriptor(Path path) {
         if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
             return "d";
         }
         try {
-            return "f:" + Files.size(path);
+            return "f:" + Files.size(path) + ":"
+                    + Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toMillis();
         } catch (IOException exception) {
             return "f:?";
         }
@@ -354,7 +389,7 @@ public class WorkspaceInspectionService {
             int index = Integer.parseInt(new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8));
             return Math.max(0, index);
         } catch (IllegalArgumentException exception) {
-            return 0;
+            throw new WorkspaceInvalidPathException();
         }
     }
 
@@ -377,7 +412,7 @@ public class WorkspaceInspectionService {
         try {
             return StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString();
         } catch (CharacterCodingException exception) {
-            throw new WorkspaceFileTooLargeException();
+            throw new WorkspaceFileNotTextException();
         }
     }
 

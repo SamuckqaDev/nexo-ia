@@ -25,6 +25,8 @@ import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
 import com.nexoia.provider.service.ChatCompletionClient;
+import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
+import com.nexoia.workspace.tool.WorkspaceReadToolSession;
 import io.micrometer.observation.ObservationRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -63,6 +65,7 @@ import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.ai.tool.toolsearch.index.regex.RegexToolIndex;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -112,8 +115,32 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final AgentPlanToolFactory planToolFactory;
     private final RememberToolFactory rememberToolFactory;
     private final McpToolSessionFactory mcpToolSessionFactory;
+    private final WorkspaceReadToolFactory workspaceToolFactory;
     private final ObservationRegistry observationRegistry;
 
+    @Autowired
+    public SpringAiChatCompletionClient(
+            SpringAiModelFactory modelFactory,
+            SpringAiMessageMapper messageMapper,
+            KnowledgeSearchToolFactory knowledgeToolFactory,
+            KnowledgeWriteToolFactory knowledgeWriteToolFactory,
+            AgentPlanToolFactory planToolFactory,
+            RememberToolFactory rememberToolFactory,
+            McpToolSessionFactory mcpToolSessionFactory,
+            WorkspaceReadToolFactory workspaceToolFactory,
+            ObservationRegistry observationRegistry) {
+        this.modelFactory = modelFactory;
+        this.messageMapper = messageMapper;
+        this.knowledgeToolFactory = knowledgeToolFactory;
+        this.knowledgeWriteToolFactory = knowledgeWriteToolFactory;
+        this.planToolFactory = planToolFactory;
+        this.rememberToolFactory = rememberToolFactory;
+        this.mcpToolSessionFactory = mcpToolSessionFactory;
+        this.workspaceToolFactory = workspaceToolFactory;
+        this.observationRegistry = observationRegistry;
+    }
+
+    /** Test/compatibility constructor for requests created before workspace tools were attached. */
     public SpringAiChatCompletionClient(
             SpringAiModelFactory modelFactory,
             SpringAiMessageMapper messageMapper,
@@ -123,14 +150,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             RememberToolFactory rememberToolFactory,
             McpToolSessionFactory mcpToolSessionFactory,
             ObservationRegistry observationRegistry) {
-        this.modelFactory = modelFactory;
-        this.messageMapper = messageMapper;
-        this.knowledgeToolFactory = knowledgeToolFactory;
-        this.knowledgeWriteToolFactory = knowledgeWriteToolFactory;
-        this.planToolFactory = planToolFactory;
-        this.rememberToolFactory = rememberToolFactory;
-        this.mcpToolSessionFactory = mcpToolSessionFactory;
-        this.observationRegistry = observationRegistry;
+        this(modelFactory, messageMapper, knowledgeToolFactory, knowledgeWriteToolFactory,
+                planToolFactory, rememberToolFactory, mcpToolSessionFactory, null, observationRegistry);
     }
 
     @Override
@@ -268,6 +289,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         AgentPlanToolSession planSession = planToolSession(command, cancelled);
         RememberToolSession rememberSession = rememberToolSession(command, cancelled);
         McpToolSession mcpSession = mcpToolSession(command, cancelled);
+        WorkspaceReadToolSession workspaceSession = workspaceToolSession(command, cancelled);
         List<ToolExecutionEvidence> inspectionEvidence = new ArrayList<>();
         if (mcpSession != null) {
             systemContext.add(new SystemMessage(mcpRuntimeStatus(mcpSession)));
@@ -281,6 +303,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 .toList());
         if (mcpSession != null) {
             callbacks.addAll(mcpSession.callbacks());
+        }
+        if (workspaceSession != null) {
+            callbacks.addAll(workspaceSession.callbacks());
         }
         List<ToolEvidenceRequirement> requirements = requiredToolEvidence(command);
         List<ToolEvidenceRequirement> missingRequirements = List.of();
@@ -308,7 +333,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 return new ChatCompletionOutcome(
                         listing, null, null, null, false, CAPABILITY_LISTING_REASON,
                         evidence(planSession, rememberSession, knowledgeSession, writeSession,
-                                mcpSession, inspectionEvidence));
+                                mcpSession, workspaceSession, inspectionEvidence));
             }
             if (!missingRequirements.isEmpty()) {
                 boolean mcpOnly = missingRequirements.stream()
@@ -328,7 +353,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         unavailable, null, null, null, false,
                         mcpOnly ? MCP_UNAVAILABLE_REASON : TOOL_UNAVAILABLE_REASON,
                         evidence(planSession, rememberSession, knowledgeSession, writeSession,
-                                mcpSession, inspectionEvidence));
+                                mcpSession, workspaceSession, inspectionEvidence));
             }
 
             Prompt prompt = new Prompt(conversation);
@@ -351,6 +376,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES
                                 + RememberToolFactory.MAX_CALLS
                                 + KnowledgeSearchToolFactory.MAX_CALLS
+                                + WorkspaceReadToolFactory.MAX_CALLS
                                 + McpToolSessionFactory.MAX_CALLS
                                 + MAX_TOOL_SEARCH_CALLS
                                 + MAX_CAPABILITY_INSPECTION_CALLS)
@@ -390,7 +416,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                         return new ChatCompletionOutcome(
                                 content.toString(), null, null, null, true, CANCELLED_REASON,
                                 evidence(planSession, rememberSession, knowledgeSession, writeSession,
-                                        mcpSession, inspectionEvidence));
+                                        mcpSession, workspaceSession, inspectionEvidence));
                     }
 
                     ChatResponse response = iterator.next();
@@ -435,12 +461,12 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             if (planSession != null) {
                 planSession.completeFallback(evidence(
                         planSession, rememberSession, knowledgeSession, writeSession,
-                        mcpSession, inspectionEvidence));
+                        mcpSession, workspaceSession, inspectionEvidence));
             }
             return new ChatCompletionOutcome(
                     content.toString(), inputTokens, outputTokens, tokenSource, false, finishReason,
                     evidence(planSession, rememberSession, knowledgeSession, writeSession,
-                            mcpSession, inspectionEvidence));
+                            mcpSession, workspaceSession, inspectionEvidence));
         } finally {
             if (mcpSession != null) {
                 mcpSession.close();
@@ -507,12 +533,26 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 command.mcpToolScope(), command.toolExecutionObserver(), cancelled);
     }
 
+    private WorkspaceReadToolSession workspaceToolSession(
+            ChatCompletionCommand command,
+            BooleanSupplier cancelled) {
+        if (command.mode() != ConversationMode.AGENT
+                || command.workspaceToolScope() == null
+                || !command.workspaceToolScope().available()
+                || workspaceToolFactory == null) {
+            return null;
+        }
+        return workspaceToolFactory.open(
+                command.workspaceToolScope(), command.toolExecutionObserver(), cancelled);
+    }
+
     private List<ToolExecutionEvidence> evidence(
             AgentPlanToolSession planSession,
             RememberToolSession rememberSession,
             KnowledgeSearchToolSession knowledgeSession,
             KnowledgeWriteToolSession writeSession,
             McpToolSession mcpSession,
+            WorkspaceReadToolSession workspaceSession,
             List<ToolExecutionEvidence> inspectionEvidence) {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
         if (planSession != null) {
@@ -529,6 +569,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         }
         if (mcpSession != null) {
             evidence.addAll(mcpSession.evidence());
+        }
+        if (workspaceSession != null) {
+            evidence.addAll(workspaceSession.evidence());
         }
         evidence.addAll(inspectionEvidence);
         return evidence;
@@ -553,6 +596,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 command.providerType(), command.endpoint(), command.model(), command.messages(), false,
                 command.mode(), command.knowledgeToolScope(), command.agentPlanToolScope(),
                 command.memoryToolScope(), command.mcpToolScope(), command.knowledgeWriteToolScope(),
+                command.workspaceToolScope(),
                 command.toolExecutionObserver(), command.agentPlanUpdateObserver());
     }
 
@@ -580,6 +624,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         }
         if (command.mcpToolScope() != null) {
             return command.mcpToolScope().assistantMessageId().toString();
+        }
+        if (command.workspaceToolScope() != null) {
+            return command.workspaceToolScope().assistantMessageId().toString();
         }
         return UUID.randomUUID().toString();
     }
@@ -722,7 +769,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 || request.contains("lookup")
                 || request.contains("acesse")
                 || request.contains("acessa");
-        return explicitlyExternal || (genericLookup && !requiresKnowledgeEvidence(command));
+        return explicitlyExternal || (genericLookup
+                && !requiresKnowledgeEvidence(command)
+                && !requiresWorkspaceEvidence(command));
     }
 
     private boolean requiresKnowledgeEvidence(ChatCompletionCommand command) {
@@ -764,6 +813,31 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 || (request.contains("guarde") && request.contains("memoria"));
     }
 
+    private boolean requiresWorkspaceEvidence(ChatCompletionCommand command) {
+        if (command.mode() != ConversationMode.AGENT || asksForAvailableTools(command)) {
+            return false;
+        }
+        String request = normalizedLatestUserRequest(command);
+        boolean referencesWorkspace = request.contains("workspace")
+                || request.contains("projeto")
+                || request.contains("repositorio")
+                || request.contains("repository")
+                || request.contains("arquivo")
+                || request.contains("file");
+        boolean asksToRead = request.contains("lista")
+                || request.contains("liste")
+                || request.contains("leia")
+                || request.contains("ler")
+                || request.contains("procure")
+                || request.contains("pesquis")
+                || request.contains("busc")
+                || request.contains("inspec")
+                || request.contains("estrutura")
+                || request.contains("git status")
+                || request.contains("diff");
+        return referencesWorkspace && asksToRead;
+    }
+
     private List<ToolEvidenceRequirement> requiredToolEvidence(ChatCompletionCommand command) {
         if (asksForAvailableTools(command)) {
             return List.of();
@@ -781,6 +855,11 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             requirements.add(new ToolEvidenceRequirement(
                     RememberToolFactory.TOOL_NAME,
                     "gravação na memória pessoal"));
+        }
+        if (requiresWorkspaceEvidence(command)) {
+            requirements.add(new ToolEvidenceRequirement(
+                    "workspace_",
+                    "leitura do Workspace selecionado"));
         }
         return List.copyOf(requirements);
     }

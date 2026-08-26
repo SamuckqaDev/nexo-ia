@@ -102,36 +102,28 @@ minimal vertical connection plus the first release `0.1` identity slice.
   draft is returned only to its current owner. These preview catalogs are reset when the authenticated
   shell closes and non-authenticated query caches are removed on logout. Authoritative publication,
   sharing, and backend access control remain part of the governed Vault and Skill runtimes.
-- The selected project workspace is shared through the project module's Zustand store and persisted
-  in origin-scoped IndexedDB under the authenticated user's identifier. On supported desktop
-  Chromium browsers, Projects opens the operating system's folder chooser through the File System
-  Access API, stores the browser-managed read handle, detects Windows, Linux, or macOS for the UI,
-  and restores the active workspace after reload without sending the handle or an absolute path to
-  the backend. A user can switch it directly from the sidebar and see the same selection in Home,
-  Chat, Projects, and Cowork.
-- Selecting a local workspace records a bounded metadata snapshot of the project tree. Before Chat
-  opens, Nexo revalidates browser permission and compares names, entry types, file sizes, and modified
-  timestamps. Added, removed, or modified entries produce a prominent Chat warning with review and
-  accept-current-structure actions. Generated or dependency-heavy directories such as `.git`,
-  `node_modules`, `dist`, and `target` are not traversed, and no file content is copied into the
-  snapshot. The same expandable snapshot is available from Chat's Project context panel. A folder
-  captured for the first time is treated as the accepted baseline, so entering Chat does not report
-  a change immediately; an existing or restored workspace is still checked before reuse.
-- Workspace snapshots now inspect up to 20,000 entries, open the first directory level by default,
-  provide path search and expand/collapse controls, and can be rescanned explicitly. Scan diagnostics
-  distinguish ignored dependency/generated directories, depth or entry limits, and unreadable
-  entries so a partial tree is never presented as complete.
+- Project execution now uses owner-scoped server Workspace registrations. Managed directories live
+  below a server-owned root; existing projects may be mounted only by relative path below an
+  explicitly configured import root. The selected Workspace is persisted on each Conversation and
+  restored across browsers. Projects, the Chat header, Agent Context, and the conversation Workspace
+  panel consume the authenticated server catalog; the sidebar no longer maintains a competing
+  browser-local active project. See D-032.
+- The server computes a bounded, deterministic tree fingerprint and Git HEAD baseline. Added,
+  removed, modified, or same-size timestamp changes produce a visible Chat warning; refresh accepts
+  the new baseline without editing project files. Trees are loaded lazily in Projects and the Chat
+  Workspace panel. Generated/dependency directories, symlinks, sensitive files, binaries, invalid
+  UTF-8, oversized files, traversal, and absolute paths are rejected or omitted centrally.
+- Workspace fingerprinting inspects at most 20,000 relevant sorted entries. The browser expands the
+  server tree lazily with bounded pages and displays omissions and truncation instead of presenting
+  a partial result as complete.
 - Preview records and newly created client drafts are labeled explicitly. Calendar drafts never
   execute, Vault files are not indexed, Skill drafts are not published, and Project/Cowork execution
   controls remain inactive until their authoritative backend and Companion APIs are implemented.
   Local Vault source content is read only for supported text formats and only in current memory; if
   the user attaches it to Chat, a bounded excerpt is deliberately sent inside each new message to the
   selected provider and displayed as message provenance. Detaching stops new inclusion; already sent
-  excerpts remain in that conversation's history. The browser workspace bridge can enumerate
-  metadata only after an explicit folder selection; it does not grant the model, backend, Cowork,
-  commands, or editing tools access to workspace file contents. Persistent folder handles require
-  Chrome or Edge on HTTPS or localhost. Firefox and Safari remain unsupported until their platform
-  contracts or the native Companion provide an equivalent reusable directory capability.
+  excerpts remain in that conversation's history. Workspace file reads are a separate server-side,
+  permission-resolved Agent capability; Project/Cowork writes and commands remain unavailable.
 - Settings now uses a responsive two-column workspace layout with sticky section navigation on
   desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
   preferences, provider, and usage components remain the owners of their implemented behavior.
@@ -308,9 +300,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   over a selected window. Aggregation reads from the recorded messages and is scoped to the caller in
   every query; the Settings usage surface renders it with a stacked per-day chart and honest empty
   states.
-- A minimal backend Workspace module (`GET/POST /api/v1/workspaces`, owner and name only) gives
-  Knowledge Vault scope `workspace` a real, authorized target. It is deliberately separate from the
-  frontend's IndexedDB-backed `project/workspace` module and not yet unified with it. See D-026.
+- The backend Workspace module now owns registrations, managed/mounted bindings, access ceilings,
+  live status, refresh, paged tree and bounded text preview under `/api/v1/workspaces`. Knowledge
+  Vault references are preserved and deletion is rejected while a Vault still references the
+  Workspace. The former frontend preview catalog is no longer authoritative for Chat or Projects.
 - Local Postgres now runs `pgvector/pgvector:0.8.6-pg18-bookworm`. `KnowledgeVault`, `KnowledgeSource`,
   and `KnowledgeChunk` are persisted with owner/workspace-scoped authorization
   (`GET/POST/PUT/DELETE /api/v1/knowledge/vaults`, `GET/POST /api/v1/knowledge/vaults/{id}/sources`,
@@ -462,8 +455,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   navigation, and thinking-only provider completions retry once without reasoning rather than being
   stored as empty successful answers. Plans and sanitized tool evidence persist on
   the assistant message, stream live, and
-  restore after navigation or reload. Native filesystem, terminal, Git, browser, write actions, the
-  complete approval Permission Engine, MCP secrets/configuration, resumable backend-restart
+  restore after navigation or reload. Bounded server Workspace reads and fixed read-only Git
+  inspection are now available conditionally; terminal, browser, write actions, the complete
+  approval Permission Engine, MCP secrets/configuration, resumable backend-restart
   execution, and multi-agent workers remain intentionally unavailable. Image cancellation,
   resumable ComfyUI jobs after backend restart, source-image editing, and remote image providers are
   later increments; local generation requires a running ComfyUI checkpoint.
@@ -477,8 +471,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Explicit Markdown links, `[[wikilinks]]`, tags, frontmatter, and user-approved relationships are not
   parsed into graph edges yet. The current semantic links are inferred from chunk embeddings and are
   deliberately labeled separately from authored relationships.
-- There is no frontend flow yet to create a backend Workspace, so `CreateVaultForm`'s workspace picker
-  is functional but likely empty until one is created directly against the API.
+- Agent mode conditionally attaches six read-only Spring AI Workspace callbacks for the persisted
+  conversation Workspace: file listing/read/search, Git status/diff, and project inspection. They
+  reuse permission resolution, bounded calls, duplicate denial, cancellation, sanitized evidence,
+  Tasks, and audit. File writes, arbitrary commands, Git mutation, approvals, artifacts, and worker
+  delegation remain deferred. See D-032 and [Server workspaces](SERVER_WORKSPACES.md).
 - No retry-without-reupload endpoint exists; retrying a failed source means re-selecting and
   re-uploading the same file.
 - The Ollama embedding smoke test convention (`OllamaEmbeddingClient` against a real local Ollama with

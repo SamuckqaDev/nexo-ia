@@ -4,8 +4,10 @@ Nexo uses Spring AI 2.0.1 as the orchestration layer for Ollama chat, embeddings
 request-scoped tools. This is a real but deliberately bounded Agent runtime: the selected model can
 revise a visible implementation plan, search the conversation's authorized Knowledge Vaults, store
 an explicitly requested personal memory, and call explicitly enabled tools from the authenticated
-user's MCP registry. It cannot yet read a
-Workspace, edit files, run arbitrary terminal commands, write Git state, or delegate to subagents.
+user's MCP registry. With a server Workspace selected and `WORKSPACE_READ` allowed, it can also list
+and search project files, read safe text excerpts, inspect project metadata, and read Git status or a
+one-file diff. It cannot edit files, run arbitrary terminal commands, write Git state, or delegate to
+workers.
 
 ## Source-backed framework choices
 
@@ -53,6 +55,7 @@ authenticated message
        remember          personal memory, owned by the authenticated account
        search_knowledge  only with authorized selected Vaults
        mcp_*              only from the owner's enabled, explicitly selected MCP snapshot
+       workspace_*        only for the persisted, authorized server Workspace
   -> stream typed Agent/tool/plan/token/usage events
   -> persist answer, plan, citations, tool evidence, usage, and terminal state
 ```
@@ -71,6 +74,7 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Visible plan | None | Persisted `update_plan` revisions |
 | Tool loop | None | Spring AI direct or progressive advisor, selected by catalog size |
 | External MCP tools | None | Explicitly selected, governed callbacks |
+| Server Workspace reads | None | Conditional bounded file/search/Git inspection callbacks |
 | Native write/system tools | None | None |
 
 The composer remains writable in Agent mode and includes a compact **Agent context** inspector. The
@@ -149,6 +153,13 @@ framed as untrusted personal context for later Chat or Agent requests. The conve
 **Memory** section lets the authenticated person inspect and delete this first slice. Automatic
 extraction, semantic selection, editing, expiration, and shared scopes remain deferred.
 
+Workspace callbacks are attached from the conversation's persisted `workspaceId`, never from a
+browser-local active-folder value. Permission resolution must allow `WORKSPACE_READ`, and every call
+reauthorizes ownership and live availability. The six callbacks share a 12-call request cap,
+duplicate-argument denial, sanitized evidence and audit. Explicit project/repository inspection is
+evidence-gated in the same way as MCP, Vault, and memory work. See
+[Server workspaces](SERVER_WORKSPACES.md).
+
 ## Knowledge and isolation
 
 Vault selection is durable conversation state. The server authorizes every selected Vault before it
@@ -175,7 +186,7 @@ answer, and it does not repeat a completed tool effect merely to recover missing
 
 ## Deliberately deferred
 
-- Workspace/file read and write tools;
+- Workspace/file writes and arbitrary command execution;
 - native terminal, Git, browser, email, and database tools;
 - MCP credentials/OAuth, configuration-dependent Docker entries, resources/prompts, and a Companion
   bridge for a containerized backend;

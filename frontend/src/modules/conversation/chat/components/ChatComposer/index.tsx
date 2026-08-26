@@ -2,7 +2,6 @@ import { ArrowUp, ChatCircleDots, ImageSquare, PaperPlaneRight, PlugsConnected, 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactElement } from "react";
 import { useSkillCatalogStore } from "../../../../skill/catalog/stores/useSkillCatalogStore";
 import type { SkillCatalogState, SkillDefinition } from "../../../../skill/catalog/types/skillTypes";
-import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
 import { buildContextualChatMessage } from "../../services/chatContextService";
 import type { ChatComposerProps } from "../../types/chatViewTypes";
 import { AgentContextIndicator } from "./components/AgentContextIndicator";
@@ -49,6 +48,7 @@ export function ChatComposer({
   imageSubmitting,
   mode,
   agentContext,
+  workspace,
   onModeChange,
   onInspectKnowledge,
   onManageMcp,
@@ -68,7 +68,6 @@ export function ChatComposer({
   const field = useRef<HTMLTextAreaElement>(null);
   const draftBeforeHistory = useRef<string>("");
   const skills: SkillDefinition[] = useSkillCatalogStore((state: SkillCatalogState) => state.skills);
-  const activeWorkspace = useActiveWorkspace();
 
   useEffect((): void => {
     if (selectedImageModel && imageModels.includes(selectedImageModel)) return;
@@ -90,10 +89,10 @@ export function ChatComposer({
   const skillMenuOpen: boolean = !historyOpen && !skillMenuDismissed && content.startsWith("/") && !/\s/.test(skillQuery);
   const visibleSkills: SkillDefinition[] = useMemo<SkillDefinition[]>(() => skills
     .filter((skill: SkillDefinition): boolean => skill.enabled)
-    .filter((skill: SkillDefinition): boolean => skill.scope !== "project" || skill.scopeTarget === activeWorkspace?.id)
+    .filter((skill: SkillDefinition): boolean => skill.scope !== "project" || skill.scopeTarget === workspace?.id)
     .filter((skill: SkillDefinition): boolean =>
       !skillQuery || `${skill.command} ${skill.name} ${skill.description}`.toLowerCase().includes(skillQuery))
-    .slice(0, 8), [activeWorkspace?.id, skillQuery, skills]);
+    .slice(0, 8), [skillQuery, skills, workspace?.id]);
 
   const selectSkill = (skill: SkillDefinition): void => {
     setActiveSkill(skill);
@@ -113,7 +112,7 @@ export function ChatComposer({
       onSend(buildContextualChatMessage(content, {
         skill: activeSkill,
         vaultSources: [],
-        workspace: activeWorkspace ? { id: activeWorkspace.id, name: activeWorkspace.name } : null
+        workspace: workspace ? { id: workspace.id, name: workspace.name } : null
       }));
     }
     setContent("");

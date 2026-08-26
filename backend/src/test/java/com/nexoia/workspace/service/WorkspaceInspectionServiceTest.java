@@ -7,11 +7,14 @@ import com.nexoia.workspace.config.WorkspaceProperties;
 import com.nexoia.workspace.dto.WorkspaceFileResponse;
 import com.nexoia.workspace.dto.WorkspaceGitSummary;
 import com.nexoia.workspace.dto.WorkspaceTreeResponse;
+import com.nexoia.workspace.exception.WorkspaceAccessDeniedException;
+import com.nexoia.workspace.exception.WorkspaceFileNotTextException;
 import com.nexoia.workspace.exception.WorkspaceFileTooLargeException;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.model.WorkspaceAccessMode;
 import com.nexoia.workspace.model.WorkspaceEntryType;
 import com.nexoia.workspace.model.WorkspaceStorageType;
+import com.nexoia.workspace.tool.WorkspaceSearchMatch;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,6 +35,7 @@ class WorkspaceInspectionServiceTest {
     Path managed;
 
     private WorkspaceInspectionService inspection;
+    private WorkspaceSearchService search;
     private Path project;
 
     @BeforeEach
@@ -45,7 +49,10 @@ class WorkspaceInspectionServiceTest {
         WorkspaceProperties properties = new WorkspaceProperties(
                 managed.toString(), importRoot.toString(), managed.resolve("artifacts").toString(),
                 64, 500, 100, Duration.ofMinutes(15), Duration.ofMinutes(10));
-        inspection = new WorkspaceInspectionService(properties, new WorkspacePathResolver(properties));
+        WorkspacePathResolver pathResolver = new WorkspacePathResolver(properties);
+        WorkspaceContentPolicy contentPolicy = new WorkspaceContentPolicy();
+        inspection = new WorkspaceInspectionService(properties, pathResolver, contentPolicy);
+        search = new WorkspaceSearchService(pathResolver, inspection, contentPolicy);
     }
 
     private Workspace workspace() {
@@ -122,7 +129,7 @@ class WorkspaceInspectionServiceTest {
     void rejectsBinaryFile() throws IOException {
         Files.write(project.resolve("bin.dat"), new byte[] {1, 2, 0, 3, 4});
 
-        assertThatExceptionOfType(WorkspaceFileTooLargeException.class)
+        assertThatExceptionOfType(WorkspaceFileNotTextException.class)
                 .isThrownBy(() -> inspection.file(workspace(), "bin.dat", null, null));
     }
 
@@ -132,6 +139,47 @@ class WorkspaceInspectionServiceTest {
 
         assertThatExceptionOfType(WorkspaceFileTooLargeException.class)
                 .isThrownBy(() -> inspection.file(workspace(), "big.txt", null, null));
+    }
+
+    @Test
+    void rejectsCredentialBearingFiles() throws IOException {
+        Files.writeString(project.resolve(".env"), "TOKEN=secret");
+
+        assertThatExceptionOfType(WorkspaceAccessDeniedException.class)
+                .isThrownBy(() -> inspection.file(workspace(), ".env", null, null));
+        assertThat(inspection.tree(workspace(), "", null, null).entries())
+                .extracting(entry -> entry.name())
+                .doesNotContain(".env");
+    }
+
+    @Test
+    void rejectsDirectAccessToIgnoredDependencyDirectories() {
+        assertThatExceptionOfType(WorkspaceAccessDeniedException.class)
+                .isThrownBy(() -> inspection.tree(workspace(), "node_modules", null, null));
+    }
+
+    @Test
+    void searchesSafeFilesWithoutEnteringSensitiveOrIgnoredPaths() throws IOException {
+        Files.writeString(project.resolve("node_modules/left-pad/index.js"), "hidden needle");
+        Files.writeString(project.resolve(".env.local"), "TOKEN=hidden needle");
+        Files.writeString(project.resolve("src/App.java"), "class App { String needle; }\n");
+
+        List<WorkspaceSearchMatch> matches = search.search(workspace(), "needle", null, 10);
+
+        assertThat(matches).extracting(WorkspaceSearchMatch::path)
+                .containsExactly("src/App.java");
+        assertThatExceptionOfType(WorkspaceAccessDeniedException.class)
+                .isThrownBy(() -> search.search(workspace(), "needle", "node_modules", 10));
+    }
+
+    @Test
+    void fingerprintChangesWhenSameSizeFileIsModified() throws Exception {
+        Path file = project.resolve("README.md");
+        String before = inspection.fingerprint(project);
+        Thread.sleep(5L);
+        Files.writeString(file, "HELLO\nworld\n");
+
+        assertThat(inspection.fingerprint(project)).isNotEqualTo(before);
     }
 
     @Test

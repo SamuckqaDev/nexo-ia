@@ -23,9 +23,9 @@ import { useVaultSources } from "../../../../knowledge/vault/hooks/useVaultSourc
 import type { BackendSource, BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
 import { usePersonalMemories } from "../../../../memory/personal/hooks/usePersonalMemories";
 import type { PersonalMemory } from "../../../../memory/personal/types/personalMemoryTypes";
-import { WorkspaceTree } from "../../../../project/workspace/components/WorkspaceTree";
-import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
-import { useWorkspaceSnapshot } from "../../../../project/workspace/hooks/useWorkspaceSnapshot";
+import { ServerWorkspaceTree } from "../../../../project/workspace/components/ServerWorkspaceTree";
+import { useServerWorkspaces, useServerWorkspaceStatus } from "../../../../project/workspace/hooks/useServerWorkspaces";
+import type { ServerWorkspace } from "../../../../project/workspace/types/serverWorkspaceTypes";
 import type {
   ConversationContextPanelProps,
   ConversationContextSection
@@ -133,11 +133,14 @@ export function ConversationContextPanel({
   onOpenChange,
   onToggleVault,
   onManageVaults,
-  onManageWorkspace
+  onManageWorkspace,
+  workspaceId
 }: ConversationContextPanelProps): ReactElement {
   const [section, setSection] = useState<ConversationContextSection>("workspace");
-  const activeWorkspace = useActiveWorkspace();
-  const workspaceSnapshot = useWorkspaceSnapshot(activeWorkspace?.id ?? null);
+  const workspaces = useServerWorkspaces(Boolean(workspaceId));
+  const activeWorkspace: ServerWorkspace | undefined = workspaces.data
+    ?.find((workspace: ServerWorkspace) => workspace.id === workspaceId);
+  const workspaceStatus = useServerWorkspaceStatus(activeWorkspace?.id ?? null);
   const personalMemories = usePersonalMemories(Boolean(conversationId));
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
@@ -173,7 +176,7 @@ export function ConversationContextPanel({
         return (
           <EmptyState>
             <EmptyIcon><FolderOpen size={22} weight="duotone" /></EmptyIcon>
-            <EmptyCopy><strong>No project selected</strong><span>Choose a local workspace to inspect its saved folder structure here.</span></EmptyCopy>
+            <EmptyCopy><strong>No project selected</strong><span>Choose a server-managed workspace for this conversation.</span></EmptyCopy>
             <Button type="button" variant="outline" onClick={onManageWorkspace}>Choose workspace</Button>
           </EmptyState>
         );
@@ -181,11 +184,12 @@ export function ConversationContextPanel({
       return (
         <ResourceList>
           <ResourceCard>
-            <header><span><FolderOpen size={17} weight="fill" />{activeWorkspace.name}</span><small>{activeWorkspace.access}</small></header>
-            {workspaceSnapshot.status === "loading" && <StatusCopy>Loading saved project structure…</StatusCopy>}
-            {workspaceSnapshot.status === "error" && <StatusCopy>Nexo could not read this structure from local browser storage.</StatusCopy>}
-            {workspaceSnapshot.status === "ready" && workspaceSnapshot.snapshot && <WorkspaceTree snapshot={workspaceSnapshot.snapshot} compact />}
-            {workspaceSnapshot.status === "ready" && !workspaceSnapshot.snapshot && <StatusCopy>No structure snapshot is available.</StatusCopy>}
+            <header><span><FolderOpen size={17} weight="fill" />{activeWorkspace.name}</span><small>{activeWorkspace.accessMode.toLowerCase()}</small></header>
+            {workspaceStatus.isLoading && <StatusCopy>Checking the live server workspace…</StatusCopy>}
+            {workspaceStatus.isError && <StatusCopy>Nexo could not inspect this server workspace.</StatusCopy>}
+            {workspaceStatus.data?.reason && <StatusCopy>{workspaceStatus.data.reason}</StatusCopy>}
+            {(workspaceStatus.data?.status === "AVAILABLE" || workspaceStatus.data?.status === "CHANGED")
+              && <ServerWorkspaceTree workspaceId={activeWorkspace.id} />}
           </ResourceCard>
           <SectionAction><Button type="button" variant="outline" onClick={onManageWorkspace}>Manage workspace</Button></SectionAction>
         </ResourceList>

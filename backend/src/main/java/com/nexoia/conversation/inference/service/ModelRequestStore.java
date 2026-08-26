@@ -23,14 +23,6 @@ import com.nexoia.conversation.inference.context.ResolvedKnowledgeContext;
 import com.nexoia.conversation.inference.context.SkillCapability;
 import com.nexoia.conversation.inference.context.ToolCapability;
 import com.nexoia.conversation.inference.context.WorkspaceCapability;
-import com.nexoia.permission.dto.ResolvedPermissions;
-import com.nexoia.permission.model.BuiltInProfiles;
-import com.nexoia.permission.model.CapabilityFamily;
-import com.nexoia.permission.model.ContentStance;
-import com.nexoia.permission.model.PermissionProfile;
-import com.nexoia.permission.model.ProfileKey;
-import com.nexoia.permission.model.UnlockLevel;
-import com.nexoia.permission.service.PermissionEngine;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
@@ -42,17 +34,25 @@ import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.knowledge.embedding.exception.EmbeddingProviderUnavailableException;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalQuery;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
-import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.knowledge.vault.model.KnowledgeVault;
 import com.nexoia.mcp.connection.service.McpConnectionService;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.memory.personal.service.PersonalMemoryService;
 import com.nexoia.memory.personal.tool.RememberToolFactory;
+import com.nexoia.permission.dto.ResolvedPermissions;
+import com.nexoia.permission.model.BuiltInProfiles;
+import com.nexoia.permission.model.CapabilityFamily;
+import com.nexoia.permission.model.ContentStance;
+import com.nexoia.permission.model.PermissionProfile;
+import com.nexoia.permission.model.ProfileKey;
+import com.nexoia.permission.model.UnlockLevel;
+import com.nexoia.permission.service.PermissionEngine;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.AgentPlanUpdateObserver;
@@ -66,11 +66,16 @@ import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStarted;
 import com.nexoia.provider.dto.ToolExecutionStatus;
+import com.nexoia.provider.dto.WorkspaceToolScope;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.provider.service.ProviderEndpointGuard;
+import com.nexoia.workspace.model.Workspace;
+import com.nexoia.workspace.model.WorkspaceStatus;
+import com.nexoia.workspace.service.WorkspaceAccessService;
+import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -112,6 +117,7 @@ public class ModelRequestStore {
     private final McpConnectionService mcpConnections;
     private final PersonalMemoryService personalMemories;
     private final PermissionEngine permissionEngine;
+    private final WorkspaceAccessService workspaceAccess;
     private final Clock clock;
 
     /**
@@ -222,6 +228,16 @@ public class ModelRequestStore {
         List<McpRuntimeConnection> enabledMcpConnections = mode == ConversationMode.AGENT
                 ? mcpConnections.enabledRuntimeConnections(userId)
                 : List.of();
+        Workspace selectedWorkspace = conversation.getWorkspaceId() == null
+                ? null
+                : workspaceAccess.accessibleWorkspace(userId, conversation.getWorkspaceId());
+        boolean workspaceAvailable = selectedWorkspace != null
+                && workspaceAccess.lightStatus(selectedWorkspace) == WorkspaceStatus.AVAILABLE;
+        RequestPermission requestPermission = resolvePermission(
+                mode, enabledMcpConnections, writableVault != null, workspaceAvailable, assignedProfile);
+        boolean workspaceReadAllowed = mode == ConversationMode.AGENT
+                && workspaceAvailable
+                && requestPermission.resolved().isAllowed(CapabilityFamily.WORKSPACE_READ);
 
         return new ModelRequestReservation(
                 userId,
@@ -236,7 +252,8 @@ public class ModelRequestStore {
                                 conversationId, username, citations,
                                 capabilityEnvelope(username, conversation.getSelectedModel(),
                                         processingLocation, selectedVaults, resolvedKnowledge,
-                                        enabledMcpConnections, mode, assignedProfile),
+                                        enabledMcpConnections, selectedWorkspace,
+                                        workspaceReadAllowed, requestPermission, mode),
                                 personalMemories.context(userId)),
                         thinkingEnabled,
                         mode,
@@ -262,6 +279,17 @@ public class ModelRequestStore {
                                 : new KnowledgeWriteToolScope(
                                         userId, writableVault.getId(), writableVault.getName(),
                                         assistantMessage.getId(), correlationId),
+                        workspaceReadAllowed
+                                ? new WorkspaceToolScope(
+                                        userId,
+                                        conversationId,
+                                        assistantMessage.getId(),
+                                        correlationId,
+                                        selectedWorkspace.getId(),
+                                        selectedWorkspace.getName(),
+                                        selectedWorkspace.getAccessMode(),
+                                        true)
+                                : null,
                         ToolExecutionObserver.NOOP,
                         AgentPlanUpdateObserver.NOOP),
                 processingLocation,
@@ -271,9 +299,9 @@ public class ModelRequestStore {
     /**
      * Builds the truthful per-request capability envelope. The knowledge numbers are derived from
      * the deterministic retrieval that already ran, so the model cannot be told it searched or found
-     * more than it did. Workspace and Skill capabilities remain absent until their server-side
-     * access paths are connected. Agent mode additionally exposes only the user's enabled,
-     * explicitly selected MCP tools.
+     * more than it did. Workspace tools are exposed only when the persisted conversation selection,
+     * binding and Permission Engine all authorize server-side reads. Agent mode additionally exposes
+     * only the user's enabled, explicitly selected MCP tools.
      */
     private ModelContextEnvelope capabilityEnvelope(
             String username, String model,
@@ -281,7 +309,10 @@ public class ModelRequestStore {
             List<KnowledgeVault> selectedVaults,
             ResolvedKnowledgeContext resolvedKnowledge,
             List<McpRuntimeConnection> enabledMcpConnections,
-            ConversationMode mode, ProfileKey assignedProfile) {
+            Workspace selectedWorkspace,
+            boolean workspaceReadAllowed,
+            RequestPermission requestPermission,
+            ConversationMode mode) {
         List<CitationResponse> citations = resolvedKnowledge.citations();
         KnowledgeCapability knowledge = new KnowledgeCapability(
                 selectedVaults.stream().map(KnowledgeVault::getName).toList(),
@@ -308,6 +339,15 @@ public class ModelRequestStore {
             if (hasWritableVault) {
                 exposedTools.add(KnowledgeWriteToolFactory.TOOL_NAME);
             }
+            if (workspaceReadAllowed) {
+                exposedTools.addAll(List.of(
+                        WorkspaceReadToolFactory.LIST_FILES,
+                        WorkspaceReadToolFactory.READ_FILE,
+                        WorkspaceReadToolFactory.SEARCH,
+                        WorkspaceReadToolFactory.GIT_STATUS,
+                        WorkspaceReadToolFactory.GIT_DIFF,
+                        WorkspaceReadToolFactory.INSPECT_PROJECT));
+            }
             enabledMcpConnections.stream()
                     .flatMap(connection -> connection.enabledTools().stream())
                     .map(tool -> tool.exposedName())
@@ -315,12 +355,13 @@ public class ModelRequestStore {
             tools = new ToolCapability(List.copyOf(exposedTools));
         }
 
-        PermissionCapability permission =
-                resolvePermission(mode, enabledMcpConnections, hasWritableVault, assignedProfile);
-
         return new ModelContextEnvelope(username, mode.name().toLowerCase(),
-                new CapabilityManifest(model, processingLocation, permission, knowledge,
-                        WorkspaceCapability.none(), SkillCapability.none(), tools));
+                new CapabilityManifest(model, processingLocation, requestPermission.capability(), knowledge,
+                        selectedWorkspace == null
+                                ? WorkspaceCapability.none()
+                                : new WorkspaceCapability(
+                                        true, selectedWorkspace.getName(), workspaceReadAllowed),
+                        SkillCapability.none(), tools));
     }
 
     /**
@@ -330,8 +371,11 @@ public class ModelRequestStore {
      * carries the content matrix; the conversation mode still clamps Chat to grounded (no tool loop). The
      * capability axis and the content axis stay independent.
      */
-    private PermissionCapability resolvePermission(
-            ConversationMode mode, List<McpRuntimeConnection> enabledMcpConnections, boolean hasWritableVault,
+    private RequestPermission resolvePermission(
+            ConversationMode mode,
+            List<McpRuntimeConnection> enabledMcpConnections,
+            boolean hasWritableVault,
+            boolean hasAvailableWorkspace,
             ProfileKey assignedProfile) {
         boolean agent = mode == ConversationMode.AGENT;
         PermissionProfile profile = BuiltInProfiles.of(
@@ -345,6 +389,9 @@ public class ModelRequestStore {
         if (hasWritableVault) {
             authorizedTargets.add(CapabilityFamily.KNOWLEDGE_WRITE);
         }
+        if (hasAvailableWorkspace) {
+            authorizedTargets.add(CapabilityFamily.WORKSPACE_READ);
+        }
 
         ResolvedPermissions resolved = permissionEngine.resolve(
                 profile, modeCeiling, agent, authorizedTargets, ContentStance.STANDARD);
@@ -353,9 +400,15 @@ public class ModelRequestStore {
                 .filter(family -> !family.prohibited())
                 .map(CapabilityFamily::label)
                 .toList();
-        return new PermissionCapability(
-                profile.name(), resolved.effectiveLevel(), profile.contentMatrix(), locked);
+        return new RequestPermission(
+                resolved,
+                new PermissionCapability(
+                        profile.name(), resolved.effectiveLevel(), profile.contentMatrix(), locked));
     }
+
+    private record RequestPermission(
+            ResolvedPermissions resolved,
+            PermissionCapability capability) {}
 
     private ResolvedKnowledgeContext retrieve(
             UUID userId, List<UUID> knowledgeVaultIds, String content) {

@@ -32,6 +32,7 @@ import com.nexoia.mcp.connection.service.McpConnectionService;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
 import com.nexoia.memory.personal.service.PersonalMemoryService;
+import com.nexoia.permission.model.ProfileKey;
 import com.nexoia.permission.service.PermissionEngine;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.model.ProcessingLocation;
@@ -39,6 +40,12 @@ import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.provider.service.ProviderEndpointGuard;
+import com.nexoia.workspace.model.Workspace;
+import com.nexoia.workspace.model.WorkspaceAccessMode;
+import com.nexoia.workspace.model.WorkspaceStatus;
+import com.nexoia.workspace.model.WorkspaceStorageType;
+import com.nexoia.workspace.service.WorkspaceAccessService;
+import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -67,6 +74,7 @@ class ModelRequestStoreTest {
     @Mock private RetrievalService retrieval;
     @Mock private McpConnectionService mcpConnections;
     @Mock private PersonalMemoryService personalMemories;
+    @Mock private WorkspaceAccessService workspaceAccess;
 
     private ModelRequestStore store;
     private final UUID userId = UUID.randomUUID();
@@ -89,6 +97,7 @@ class ModelRequestStoreTest {
                 mcpConnections,
                 personalMemories,
                 new PermissionEngine(),
+                workspaceAccess,
                 Clock.fixed(Instant.parse("2026-08-21T12:00:00Z"), ZoneOffset.UTC));
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(Conversation.builder()
@@ -184,5 +193,52 @@ class ModelRequestStoreTest {
         assertThat(reservation.command().agentPlanToolScope()).isNotNull();
         assertThat(reservation.command().memoryToolScope()).isNotNull();
         assertThat(reservation.command().mcpToolScope().connections()).containsExactly(mcp);
+    }
+
+    @Test
+    void agentModeAttachesWorkspaceToolsOnlyFromThePersistedAuthorizedSelection() {
+        UUID workspaceId = UUID.randomUUID();
+        when(conversations.findOwnedForUpdate(conversationId, userId))
+                .thenReturn(Optional.of(Conversation.builder()
+                        .id(conversationId)
+                        .userId(userId)
+                        .title("Chat")
+                        .providerConfigurationId(providerId)
+                        .selectedModel("qwen3:8b")
+                        .workspaceId(workspaceId)
+                        .build()));
+        when(users.findById(userId)).thenReturn(Optional.of(
+                UserAccount.builder()
+                        .id(userId)
+                        .username("owner")
+                        .assignedProfile(ProfileKey.OPERATOR)
+                        .build()));
+        Workspace workspace = Workspace.builder()
+                .id(workspaceId)
+                .ownerId(userId)
+                .name("Nexo")
+                .storageType(WorkspaceStorageType.MOUNTED)
+                .accessMode(WorkspaceAccessMode.READ_ONLY)
+                .relativePath("nexo")
+                .build();
+        when(workspaceAccess.accessibleWorkspace(userId, workspaceId)).thenReturn(workspace);
+        when(workspaceAccess.lightStatus(workspace)).thenReturn(WorkspaceStatus.AVAILABLE);
+
+        ModelRequestReservation reservation = store.reserve(
+                userId, conversationId, "inspect the project", false, List.of(), ConversationMode.AGENT);
+
+        assertThat(reservation.command().workspaceToolScope().workspaceId()).isEqualTo(workspaceId);
+        ArgumentCaptor<ModelContextEnvelope> envelope = ArgumentCaptor.forClass(ModelContextEnvelope.class);
+        verify(contextAssembler).assemble(
+                eq(conversationId), eq("owner"), eq(List.of()), envelope.capture(), eq(List.of()));
+        assertThat(envelope.getValue().manifest().workspace().serverSideAccess()).isTrue();
+        assertThat(envelope.getValue().manifest().tools().exposedToolNames())
+                .contains(
+                        WorkspaceReadToolFactory.LIST_FILES,
+                        WorkspaceReadToolFactory.READ_FILE,
+                        WorkspaceReadToolFactory.SEARCH,
+                        WorkspaceReadToolFactory.GIT_STATUS,
+                        WorkspaceReadToolFactory.GIT_DIFF,
+                        WorkspaceReadToolFactory.INSPECT_PROJECT);
     }
 }

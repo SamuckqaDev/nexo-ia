@@ -6,7 +6,6 @@ import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.auth.session.security.NexoUserPrincipal;
 import com.nexoia.auth.user.model.UserRole;
-import com.nexoia.workspace.config.WorkspaceProperties;
 import com.nexoia.workspace.config.WorkspaceStorage;
 import com.nexoia.workspace.dto.BindWorkspaceRequest;
 import com.nexoia.workspace.dto.CreateWorkspaceRequest;
@@ -15,6 +14,7 @@ import com.nexoia.workspace.dto.WorkspaceResponse;
 import com.nexoia.workspace.dto.WorkspaceStatusResponse;
 import com.nexoia.workspace.dto.WorkspaceTreeResponse;
 import com.nexoia.workspace.exception.WorkspaceInvalidPathException;
+import com.nexoia.workspace.exception.WorkspaceInUseException;
 import com.nexoia.workspace.exception.WorkspaceNotFoundException;
 import com.nexoia.workspace.exception.WorkspaceUnavailableException;
 import com.nexoia.workspace.model.Workspace;
@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,10 +47,8 @@ public class WorkspaceService {
     private final WorkspaceInspectionService inspection;
     private final WorkspacePathResolver pathResolver;
     private final WorkspaceStorage storage;
-    private final WorkspaceProperties properties;
     private final AuditService audit;
 
-    @Transactional(readOnly = true)
     public List<WorkspaceResponse> list(UUID ownerId) {
         return workspaces.findAllByOwnerIdOrderByCreatedAtDesc(ownerId).stream()
                 .map(this::response)
@@ -58,7 +57,7 @@ public class WorkspaceService {
 
     @Transactional
     public WorkspaceResponse create(UUID ownerId, CreateWorkspaceRequest request) {
-        Workspace workspace = workspaces.save(Workspace.builder()
+        Workspace workspace = workspaces.saveAndFlush(Workspace.builder()
                 .id(UUID.randomUUID())
                 .ownerId(ownerId)
                 .name(request.name().trim())
@@ -67,7 +66,6 @@ public class WorkspaceService {
         return response(workspace);
     }
 
-    @Transactional(readOnly = true)
     public WorkspaceResponse get(UUID ownerId, UUID workspaceId) {
         return response(access.accessibleWorkspace(ownerId, workspaceId));
     }
@@ -77,7 +75,6 @@ public class WorkspaceService {
      * owns; MOUNTED points at an existing project under the configured import root and, in this first
      * increment, is restricted to the Nexo Owner. The client never provides an absolute path.
      */
-    @Transactional
     public WorkspaceResponse bind(NexoUserPrincipal principal, UUID workspaceId, BindWorkspaceRequest request) {
         Workspace workspace = access.accessibleWorkspace(principal.userId(), workspaceId);
         switch (request.storageType()) {
@@ -85,36 +82,40 @@ public class WorkspaceService {
             case MOUNTED -> bindMounted(principal, workspace, request);
             case UNBOUND -> throw new WorkspaceInvalidPathException();
         }
+        Workspace saved = workspaces.saveAndFlush(workspace);
         audit.record(RecordAuditCommand.success(
                 AuditAction.WORKSPACE_BOUND, principal.userId(), null, AuditTargetType.WORKSPACE, workspaceId));
-
-        return response(workspace);
+        return response(saved);
     }
 
     @Transactional
     public void delete(UUID ownerId, UUID workspaceId) {
         Workspace workspace = access.accessibleWorkspace(ownerId, workspaceId);
-        workspaces.delete(workspace);
+        try {
+            workspaces.delete(workspace);
+            workspaces.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new WorkspaceInUseException(exception);
+        }
         audit.record(RecordAuditCommand.success(
                 AuditAction.WORKSPACE_DELETED, ownerId, null, AuditTargetType.WORKSPACE, workspaceId));
     }
 
-    @Transactional(readOnly = true)
     public WorkspaceStatusResponse status(UUID ownerId, UUID workspaceId) {
         return inspection.status(access.accessibleWorkspace(ownerId, workspaceId));
     }
 
-    @Transactional
     public WorkspaceStatusResponse refresh(UUID ownerId, UUID workspaceId) {
-        return inspection.refresh(access.accessibleWorkspace(ownerId, workspaceId));
+        Workspace workspace = access.accessibleWorkspace(ownerId, workspaceId);
+        WorkspaceStatusResponse result = inspection.refresh(workspace);
+        workspaces.saveAndFlush(workspace);
+        return result;
     }
 
-    @Transactional(readOnly = true)
     public WorkspaceTreeResponse tree(UUID ownerId, UUID workspaceId, String path, Integer limit, String cursor) {
         return inspection.tree(access.accessibleWorkspace(ownerId, workspaceId), path, limit, cursor);
     }
 
-    @Transactional(readOnly = true)
     public WorkspaceFileResponse file(
             UUID ownerId, UUID workspaceId, String path, Integer startLine, Integer endLine) {
         if (path == null || path.isBlank()) {

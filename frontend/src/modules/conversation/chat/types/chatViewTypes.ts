@@ -2,6 +2,7 @@ import type { SkillDefinition } from "../../../skill/catalog/types/skillTypes";
 import type { BackendVault } from "../../../knowledge/vault/types/backendVaultTypes";
 import type { VaultSourceReference } from "../../../knowledge/vault/types/vaultTypes";
 import type { AgentPlan, AgentState, ConversationMode, StreamPhase, ToolExecution } from "./chatTypes";
+import type { ServerWorkspace } from "../../../project/workspace/types/serverWorkspaceTypes";
 
 export type ConversationContextSection = "workspace" | "vaults" | "memory" | "plan" | "tasks" | "artifacts" | "media";
 
@@ -20,6 +21,7 @@ export type ConversationContextPanelProps = {
   onToggleVault: (vaultId: string) => void;
   onManageVaults: () => void;
   onManageWorkspace: () => void;
+  workspaceId?: string | null;
 };
 
 export type AgentContextSummary = {
@@ -33,6 +35,10 @@ export type AgentContextSummary = {
   modelToolCallingSupported: boolean | null;
   modelThinkingSupported: boolean | null;
   thinkingEnabled: boolean;
+  workspaceName?: string | null;
+  workspaceStatus?: string | null;
+  workspaceLoading?: boolean;
+  workspaceError?: boolean;
 };
 
 export type ChatComposerProps = {
@@ -49,6 +55,7 @@ export type ChatComposerProps = {
   imageSubmitting: boolean;
   mode: ConversationMode;
   agentContext: AgentContextSummary;
+  workspace?: ServerWorkspace | null;
   onModeChange: (mode: ConversationMode) => void;
   onInspectKnowledge: () => void;
   onManageMcp: () => void;

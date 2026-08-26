@@ -1,5 +1,5 @@
 import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
@@ -16,12 +16,12 @@ import type { ProviderConfiguration, ProviderModel } from "../../../../provider/
 import { usePreferenceStore } from "../../../../settings/stores/usePreferenceStore";
 import type { PreferenceState } from "../../../../settings/types/preferenceTypes";
 import { useUsage } from "../../../../usage/hooks/useUsage";
-import { WorkspaceChangeNotice } from "../../../../project/workspace/components/WorkspaceChangeNotice";
-import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
-import { useWorkspaceRegistration } from "../../../../project/workspace/hooks/useWorkspaceRegistration";
-import { useWorkspaceCheck } from "../../../../project/workspace/hooks/useWorkspaceCheck";
-import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
-import type { WorkspaceCheck, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
+import {
+  useRefreshServerWorkspace,
+  useServerWorkspaces,
+  useServerWorkspaceStatus
+} from "../../../../project/workspace/hooks/useServerWorkspaces";
+import type { ServerWorkspace } from "../../../../project/workspace/types/serverWorkspaceTypes";
 import { ChatComposer } from "../../components/ChatComposer";
 import { ConversationContextPanel } from "../../components/ConversationContextPanel";
 import { ConversationSidebar } from "../../components/ConversationSidebar";
@@ -34,7 +34,8 @@ import {
   useCreateConversation,
   useRenameConversation,
   useSelectConversationKnowledge,
-  useSelectConversationModel
+  useSelectConversationModel,
+  useSelectConversationWorkspace
 } from "../../hooks/useChat";
 import { useChatStream } from "../../hooks/useChatStream";
 import { useImageGeneration } from "../../../media/hooks/useImageGeneration";
@@ -65,7 +66,9 @@ import {
   VaultBar,
   VaultBarLabel,
   VaultChip,
-  WorkspaceContext
+  WorkspaceContext,
+  WorkspaceSelect,
+  WorkspaceServerNotice
 } from "./styles";
 
 export function ChatPage(): ReactElement {
@@ -77,14 +80,7 @@ export function ChatPage(): ReactElement {
   const providers = useProviderRegistry();
   const backendVaults = useBackendVaultCatalog();
   const accountUsage = useUsage("ALL_TIME");
-  const activeWorkspace = useActiveWorkspace();
-  const workspaceRegistration = useWorkspaceRegistration();
-  const workspaceCheck: WorkspaceCheck = useWorkspaceStore((state: WorkspaceState) => state.workspaceCheck);
-  const workspaceHydration: WorkspaceState["hydrationStatus"] = useWorkspaceStore((state: WorkspaceState) => state.hydrationStatus);
-  const skipNextWorkspaceCheck: boolean = useWorkspaceStore((state: WorkspaceState) => state.skipNextWorkspaceCheck);
-  const consumeWorkspaceCheckSkip: WorkspaceState["consumeWorkspaceCheckSkip"] = useWorkspaceStore((state: WorkspaceState) => state.consumeWorkspaceCheckSkip);
-  const workspaceInspection = useWorkspaceCheck();
-  const inspectedWorkspaceId = useRef<string | null>(null);
+  const serverWorkspaces = useServerWorkspaces();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isStartingNewConversation, setIsStartingNewConversation] = useState<boolean>(false);
@@ -110,6 +106,11 @@ export function ChatPage(): ReactElement {
     ?.find((item: Conversation) => item.id === selectedId);
   const selectedVaultIds: string[] = selected?.knowledgeVaultIds ?? [];
   const selectKnowledge = useSelectConversationKnowledge(selectedId);
+  const selectWorkspace = useSelectConversationWorkspace(selectedId);
+  const activeWorkspace: ServerWorkspace | null = serverWorkspaces.data
+    ?.find((workspace: ServerWorkspace) => workspace.id === selected?.workspaceId) ?? null;
+  const workspaceStatus = useServerWorkspaceStatus(activeWorkspace?.id ?? null);
+  const refreshWorkspace = useRefreshServerWorkspace();
   const mcpConnections = useMcpConnections(mode === "agent");
   const imageGeneration = useImageGeneration(selectedId);
   const messageHistory: string[] = useMemo<string[]>(() => (messages.data ?? [])
@@ -134,23 +135,6 @@ export function ChatPage(): ReactElement {
   useEffect((): void => {
     if (initialDraft) clearDraft();
   }, [clearDraft, initialDraft]);
-
-
-  useEffect((): void => {
-    if (
-      workspaceHydration === "ready"
-      && activeWorkspace
-      && inspectedWorkspaceId.current !== activeWorkspace.id
-    ) {
-      inspectedWorkspaceId.current = activeWorkspace.id;
-      if (skipNextWorkspaceCheck) {
-        consumeWorkspaceCheckSkip();
-        return;
-      }
-      workspaceInspection.checkActiveWorkspace(false);
-    }
-  }, [activeWorkspace, consumeWorkspaceCheckSkip, skipNextWorkspaceCheck, workspaceHydration, workspaceInspection]);
-
   const configuredProviders: ProviderConfiguration[] = providers.registry.data
     ?.filter((provider: ProviderConfiguration) => provider.enabled) ?? [];
   const modelCatalogs = useProviderModelCatalogs(configuredProviders);
@@ -199,7 +183,11 @@ export function ChatPage(): ReactElement {
     mcpError: mcpConnections.isError,
     modelToolCallingSupported: effectiveModelDetails?.toolCallingSupported ?? null,
     modelThinkingSupported: effectiveModelDetails?.thinkingSupported ?? null,
-    thinkingEnabled
+    thinkingEnabled,
+    workspaceName: activeWorkspace?.name ?? null,
+    workspaceStatus: workspaceStatus.data?.status ?? activeWorkspace?.status ?? null,
+    workspaceLoading: serverWorkspaces.isLoading || workspaceStatus.isLoading,
+    workspaceError: serverWorkspaces.isError || workspaceStatus.isError
   };
 
   useEffect((): void => {
@@ -360,19 +348,21 @@ export function ChatPage(): ReactElement {
               <HeaderMeta>
                 <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
                 <WorkspaceContext
-                  type="button"
                   $active={Boolean(activeWorkspace)}
-                  title={activeWorkspace ? `Local workspace: ${activeWorkspace.directoryName}` : "Choose a workspace folder"}
-                  onClick={(): void => {
-                    if (!activeWorkspace && workspaceRegistration.isSupported) {
-                      void workspaceRegistration.chooseFolder("read");
-                      return;
-                    }
-                    navigate("/projects");
-                  }}
+                  title="Workspace persisted for this conversation"
                 >
                   <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
-                  Workspace: {workspaceRegistration.isPicking ? "Opening folder…" : activeWorkspace?.name ?? "Choose workspace"}
+                  <WorkspaceSelect
+                    aria-label="Conversation workspace"
+                    value={selected?.workspaceId ?? ""}
+                    disabled={!selectedId || selectWorkspace.isPending || stream.isBusy}
+                    onChange={(event): void => selectWorkspace.mutate(event.target.value || null)}
+                  >
+                    <option value="">No workspace</option>
+                    {(serverWorkspaces.data ?? []).map((workspace: ServerWorkspace) => (
+                      <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+                    ))}
+                  </WorkspaceSelect>
                 </WorkspaceContext>
                 {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
               </HeaderMeta>
@@ -398,14 +388,25 @@ export function ChatPage(): ReactElement {
         </Header>
 
         <ChatContent>
-          {activeWorkspace && (
-            <WorkspaceChangeNotice
-              check={workspaceCheck}
-              workspaceName={activeWorkspace.name}
-              onManage={(): void => { navigate("/projects"); }}
-              onRecheck={(): void => { workspaceInspection.checkActiveWorkspace(true); }}
-              onAccept={(): void => { workspaceInspection.acceptCurrentStructure(); }}
-            />
+          {activeWorkspace && workspaceStatus.data && workspaceStatus.data.status !== "AVAILABLE" && (
+            <WorkspaceServerNotice role="status">
+              <span>
+                <strong>{activeWorkspace.name}: {workspaceStatus.data.status.toLowerCase()}</strong>
+                {workspaceStatus.data.reason ?? (workspaceStatus.data.status === "CHANGED"
+                  ? "The project structure changed on the server. Refresh before relying on the previous scan."
+                  : "This project is not currently readable by the Nexo server.")}
+              </span>
+              {workspaceStatus.data.status === "CHANGED" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={refreshWorkspace.isPending}
+                  onClick={(): void => refreshWorkspace.mutate(activeWorkspace.id)}
+                >Refresh context</Button>
+              ) : (
+                <Button type="button" variant="outline" onClick={(): void => { void navigate("/projects"); }}>Manage</Button>
+              )}
+            </WorkspaceServerNotice>
           )}
           <ConversationBody $contextOpen={isContextOpen}>
             <ConversationColumn>
@@ -468,6 +469,7 @@ export function ChatPage(): ReactElement {
                 imageSubmitting={imageGeneration.generate.isPending}
                 mode={mode}
                 agentContext={agentContext}
+                workspace={activeWorkspace}
                 onModeChange={setMode}
                 onInspectKnowledge={(): void => setIsContextOpen(true)}
                 onManageMcp={(): void => { navigate("/mcp"); }}
@@ -494,6 +496,7 @@ export function ChatPage(): ReactElement {
               onToggleVault={toggleVault}
               onManageVaults={(): void => { navigate("/vaults"); }}
               onManageWorkspace={(): void => { navigate("/projects"); }}
+              workspaceId={selected?.workspaceId ?? null}
             />
           </ConversationBody>
         </ChatContent>

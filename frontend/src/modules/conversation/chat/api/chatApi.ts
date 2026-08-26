@@ -47,6 +47,14 @@ export const selectConversationKnowledge = (
     vaultIds
   }).then(({ data }) => first(data, (value) => conversationSchema.parse(value)));
 
+export const selectConversationWorkspace = (
+  conversationId: string,
+  workspaceId: string | null
+): Promise<Conversation> =>
+  apiClient.put<BaseResponse<unknown>>(`/conversations/${conversationId}/workspace`, {
+    workspaceId
+  }).then(({ data }) => first(data, (value) => conversationSchema.parse(value)));
+
 export const cancelModelRequest = (conversationId: string, messageId: string): Promise<void> =>
   apiClient.post<BaseResponse<unknown>>(
     `/conversations/${conversationId}/messages/${messageId}/cancel`

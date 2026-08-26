@@ -67,6 +67,7 @@ export const conversationSchema = z.object({
   providerConfigurationId: z.uuid().nullable(),
   selectedModel: z.string().nullable(),
   knowledgeVaultIds: z.array(z.uuid()).default([]),
+  workspaceId: z.uuid().nullable().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime()
 });

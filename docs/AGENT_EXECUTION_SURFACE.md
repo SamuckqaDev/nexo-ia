@@ -121,7 +121,8 @@ Antigravity's browser-driven verification (spin up a server, click flows, captur
 video walkthroughs) depends on capability families **C7–C9** (Workspace and system/computer control),
 which are gated behind the Permission Engine's L3–L5 and their approval barrier. The surface is
 designed to host those artifacts (screenshots, recordings) when those levels ship; until then the
-walkthrough is text + citations + saved-knowledge + `mcp_*` evidence. Multi-agent orchestrator/worker
+walkthrough is text + citations + saved-knowledge + read-only `workspace_*` and `mcp_*` evidence.
+Multi-agent orchestrator/worker
 runs (Baeldung's orchestrator-workers / subagent patterns) are a later L4+ concern and would appear as
 multiple task groups under one run in the same panel.
 

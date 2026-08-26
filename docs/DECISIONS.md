@@ -475,3 +475,25 @@ options considered, the selected approach, and its consequences.
   chats while another user cannot list, delete, or receive it. This first slice deliberately defers
   automatic extraction, semantic relevance ranking, editing, expiration, sensitivity classification,
   shared scopes, and derived-index deletion propagation.
+
+## D-032 — Execute project inspection from server-managed workspaces
+
+- **Status:** accepted
+- **Context:** browser folder handles cannot be used by a remote Nexo server and cannot follow a user
+  across devices. Sending model-authored filesystem commands back to the browser would also move the
+  authorization boundary into an untrusted client and make execution depend on an open tab.
+- **Decision:** persist a server-owned Workspace binding and its selection on each Conversation.
+  `MANAGED` bindings live below a Nexo-owned storage root; `MOUNTED` bindings accept only a relative
+  path below one explicitly configured import root and are restricted to the Owner in this first
+  increment. Absolute paths never enter or leave the API or tool schemas. Agent mode may attach six
+  request-scoped, read-only Spring AI callbacks — list files, read a bounded UTF-8 excerpt, literal
+  search, Git status, one-file Git diff, and project inspection — only after owner and permission
+  resolution. Calls are bounded, deduplicated, cancellable, audited, evidence-producing, and
+  reauthorize the Workspace on every invocation. Sensitive files, binaries, oversize files,
+  symlinks, traversal, ignored build/dependency directories, arbitrary processes, writes, and Git
+  mutation remain unavailable.
+- **Consequence:** a conversation keeps the same server project context from any browser, and the
+  model receives the real tool catalog rather than a prompt-only claim. A structure or Git-HEAD
+  change is visible before reuse. The first vertical is deliberately read-only; editing, terminal
+  commands, approval-gated writes, rollback, artifacts, and worker delegation require later
+  permission-engine increments. See [Server workspaces](SERVER_WORKSPACES.md).

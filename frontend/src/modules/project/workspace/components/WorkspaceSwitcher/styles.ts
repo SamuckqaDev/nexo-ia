@@ -33,6 +33,14 @@ export const Copy = styled.span`
   min-width: 0;
   gap: 0.12rem;
 
+  > strong {
+    overflow: hidden;
+    color: ${({ theme }) => theme.colors.text};
+    font-size: 0.7rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   > span {
     overflow: hidden;
     color: ${({ theme }) => theme.colors.textSubtle};
@@ -40,20 +48,6 @@ export const Copy = styled.span`
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-`;
-
-export const Select = styled.select`
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  appearance: none;
-  outline: none;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.text};
-  font: inherit;
-  font-size: 0.7rem;
-  font-weight: 700;
-  cursor: pointer;
 `;
 
 export const ManageButton = styled.button`

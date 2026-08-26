@@ -58,6 +58,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 - [Local image generation](docs/IMAGE_GENERATION.md)
 - [Enterprise architecture](docs/ENTERPRISE_ARCHITECTURE.md)
 - [Device management and execution audit](docs/DEVICE_MANAGEMENT.md)
+- [Server workspaces and read-only Agent tools](docs/SERVER_WORKSPACES.md)
 - [Technology stack](docs/TECH_STACK.md)
 - [Accepted stack baseline](docs/STACK_BASELINE.md)
 - [Cross-platform build and distribution profiles](docs/DISTRIBUTION_BUILDS.md)
@@ -111,6 +112,12 @@ When ComfyUI is running on the host, the backend reaches it through
 Copy additional `.safetensors` checkpoints into
 `.nexo-runtime/comfyui/models/checkpoints/`; Nexo discovers them from ComfyUI and offers them in the
 chat's Image model selector.
+
+Managed server workspaces are persisted in the `nexo-workspace-data` volume. To inspect an existing
+project, configure a narrow `NEXO_WORKSPACE_IMPORT_ROOT` when running the backend on the host. In a
+container deployment, mount that directory explicitly and set `NEXO_CONTAINER_WORKSPACE_IMPORT_ROOT`
+to its container path; an empty value deliberately disables mounted-project registration. See
+[Server workspaces](docs/SERVER_WORKSPACES.md) for the authorization and path rules.
 
 ## Documentation site
 

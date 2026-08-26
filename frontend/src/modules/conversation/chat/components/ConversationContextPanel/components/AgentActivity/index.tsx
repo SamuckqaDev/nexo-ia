@@ -31,6 +31,12 @@ const toolLabel = (toolName: string): string => {
   if (toolName === "search_knowledge") return "Searched selected Knowledge Vaults";
   if (toolName === "save_to_vault") return "Saved knowledge to the selected Vault";
   if (toolName === "remember") return "Updated personal memory";
+  if (toolName === "workspace_list_files") return "Listed workspace files";
+  if (toolName === "workspace_read_file") return "Read a workspace file";
+  if (toolName === "workspace_search") return "Searched workspace source";
+  if (toolName === "workspace_git_status") return "Inspected workspace Git status";
+  if (toolName === "workspace_git_diff") return "Read a workspace Git diff";
+  if (toolName === "workspace_inspect_project") return "Inspected project stack";
   if (toolName.startsWith("mcp_")) {
     return `Called MCP · ${toolName.replace(/^mcp_[a-f0-9]{8}_/, "").replaceAll("_", " ")}`;
   }
@@ -75,9 +81,12 @@ const stateCopy = (state: AgentState | null): { title: string; description: stri
 const executionCopy = (execution: ToolExecution): string => {
   if (execution.status === "RUNNING") return "The runtime started this action and it is still running.";
   if (execution.status === "FOUND") {
+    if (execution.toolName.startsWith("workspace_")) {
+      return "The workspace tool completed and returned matching project evidence.";
+    }
     return `Knowledge search completed with ${execution.citations.length} cited source${execution.citations.length === 1 ? "" : "s"}.`;
   }
-  if (execution.status === "NO_RESULTS") return "The tool completed but returned no relevant source.";
+  if (execution.status === "NO_RESULTS") return "The tool completed and returned no matching result.";
   if (execution.status === "COMPLETED") return "The runtime confirmed that this action completed.";
   if (execution.status === "DENIED") return "The action was denied by the request policy.";
   if (execution.status === "UNAVAILABLE") return "The required runtime or connection was unavailable.";

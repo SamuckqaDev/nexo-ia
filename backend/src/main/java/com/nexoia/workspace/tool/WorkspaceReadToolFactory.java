@@ -1,0 +1,510 @@
+package com.nexoia.workspace.tool;
+
+import com.nexoia.audit.dto.RecordAuditCommand;
+import com.nexoia.audit.model.AuditAction;
+import com.nexoia.audit.model.AuditOutcome;
+import com.nexoia.audit.model.AuditTargetType;
+import com.nexoia.audit.service.AuditService;
+import com.nexoia.provider.dto.ToolExecutionEvidence;
+import com.nexoia.provider.dto.ToolExecutionObserver;
+import com.nexoia.provider.dto.ToolExecutionStarted;
+import com.nexoia.provider.dto.ToolExecutionStatus;
+import com.nexoia.provider.dto.WorkspaceToolScope;
+import com.nexoia.workspace.dto.WorkspaceFileResponse;
+import com.nexoia.workspace.dto.WorkspaceGitSummary;
+import com.nexoia.workspace.dto.WorkspaceTreeResponse;
+import com.nexoia.workspace.exception.WorkspaceAccessDeniedException;
+import com.nexoia.workspace.exception.WorkspaceFileNotTextException;
+import com.nexoia.workspace.exception.WorkspaceFileTooLargeException;
+import com.nexoia.workspace.exception.WorkspaceInvalidPathException;
+import com.nexoia.workspace.exception.WorkspaceUnavailableException;
+import com.nexoia.workspace.model.Workspace;
+import com.nexoia.workspace.model.WorkspaceStatus;
+import com.nexoia.workspace.service.WorkspaceAccessService;
+import com.nexoia.workspace.service.WorkspaceContentPolicy;
+import com.nexoia.workspace.service.WorkspaceGitReadService;
+import com.nexoia.workspace.service.WorkspaceInspectionService;
+import com.nexoia.workspace.service.WorkspacePathResolver;
+import com.nexoia.workspace.service.WorkspaceSearchService;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.stereotype.Component;
+
+/** Builds the governed request-scoped Spring AI tools that may only read an attached workspace. */
+@Slf4j
+@Component
+public class WorkspaceReadToolFactory {
+
+    public static final String LIST_FILES = "workspace_list_files";
+    public static final String READ_FILE = "workspace_read_file";
+    public static final String SEARCH = "workspace_search";
+    public static final String GIT_STATUS = "workspace_git_status";
+    public static final String GIT_DIFF = "workspace_git_diff";
+    public static final String INSPECT_PROJECT = "workspace_inspect_project";
+    public static final int MAX_CALLS = 12;
+    private static final int DEFAULT_LIST_LIMIT = 100;
+    private static final int DEFAULT_SEARCH_LIMIT = 20;
+    private static final int MAX_QUERY_LENGTH = 1_000;
+
+    private final WorkspaceAccessService access;
+    private final WorkspaceInspectionService inspection;
+    private final WorkspaceSearchService search;
+    private final WorkspaceGitReadService git;
+    private final WorkspacePathResolver pathResolver;
+    private final WorkspaceContentPolicy contentPolicy;
+    private final AuditService audit;
+    private final Clock clock;
+
+    public WorkspaceReadToolFactory(
+            WorkspaceAccessService access,
+            WorkspaceInspectionService inspection,
+            WorkspaceSearchService search,
+            WorkspaceGitReadService git,
+            WorkspacePathResolver pathResolver,
+            WorkspaceContentPolicy contentPolicy,
+            AuditService audit,
+            Clock clock) {
+        this.access = access;
+        this.inspection = inspection;
+        this.search = search;
+        this.git = git;
+        this.pathResolver = pathResolver;
+        this.contentPolicy = contentPolicy;
+        this.audit = audit;
+        this.clock = clock;
+    }
+
+    public WorkspaceReadToolSession open(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled) {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        AtomicInteger calls = new AtomicInteger();
+        Set<String> seenCalls = new HashSet<>();
+
+        List<ToolCallback> callbacks = List.of(
+                FunctionToolCallback.builder(
+                                LIST_FILES,
+                                (WorkspaceListFilesInput input, ToolContext ignored) -> listFiles(
+                                        scope, observer, cancelled, evidence, calls, seenCalls, input))
+                        .description("List one directory in the attached workspace using relative paths only")
+                        .inputType(WorkspaceListFilesInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                READ_FILE,
+                                (WorkspaceReadFileInput input, ToolContext ignored) -> readFile(
+                                        scope, observer, cancelled, evidence, calls, seenCalls, input))
+                        .description("Read a bounded UTF-8 excerpt from a non-sensitive workspace file")
+                        .inputType(WorkspaceReadFileInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                SEARCH,
+                                (WorkspaceSearchInput input, ToolContext ignored) -> search(
+                                        scope, observer, cancelled, evidence, calls, seenCalls, input))
+                        .description("Search literal text across safe files in the attached workspace")
+                        .inputType(WorkspaceSearchInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                GIT_STATUS,
+                                (WorkspaceProjectQueryInput input, ToolContext ignored) -> gitStatus(
+                                        scope, observer, cancelled, evidence, calls, seenCalls, input))
+                        .description("Inspect the current read-only Git status of the attached workspace")
+                        .inputType(WorkspaceProjectQueryInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                GIT_DIFF,
+                                (WorkspaceGitDiffInput input, ToolContext ignored) -> gitDiff(
+                                        scope, observer, cancelled, evidence, calls, seenCalls, input))
+                        .description("Read a bounded Git diff for one explicit non-sensitive workspace file")
+                        .inputType(WorkspaceGitDiffInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                INSPECT_PROJECT,
+                                (WorkspaceProjectQueryInput input, ToolContext ignored) -> inspectProject(
+                                        scope, observer, cancelled, evidence, calls, seenCalls, input))
+                        .description("Inspect the attached project stack, branch, and HEAD without changing it")
+                        .inputType(WorkspaceProjectQueryInput.class)
+                        .build());
+        return new WorkspaceReadToolSession(callbacks, evidence);
+    }
+
+    private WorkspaceListFilesResult listFiles(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceListFilesInput input) {
+        Call call = begin(scope, observer, LIST_FILES, input, cancelled, calls, seenCalls);
+        if (!call.allowed()) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return new WorkspaceListFilesResult(
+                    ToolExecutionStatus.DENIED, "", List.of(), List.of(), false, null,
+                    "Workspace listing was denied by the request policy.");
+        }
+        try {
+            Workspace workspace = workspace(scope);
+            WorkspaceTreeResponse tree = inspection.tree(
+                    workspace,
+                    input == null ? null : input.path(),
+                    input == null || input.limit() == null ? DEFAULT_LIST_LIMIT : input.limit(),
+                    input == null ? null : input.cursor());
+            finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
+            return new WorkspaceListFilesResult(
+                    ToolExecutionStatus.COMPLETED, tree.path(), tree.entries(), tree.omissions(),
+                    tree.truncated(), tree.nextCursor(), "Workspace directory listed successfully.");
+        } catch (RuntimeException exception) {
+            return failedList(scope, observer, evidence, call, exception);
+        }
+    }
+
+    private WorkspaceReadFileResult readFile(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceReadFileInput input) {
+        Call call = begin(scope, observer, READ_FILE, input, cancelled, calls, seenCalls);
+        if (!call.allowed() || input == null || input.path() == null || input.path().isBlank()) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return failedRead(ToolExecutionStatus.DENIED, "Workspace file read was denied by the request policy.");
+        }
+        try {
+            WorkspaceFileResponse file = inspection.file(
+                    workspace(scope), input.path().trim(), input.startLine(), input.endLine());
+            finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
+            return new WorkspaceReadFileResult(
+                    ToolExecutionStatus.COMPLETED,
+                    file.path(),
+                    numbered(file.content(), file.startLine()),
+                    file.startLine(),
+                    file.endLine(),
+                    file.totalLines(),
+                    file.sha256(),
+                    file.truncated(),
+                    "Workspace file read successfully.");
+        } catch (RuntimeException exception) {
+            ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+            return failedRead(status, status == ToolExecutionStatus.DENIED
+                    ? "Workspace file read was denied by the content policy."
+                    : "Workspace file could not be read safely.");
+        }
+    }
+
+    private WorkspaceSearchResult search(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceSearchInput input) {
+        Call call = begin(scope, observer, SEARCH, input, cancelled, calls, seenCalls);
+        String query = input == null || input.query() == null ? "" : input.query().trim();
+        if (!call.allowed() || query.isBlank() || query.length() > MAX_QUERY_LENGTH) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return new WorkspaceSearchResult(
+                    ToolExecutionStatus.DENIED, List.of(), false,
+                    "Workspace search was denied by the request policy.");
+        }
+        try {
+            int requested = input.limit() == null ? DEFAULT_SEARCH_LIMIT : input.limit();
+            int limit = Math.max(1, Math.min(requested, 100));
+            List<WorkspaceSearchMatch> found = search.search(
+                    workspace(scope), query, input.path(), limit + 1);
+            boolean truncated = found.size() > limit;
+            List<WorkspaceSearchMatch> bounded = found.stream().limit(limit).toList();
+            ToolExecutionStatus status = bounded.isEmpty()
+                    ? ToolExecutionStatus.NO_RESULTS
+                    : ToolExecutionStatus.FOUND;
+            finish(scope, observer, evidence, call, status);
+            return new WorkspaceSearchResult(
+                    status, bounded, truncated,
+                    bounded.isEmpty() ? "No matching workspace text was found." : "Workspace matches found.");
+        } catch (RuntimeException exception) {
+            ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+            return new WorkspaceSearchResult(
+                    status, List.of(), false,
+                    status == ToolExecutionStatus.DENIED
+                            ? "Workspace search was denied by the content policy."
+                            : "Workspace search is unavailable.");
+        }
+    }
+
+    private WorkspaceGitStatusResult gitStatus(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceProjectQueryInput input) {
+        Call call = begin(scope, observer, GIT_STATUS, input, cancelled, calls, seenCalls);
+        if (!call.allowed()) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return new WorkspaceGitStatusResult(
+                    ToolExecutionStatus.DENIED, null, null, List.of(), false,
+                    "Git status was denied by the request policy.");
+        }
+        try {
+            Workspace workspace = workspace(scope);
+            String raw = git.status(workspace);
+            Optional<WorkspaceGitSummary> summary = inspection.gitSummary(pathResolver.workspaceRoot(workspace));
+            List<String> changed = safeChangedPaths(raw);
+            finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
+            return new WorkspaceGitStatusResult(
+                    ToolExecutionStatus.COMPLETED,
+                    summary.map(WorkspaceGitSummary::branch).orElse(null),
+                    summary.map(WorkspaceGitSummary::head).orElse(null),
+                    changed,
+                    false,
+                    changed.isEmpty() ? "Git working tree is clean." : "Git working tree has changes.");
+        } catch (RuntimeException exception) {
+            ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+            return new WorkspaceGitStatusResult(
+                    status, null, null, List.of(), false,
+                    "Git status is unavailable.");
+        }
+    }
+
+    private WorkspaceGitDiffResult gitDiff(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceGitDiffInput input) {
+        Call call = begin(scope, observer, GIT_DIFF, input, cancelled, calls, seenCalls);
+        if (!call.allowed() || input == null || input.path() == null || input.path().isBlank()) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return new WorkspaceGitDiffResult(
+                    ToolExecutionStatus.DENIED, null, "", false,
+                    "Git diff requires one authorized workspace-relative path.");
+        }
+        try {
+            String relativePath = input.path().trim();
+            String diff = git.diff(workspace(scope), relativePath);
+            ToolExecutionStatus status = diff.isBlank()
+                    ? ToolExecutionStatus.NO_RESULTS
+                    : ToolExecutionStatus.FOUND;
+            finish(scope, observer, evidence, call, status);
+            return new WorkspaceGitDiffResult(
+                    status, relativePath, diff, false,
+                    diff.isBlank() ? "No unstaged diff was found for this file." : "Git diff found.");
+        } catch (RuntimeException exception) {
+            ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+            return new WorkspaceGitDiffResult(
+                    status, null, "", false,
+                    status == ToolExecutionStatus.DENIED
+                            ? "Git diff was denied by the content policy."
+                            : "Git diff is unavailable for this path.");
+        }
+    }
+
+    private WorkspaceInspectProjectResult inspectProject(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceProjectQueryInput input) {
+        Call call = begin(scope, observer, INSPECT_PROJECT, input, cancelled, calls, seenCalls);
+        if (!call.allowed()) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return new WorkspaceInspectProjectResult(
+                    ToolExecutionStatus.DENIED, scope.workspaceName(), List.of(), null,
+                    "Project inspection was denied by the request policy.");
+        }
+        try {
+            Workspace workspace = workspace(scope);
+            var root = pathResolver.workspaceRoot(workspace);
+            WorkspaceInspectProjectResult result = new WorkspaceInspectProjectResult(
+                    ToolExecutionStatus.COMPLETED,
+                    scope.workspaceName(),
+                    inspection.detectStack(root),
+                    inspection.gitSummary(root).orElse(null),
+                    "Project inspection completed.");
+            finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
+            return result;
+        } catch (RuntimeException exception) {
+            ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+            return new WorkspaceInspectProjectResult(
+                    status, scope.workspaceName(), List.of(), null,
+                    "Project inspection is unavailable.");
+        }
+    }
+
+    private Call begin(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            String toolName,
+            Object input,
+            BooleanSupplier cancelled,
+            AtomicInteger calls,
+            Set<String> seenCalls) {
+        String argumentsDigest = digest(input == null ? "null" : input.toString());
+        Call call = new Call(UUID.randomUUID(), toolName, clock.instant(),
+                scope.available()
+                        && !cancelled.getAsBoolean()
+                        && calls.incrementAndGet() <= MAX_CALLS
+                        && seenCalls.add(toolName + ":" + argumentsDigest));
+        observer.onStarted(new ToolExecutionStarted(
+                call.executionId(), toolName, argumentsDigest, call.startedAt()));
+        audit(scope, AuditAction.TOOL_CALL_STARTED, AuditOutcome.SUCCESS, toolName);
+        return call;
+    }
+
+    private Workspace workspace(WorkspaceToolScope scope) {
+        Workspace workspace = access.accessibleWorkspace(scope.userId(), scope.workspaceId());
+        if (!workspace.isBound() || access.lightStatus(workspace) != WorkspaceStatus.AVAILABLE) {
+            throw new WorkspaceUnavailableException();
+        }
+        return workspace;
+    }
+
+    private WorkspaceListFilesResult failedList(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            List<ToolExecutionEvidence> evidence,
+            Call call,
+            RuntimeException exception) {
+        ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+        return new WorkspaceListFilesResult(
+                status, "", List.of(), List.of(), false, null,
+                status == ToolExecutionStatus.DENIED
+                        ? "Workspace listing was denied by the content policy."
+                        : "Workspace listing is unavailable.");
+    }
+
+    private WorkspaceReadFileResult failedRead(ToolExecutionStatus status, String message) {
+        return new WorkspaceReadFileResult(status, null, "", 0, 0, 0, null, false, message);
+    }
+
+    private ToolExecutionStatus finishException(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            List<ToolExecutionEvidence> evidence,
+            Call call,
+            RuntimeException exception) {
+        ToolExecutionStatus status = exception instanceof WorkspaceAccessDeniedException
+                        || exception instanceof WorkspaceInvalidPathException
+                        || exception instanceof WorkspaceFileNotTextException
+                        || exception instanceof WorkspaceFileTooLargeException
+                ? ToolExecutionStatus.DENIED
+                : ToolExecutionStatus.UNAVAILABLE;
+        if (status == ToolExecutionStatus.UNAVAILABLE) {
+            log.warn("[NEXO-BACK][WORKSPACE] Read tool failed workspaceId={} tool={} reason={}",
+                    scope.workspaceId(), call.toolName(), exception.getClass().getSimpleName());
+        }
+        finish(scope, observer, evidence, call, status);
+        return status;
+    }
+
+    private void finish(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            List<ToolExecutionEvidence> evidence,
+            Call call,
+            ToolExecutionStatus status) {
+        Instant completedAt = clock.instant();
+        ToolExecutionEvidence completed = new ToolExecutionEvidence(
+                call.executionId(),
+                call.toolName(),
+                status,
+                Math.max(0L, completedAt.toEpochMilli() - call.startedAt().toEpochMilli()),
+                List.of(),
+                completedAt);
+        evidence.add(completed);
+        observer.onCompleted(completed);
+        AuditAction action = switch (status) {
+            case DENIED -> AuditAction.TOOL_CALL_DENIED;
+            case FAILED, UNAVAILABLE -> AuditAction.TOOL_CALL_FAILED;
+            default -> AuditAction.TOOL_CALL_COMPLETED;
+        };
+        AuditOutcome outcome = status == ToolExecutionStatus.FAILED || status == ToolExecutionStatus.UNAVAILABLE
+                ? AuditOutcome.FAILURE
+                : AuditOutcome.SUCCESS;
+        audit(scope, action, outcome, call.toolName() + ":" + status.name());
+    }
+
+    private void audit(
+            WorkspaceToolScope scope,
+            AuditAction action,
+            AuditOutcome outcome,
+            String detail) {
+        audit.record(new RecordAuditCommand(
+                action, outcome, scope.userId(), null, AuditTargetType.WORKSPACE,
+                scope.workspaceId(), scope.correlationId(), detail));
+    }
+
+    private List<String> safeChangedPaths(String rawStatus) {
+        return rawStatus.lines()
+                .filter(line -> !line.startsWith("##"))
+                .filter(line -> line.length() > 3)
+                .map(line -> line.substring(3).trim())
+                .map(path -> path.contains(" -> ") ? path.substring(path.indexOf(" -> ") + 4) : path)
+                .filter(path -> {
+                    try {
+                        contentPolicy.requireReadable(path);
+                        return true;
+                    } catch (RuntimeException exception) {
+                        return false;
+                    }
+                })
+                .limit(500)
+                .toList();
+    }
+
+    private String numbered(String content, int startLine) {
+        if (content.isEmpty()) {
+            return "";
+        }
+        String[] lines = content.split("\n", -1);
+        StringBuilder numbered = new StringBuilder();
+        for (int index = 0; index < lines.length; index++) {
+            if (index > 0) {
+                numbered.append('\n');
+            }
+            numbered.append(Math.max(1, startLine) + index).append(" | ").append(lines[index]);
+        }
+        return numbered.toString();
+    }
+
+    private String digest(String value) {
+        try {
+            byte[] bytes = MessageDigest.getInstance("SHA-256")
+                    .digest(value.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(bytes);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private record Call(
+            UUID executionId,
+            String toolName,
+            Instant startedAt,
+            boolean allowed) {}
+}

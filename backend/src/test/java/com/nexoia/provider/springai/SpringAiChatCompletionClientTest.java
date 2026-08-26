@@ -11,10 +11,10 @@ import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.conversation.inference.tool.AgentTaskDecomposer;
+import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.knowledge.retrieval.dto.RetrievalResult;
 import com.nexoia.knowledge.retrieval.service.RetrievalService;
-import com.nexoia.knowledge.ingestion.tool.KnowledgeWriteToolFactory;
 import com.nexoia.knowledge.retrieval.tool.KnowledgeSearchToolFactory;
 import com.nexoia.mcp.connection.model.McpConnectionKind;
 import com.nexoia.mcp.connection.model.McpTransportType;
@@ -34,9 +34,13 @@ import com.nexoia.provider.dto.MemoryToolScope;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStatus;
+import com.nexoia.provider.dto.WorkspaceToolScope;
 import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
+import com.nexoia.workspace.model.WorkspaceAccessMode;
+import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
+import com.nexoia.workspace.tool.WorkspaceReadToolSession;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
@@ -625,6 +629,54 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
+    void listsTheActualWorkspaceCallbackWithoutAskingTheModel() {
+        ToolCallback callback = mockCallback("workspace_search", "Search the attached project");
+        WorkspaceReadToolFactory workspaceFactory = mock(WorkspaceReadToolFactory.class);
+        when(workspaceFactory.open(any(), any(), any())).thenReturn(new WorkspaceReadToolSession(
+                List.of(callback), new ArrayList<>()));
+        SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
+        WorkspaceToolScope scope = workspaceScope();
+        ChatCompletionCommand command = workspaceCommand(scope, "Quais ferramentas estão disponíveis?");
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                command, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content())
+                .contains("Ferramentas realmente disponíveis")
+                .contains("`workspace_search`")
+                .contains("`inspect_capabilities`");
+        assertThat(outcome.doneReason()).isEqualTo("capability_listing");
+        assertThat(requestBody.get()).isNull();
+        verify(workspaceFactory).open(any(), any(), any());
+    }
+
+    @Test
+    void treatsProjectSearchAsWorkspaceWorkInsteadOfExternalMcpResearch() {
+        WorkspaceReadToolFactory workspaceFactory = mock(WorkspaceReadToolFactory.class);
+        ToolCallback callback = mockCallback("workspace_search", "Search the attached project");
+        when(workspaceFactory.open(any(), any(), any())).thenReturn(new WorkspaceReadToolSession(
+                List.of(callback), new ArrayList<>()));
+        SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
+        serve("""
+                {"model":"granite4.1:8b","message":{"role":"assistant",\
+                "content":"Achei o arquivo."},"done":true,"done_reason":"stop",\
+                "prompt_eval_count":20,"eval_count":8}
+                """);
+
+        assertThatThrownBy(() -> agentClient.stream(
+                workspaceCommand(workspaceScope(), "Pesquise no projeto pelo arquivo README"),
+                delta -> { }, delta -> { }, () -> false))
+                .isInstanceOf(ProviderStreamException.class);
+
+        assertThat(requestBody.get())
+                .contains("MANDATORY NEXO TOOL EXECUTION GATE")
+                .contains("workspace_search")
+                .contains("leitura do Workspace selecionado")
+                .doesNotContain("consulta pela conexão MCP")
+                .doesNotContain("MANDATORY MCP EXECUTION GATE");
+    }
+
+    @Test
     void requiresAndVerifiesMcpEvidenceForAnExplicitResearchRequest() {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
         ToolCallback callback = FunctionToolCallback
@@ -877,6 +929,50 @@ class SpringAiChatCompletionClientTest {
                 null,
                 null,
                 new McpToolScope(userId, UUID.randomUUID(), UUID.randomUUID(), List.of(connection)),
+                ToolExecutionObserver.NOOP,
+                update -> { });
+    }
+
+    private SpringAiChatCompletionClient clientWithWorkspaceFactory(
+            WorkspaceReadToolFactory workspaceFactory) {
+        return new SpringAiChatCompletionClient(
+                new SpringAiModelFactory(RestClient.builder(), ObservationRegistry.NOOP),
+                new SpringAiMessageMapper(),
+                mock(KnowledgeSearchToolFactory.class),
+                mock(KnowledgeWriteToolFactory.class),
+                mock(AgentPlanToolFactory.class),
+                mock(RememberToolFactory.class),
+                mock(McpToolSessionFactory.class),
+                workspaceFactory,
+                ObservationRegistry.NOOP);
+    }
+
+    private WorkspaceToolScope workspaceScope() {
+        return new WorkspaceToolScope(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Nexo",
+                WorkspaceAccessMode.READ_ONLY,
+                true);
+    }
+
+    private ChatCompletionCommand workspaceCommand(WorkspaceToolScope scope, String request) {
+        return new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "granite4.1:8b",
+                List.of(new ChatCompletionMessage("user", request)),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                null,
+                null,
+                null,
+                scope,
                 ToolExecutionObserver.NOOP,
                 update -> { });
     }

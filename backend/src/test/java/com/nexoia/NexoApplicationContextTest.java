@@ -57,6 +57,7 @@ class NexoApplicationContextTest {
         assertThat(context.getBean("personalMemoryService")).isNotNull();
         assertThat(context.getBean("springAiMcpClientFactory")).isNotNull();
         assertThat(context.getBean("mcpConnectionService")).isNotNull();
+        assertThat(context.getBean("workspaceReadToolFactory")).isNotNull();
         assertThat(context.getBean("comfyUiImageGenerationRuntime")).isNotNull();
         assertThat(context.getBean("imageGenerationService")).isNotNull();
         assertThat(context.getBean("auditService")).isNotNull();
@@ -78,7 +79,7 @@ class NexoApplicationContextTest {
                 WHERE table_schema = 'public' AND table_name = 'image_generation_job'
                 """, Integer.class);
 
-        assertThat(applied).isEqualTo(35);
+        assertThat(applied).isEqualTo(36);
         assertThat(activeRequestIndex).isEqualTo(1);
         assertThat(imageJobTable).isEqualTo(1);
     }
