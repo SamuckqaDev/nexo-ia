@@ -46,11 +46,17 @@ public class SecurityConfiguration {
                                 "/api/v1/auth/password/forgot",
                                 "/api/v1/auth/password/reset",
                                 "/api/v1/auth/bootstrap/**",
+                                "/api/v1/device-runtime/pair",
+                                "/api/v1/device-runtime/workspaces/**",
+                                "/api/v1/device-runtime/connect",
                                 "/actuator/health")
                         .permitAll()
                         .anyRequest().authenticated())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers(
+                                "/api/v1/device-runtime/pair",
+                                "/api/v1/device-runtime/workspaces/**")
                         .spa())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(authenticationEntryPoint)

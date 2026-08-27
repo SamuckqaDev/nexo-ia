@@ -6,13 +6,14 @@ import { EmptyTree, NodeButton, NodeChildren, TreeRoot } from "./styles";
 
 type DirectoryNodeProps = {
   workspaceId: string;
+  bindingId?: string;
   path: string;
   name: string;
 };
 
-function DirectoryNode({ workspaceId, path, name }: DirectoryNodeProps): ReactElement {
+function DirectoryNode({ workspaceId, bindingId, path, name }: DirectoryNodeProps): ReactElement {
   const [open, setOpen] = useState<boolean>(false);
-  const tree = useServerWorkspaceTree(workspaceId, path, open);
+  const tree = useServerWorkspaceTree(workspaceId, path, open, bindingId);
   return (
     <li>
       <NodeButton type="button" onClick={(): void => setOpen((current) => !current)}>
@@ -25,7 +26,7 @@ function DirectoryNode({ workspaceId, path, name }: DirectoryNodeProps): ReactEl
           {tree.isLoading && <li><EmptyTree>Loading…</EmptyTree></li>}
           {tree.isError && <li><EmptyTree>Directory unavailable</EmptyTree></li>}
           {tree.data?.entries.map((entry) => entry.type === "DIRECTORY" ? (
-            <DirectoryNode key={entry.path} workspaceId={workspaceId} path={entry.path} name={entry.name} />
+            <DirectoryNode key={entry.path} workspaceId={workspaceId} bindingId={bindingId} path={entry.path} name={entry.name} />
           ) : (
             <li key={entry.path}><NodeButton as="span"><i /><File size={13} /><span>{entry.name}</span></NodeButton></li>
           ))}
@@ -35,17 +36,17 @@ function DirectoryNode({ workspaceId, path, name }: DirectoryNodeProps): ReactEl
   );
 }
 
-export function ServerWorkspaceTree({ workspaceId }: { workspaceId: string }): ReactElement {
-  const root = useServerWorkspaceTree(workspaceId, "");
-  if (root.isLoading) return <EmptyTree>Loading server workspace structure…</EmptyTree>;
-  if (root.isError) return <EmptyTree role="alert">Nexo could not read this server workspace.</EmptyTree>;
+export function ServerWorkspaceTree({ workspaceId, bindingId }: { workspaceId: string; bindingId?: string }): ReactElement {
+  const root = useServerWorkspaceTree(workspaceId, "", true, bindingId);
+  if (root.isLoading) return <EmptyTree>Loading workspace structure…</EmptyTree>;
+  if (root.isError) return <EmptyTree role="alert">Nexo could not read this workspace.</EmptyTree>;
   const tree: ServerWorkspaceTree | undefined = root.data;
   if (!tree?.entries.length) return <EmptyTree>This workspace is empty.</EmptyTree>;
 
   return (
     <TreeRoot>
       {tree.entries.map((entry) => entry.type === "DIRECTORY" ? (
-        <DirectoryNode key={entry.path} workspaceId={workspaceId} path={entry.path} name={entry.name} />
+        <DirectoryNode key={entry.path} workspaceId={workspaceId} bindingId={bindingId} path={entry.path} name={entry.name} />
       ) : (
         <li key={entry.path}><NodeButton as="span"><i /><File size={13} /><span>{entry.name}</span></NodeButton></li>
       ))}

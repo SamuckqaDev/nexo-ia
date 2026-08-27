@@ -4,7 +4,8 @@ Nexo uses Spring AI 2.0.1 as the orchestration layer for Ollama chat, embeddings
 request-scoped tools. This is a real but deliberately bounded Agent runtime: the selected model can
 revise a visible implementation plan, search the conversation's authorized Knowledge Vaults, store
 an explicitly requested personal memory, and call explicitly enabled tools from the authenticated
-user's MCP registry. With a server Workspace selected and `WORKSPACE_READ` allowed, it can also list
+user's MCP registry. With a server or online Nexo Desktop Workspace selected and `WORKSPACE_READ`
+allowed, it can also list
 and search project files, read safe text excerpts, inspect project metadata, and read Git status or a
 one-file diff. It cannot edit files, run arbitrary terminal commands, write Git state, or delegate to
 workers.
@@ -55,7 +56,7 @@ authenticated message
        remember          personal memory, owned by the authenticated account
        search_knowledge  only with authorized selected Vaults
        mcp_*              only from the owner's enabled, explicitly selected MCP snapshot
-       workspace_*        only for the persisted, authorized server Workspace
+       workspace_*        only for the persisted, authorized server or Desktop binding
   -> stream typed Agent/tool/plan/token/usage events
   -> persist answer, plan, citations, tool evidence, usage, and terminal state
 ```
@@ -74,7 +75,7 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Visible plan | None | Persisted `update_plan` revisions |
 | Tool loop | None | Spring AI direct or progressive advisor, selected by catalog size |
 | External MCP tools | None | Explicitly selected, governed callbacks |
-| Server Workspace reads | None | Conditional bounded file/search/Git inspection callbacks |
+| Server/Desktop Workspace reads | None | Conditional bounded file/search/Git inspection callbacks |
 | Native write/system tools | None | None |
 
 The composer remains writable in Agent mode and includes a compact **Agent context** inspector. The

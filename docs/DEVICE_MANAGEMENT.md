@@ -1,5 +1,33 @@
 # Device management and execution audit
 
+## Implemented local-runtime foundation
+
+Nexo now includes the first native Companion implementation under `desktop/`. It is an Electron
+endpoint runtime, not a browser filesystem bridge. An authenticated web session creates a
+single-use, ten-minute pairing code; the Desktop exchanges it for a revocable opaque credential and
+opens an outbound authenticated WebSocket using protocol `nexo.runtime.v1`. The server stores only
+the credential hash. The raw credential and absolute workspace paths remain encrypted by the
+operating-system credential service in the Desktop application data directory.
+
+The implemented capability set is deliberately read-only:
+
+- bounded directory listing and literal text search;
+- bounded UTF-8 file excerpts;
+- stack and repository inspection;
+- Git status and one-file unstaged diff.
+
+The server sends only an opaque local binding identifier and workspace-relative tool input. The
+Desktop resolves the binding to the real local path, rejects traversal, symlink escape, secrets,
+binary/oversize files, ignored dependency/build trees, shell interpolation, and model-authored Git
+arguments. It reports capabilities and heartbeats, refreshes folder fingerprints every minute, and
+reconnects without requiring an open browser tab. Device revocation closes the active channel and
+prevents the stored credential from authenticating again.
+
+This foundation does not yet execute arbitrary shell commands, write files, mutate Git, delegate to
+worker models, elevate operating-system privileges, or present local approval dialogs. Those effects
+require the policy, approval, sandbox, rollback, and artifact layers described below before they may
+be exposed as Spring AI tools.
+
 ## Nexo Companion
 
 The Nexo Companion is a cross-platform endpoint agent paired with a Nexo Server. It discovers local
@@ -8,7 +36,9 @@ desktop operations on the target device. The Companion initiates the secure chan
 deployments do not expose an inbound control port on the endpoint.
 
 Pairing binds a user-confirmed device identity to an organization and owner. Device credentials are
-unique, short-lived where applicable, rotatable, and immediately revocable. Sensitive actions may
+unique, short-lived where applicable, rotatable, and immediately revocable. The implemented pairing
+code is short-lived and single-use; the device credential is revocable but rotation is still
+pending. Sensitive actions may
 require confirmation on the target device even when organization policy permits them.
 
 ## Device inventory

@@ -17,4 +17,25 @@ public record WorkspaceToolScope(
         UUID workspaceId,
         String workspaceName,
         WorkspaceAccessMode accessMode,
-        boolean available) {}
+        boolean available,
+        UUID workspaceBindingId,
+        UUID deviceId,
+        String localBindingId) {
+
+    public WorkspaceToolScope(
+            UUID userId,
+            UUID conversationId,
+            UUID assistantMessageId,
+            UUID correlationId,
+            UUID workspaceId,
+            String workspaceName,
+            WorkspaceAccessMode accessMode,
+            boolean available) {
+        this(userId, conversationId, assistantMessageId, correlationId, workspaceId, workspaceName,
+                accessMode, available, null, null, null);
+    }
+
+    public boolean localDevice() {
+        return workspaceBindingId != null && deviceId != null && localBindingId != null;
+    }
+}

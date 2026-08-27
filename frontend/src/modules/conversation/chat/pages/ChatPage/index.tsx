@@ -19,9 +19,10 @@ import { useUsage } from "../../../../usage/hooks/useUsage";
 import {
   useRefreshServerWorkspace,
   useServerWorkspaces,
-  useServerWorkspaceStatus
+  useServerWorkspaceStatus,
+  useWorkspaceBindings
 } from "../../../../project/workspace/hooks/useServerWorkspaces";
-import type { ServerWorkspace } from "../../../../project/workspace/types/serverWorkspaceTypes";
+import type { ServerWorkspace, WorkspaceBinding } from "../../../../project/workspace/types/serverWorkspaceTypes";
 import { ChatComposer } from "../../components/ChatComposer";
 import { ConversationContextPanel } from "../../components/ConversationContextPanel";
 import { ConversationSidebar } from "../../components/ConversationSidebar";
@@ -110,6 +111,11 @@ export function ChatPage(): ReactElement {
   const activeWorkspace: ServerWorkspace | null = serverWorkspaces.data
     ?.find((workspace: ServerWorkspace) => workspace.id === selected?.workspaceId) ?? null;
   const workspaceStatus = useServerWorkspaceStatus(activeWorkspace?.id ?? null);
+  const workspaceBindings = useWorkspaceBindings(activeWorkspace?.id ?? null);
+  const activeBinding: WorkspaceBinding | undefined = workspaceBindings.data?.find(
+    (binding: WorkspaceBinding): boolean => binding.id === selected?.workspaceBindingId
+  );
+  const activeWorkspaceStatus: string | undefined = activeBinding?.status ?? workspaceStatus.data?.status;
   const refreshWorkspace = useRefreshServerWorkspace();
   const mcpConnections = useMcpConnections(mode === "agent");
   const imageGeneration = useImageGeneration(selectedId);
@@ -185,9 +191,9 @@ export function ChatPage(): ReactElement {
     modelThinkingSupported: effectiveModelDetails?.thinkingSupported ?? null,
     thinkingEnabled,
     workspaceName: activeWorkspace?.name ?? null,
-    workspaceStatus: workspaceStatus.data?.status ?? activeWorkspace?.status ?? null,
-    workspaceLoading: serverWorkspaces.isLoading || workspaceStatus.isLoading,
-    workspaceError: serverWorkspaces.isError || workspaceStatus.isError
+    workspaceStatus: activeBinding?.status ?? workspaceStatus.data?.status ?? activeWorkspace?.status ?? null,
+    workspaceLoading: serverWorkspaces.isLoading || workspaceStatus.isLoading || workspaceBindings.isLoading,
+    workspaceError: serverWorkspaces.isError || workspaceStatus.isError || workspaceBindings.isError
   };
 
   useEffect((): void => {
@@ -388,15 +394,19 @@ export function ChatPage(): ReactElement {
         </Header>
 
         <ChatContent>
-          {activeWorkspace && workspaceStatus.data && workspaceStatus.data.status !== "AVAILABLE" && (
+          {activeWorkspace && activeWorkspaceStatus && activeWorkspaceStatus !== "AVAILABLE" && (
             <WorkspaceServerNotice role="status">
               <span>
-                <strong>{activeWorkspace.name}: {workspaceStatus.data.status.toLowerCase()}</strong>
-                {workspaceStatus.data.reason ?? (workspaceStatus.data.status === "CHANGED"
-                  ? "The project structure changed on the server. Refresh before relying on the previous scan."
-                  : "This project is not currently readable by the Nexo server.")}
+                <strong>{activeWorkspace.name}: {activeWorkspaceStatus.toLowerCase()}</strong>
+                {activeBinding
+                  ? activeWorkspaceStatus === "CHANGED"
+                    ? "The project structure changed on the paired computer. Review it before relying on the previous context."
+                    : "The paired computer or local folder is not currently available to Nexo Agent."
+                  : workspaceStatus.data?.reason ?? (activeWorkspaceStatus === "CHANGED"
+                    ? "The project structure changed on the server. Refresh before relying on the previous scan."
+                    : "This project is not currently readable by the Nexo server.")}
               </span>
-              {workspaceStatus.data.status === "CHANGED" ? (
+              {!activeBinding && activeWorkspaceStatus === "CHANGED" ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -497,6 +507,7 @@ export function ChatPage(): ReactElement {
               onManageVaults={(): void => { navigate("/vaults"); }}
               onManageWorkspace={(): void => { navigate("/projects"); }}
               workspaceId={selected?.workspaceId ?? null}
+              workspaceBindingId={selected?.workspaceBindingId ?? null}
             />
           </ConversationBody>
         </ChatContent>

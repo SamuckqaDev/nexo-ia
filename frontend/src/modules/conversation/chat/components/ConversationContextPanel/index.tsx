@@ -24,8 +24,15 @@ import type { BackendSource, BackendVault } from "../../../../knowledge/vault/ty
 import { usePersonalMemories } from "../../../../memory/personal/hooks/usePersonalMemories";
 import type { PersonalMemory } from "../../../../memory/personal/types/personalMemoryTypes";
 import { ServerWorkspaceTree } from "../../../../project/workspace/components/ServerWorkspaceTree";
-import { useServerWorkspaces, useServerWorkspaceStatus } from "../../../../project/workspace/hooks/useServerWorkspaces";
-import type { ServerWorkspace } from "../../../../project/workspace/types/serverWorkspaceTypes";
+import {
+  useServerWorkspaces,
+  useServerWorkspaceStatus,
+  useWorkspaceBindings
+} from "../../../../project/workspace/hooks/useServerWorkspaces";
+import type {
+  ServerWorkspace,
+  WorkspaceBinding
+} from "../../../../project/workspace/types/serverWorkspaceTypes";
 import type {
   ConversationContextPanelProps,
   ConversationContextSection
@@ -134,13 +141,18 @@ export function ConversationContextPanel({
   onToggleVault,
   onManageVaults,
   onManageWorkspace,
-  workspaceId
+  workspaceId,
+  workspaceBindingId
 }: ConversationContextPanelProps): ReactElement {
   const [section, setSection] = useState<ConversationContextSection>("workspace");
   const workspaces = useServerWorkspaces(Boolean(workspaceId));
   const activeWorkspace: ServerWorkspace | undefined = workspaces.data
     ?.find((workspace: ServerWorkspace) => workspace.id === workspaceId);
   const workspaceStatus = useServerWorkspaceStatus(activeWorkspace?.id ?? null);
+  const workspaceBindings = useWorkspaceBindings(activeWorkspace?.id ?? null);
+  const activeBinding: WorkspaceBinding | undefined = workspaceBindings.data?.find(
+    (binding: WorkspaceBinding): boolean => binding.id === workspaceBindingId
+  );
   const personalMemories = usePersonalMemories(Boolean(conversationId));
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
@@ -176,7 +188,7 @@ export function ConversationContextPanel({
         return (
           <EmptyState>
             <EmptyIcon><FolderOpen size={22} weight="duotone" /></EmptyIcon>
-            <EmptyCopy><strong>No project selected</strong><span>Choose a server-managed workspace for this conversation.</span></EmptyCopy>
+            <EmptyCopy><strong>No project selected</strong><span>Choose a local Desktop or server workspace for this conversation.</span></EmptyCopy>
             <Button type="button" variant="outline" onClick={onManageWorkspace}>Choose workspace</Button>
           </EmptyState>
         );
@@ -185,11 +197,14 @@ export function ConversationContextPanel({
         <ResourceList>
           <ResourceCard>
             <header><span><FolderOpen size={17} weight="fill" />{activeWorkspace.name}</span><small>{activeWorkspace.accessMode.toLowerCase()}</small></header>
-            {workspaceStatus.isLoading && <StatusCopy>Checking the live server workspace…</StatusCopy>}
-            {workspaceStatus.isError && <StatusCopy>Nexo could not inspect this server workspace.</StatusCopy>}
-            {workspaceStatus.data?.reason && <StatusCopy>{workspaceStatus.data.reason}</StatusCopy>}
-            {(workspaceStatus.data?.status === "AVAILABLE" || workspaceStatus.data?.status === "CHANGED")
-              && <ServerWorkspaceTree workspaceId={activeWorkspace.id} />}
+            {activeBinding && <StatusCopy>{activeBinding.deviceName} · {activeBinding.status.toLowerCase()}</StatusCopy>}
+            {!activeBinding && workspaceStatus.isLoading && <StatusCopy>Checking the live server workspace…</StatusCopy>}
+            {!activeBinding && workspaceStatus.isError && <StatusCopy>Nexo could not inspect this server workspace.</StatusCopy>}
+            {!activeBinding && workspaceStatus.data?.reason && <StatusCopy>{workspaceStatus.data.reason}</StatusCopy>}
+            {activeBinding
+              ? <ServerWorkspaceTree workspaceId={activeWorkspace.id} bindingId={activeBinding.id} />
+              : (workspaceStatus.data?.status === "AVAILABLE" || workspaceStatus.data?.status === "CHANGED")
+                && <ServerWorkspaceTree workspaceId={activeWorkspace.id} />}
           </ResourceCard>
           <SectionAction><Button type="button" variant="outline" onClick={onManageWorkspace}>Manage workspace</Button></SectionAction>
         </ResourceList>

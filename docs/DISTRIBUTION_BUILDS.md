@@ -2,7 +2,8 @@
 
 ## Status
 
-**Development bootstrap implemented; signed release packaging remains planned for release `0.1`.**
+**Development bootstrap and unsigned Electron Companion foundation implemented; signed release
+packaging remains planned.**
 
 Nexo IA will publish four supported distribution profiles from the same source and version:
 
@@ -56,14 +57,28 @@ signed production packages, updaters, backup tools, or uninstallers.
 
 | Profile | Container engine | Ollama | User entry point | Native integration |
 |---|---|---|---|---|
-| Fedora Silverblue | Rootless Podman + Compose provider | Host service | Browser/PWA | Linux Companion later |
-| Conventional Linux | Docker Engine Compose or rootless Podman | Host service | Browser/PWA | Linux Companion later |
-| Windows | Docker Desktop with WSL 2 backend | Windows host service | Browser/PWA | Signed Windows Companion later |
-| macOS | Docker Desktop or supported Podman machine | macOS host service | Browser/PWA | Signed/notarized macOS Companion later |
+| Fedora Silverblue | Rootless Podman + Compose provider | Host service | Browser or Electron | Unsigned Electron foundation |
+| Conventional Linux | Docker Engine Compose or rootless Podman | Host service | Browser or Electron | Unsigned Electron foundation |
+| Windows | Docker Desktop with WSL 2 backend | Windows host service | Browser or Electron | Unsigned Electron foundation |
+| macOS | Docker Desktop or supported Podman machine | macOS host service | Browser or Electron | Unsigned Electron foundation |
 
-The first release is web-first. It does not require Electron or Tauri. Native Companion packages are
-introduced only when Nexo gains authorized filesystem, process, application, notification, or desktop
-capabilities. A browser alone never receives those host privileges.
+The server remains web-first. The optional `desktop/` Electron application now supplies the first
+authorized local-filesystem capability without placing Node APIs in React. Its preload exposes only
+pairing, state, and folder-selection methods; the renderer remains sandboxed with context isolation
+and no Node integration. Current packages are development/unsigned artifacts, not trusted public
+installers. A browser alone never receives host privileges.
+
+Development verification:
+
+```bash
+cd frontend && npm run build
+cd desktop && npm install && npm run typecheck && npm test && npm run build
+NEXO_RENDERER_URL=http://127.0.0.1:5173 npm run dev
+```
+
+The packaged static renderer still requires a production server-origin/bootstrap contract before it
+is a supported distributable. Code signing, notarization, automatic updates, credential rotation,
+and real-host installation tests remain release gates.
 
 ## Fedora Silverblue profile
 

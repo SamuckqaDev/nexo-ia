@@ -40,6 +40,9 @@ public class Conversation {
     @Column(name = "workspace_id")
     private UUID workspaceId;
 
+    @Column(name = "workspace_binding_id")
+    private UUID workspaceBindingId;
+
     @Column(nullable = false)
     private boolean archived;
 
@@ -61,12 +64,18 @@ public class Conversation {
     }
 
     /** Binds an already-authorized Workspace to this conversation as durable agent scope. */
-    public void attachWorkspace(UUID workspaceId) {
+    public void attachWorkspace(UUID workspaceId, UUID workspaceBindingId) {
         this.workspaceId = workspaceId;
+        this.workspaceBindingId = workspaceBindingId;
+    }
+
+    public void attachWorkspace(UUID workspaceId) {
+        attachWorkspace(workspaceId, null);
     }
 
     public void clearWorkspace() {
         this.workspaceId = null;
+        this.workspaceBindingId = null;
     }
 
     public void archive() {

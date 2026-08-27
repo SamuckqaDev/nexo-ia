@@ -7,4 +7,9 @@ import java.util.UUID;
  * the selection. The workspace must be owned by the caller; the server never trusts a workspace id
  * sent inside a chat message.
  */
-public record UpdateConversationWorkspaceRequest(UUID workspaceId) {}
+public record UpdateConversationWorkspaceRequest(UUID workspaceId, UUID workspaceBindingId) {
+
+    public UpdateConversationWorkspaceRequest(UUID workspaceId) {
+        this(workspaceId, null);
+    }
+}

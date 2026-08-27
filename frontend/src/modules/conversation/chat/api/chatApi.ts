@@ -49,10 +49,12 @@ export const selectConversationKnowledge = (
 
 export const selectConversationWorkspace = (
   conversationId: string,
-  workspaceId: string | null
+  workspaceId: string | null,
+  workspaceBindingId: string | null = null
 ): Promise<Conversation> =>
   apiClient.put<BaseResponse<unknown>>(`/conversations/${conversationId}/workspace`, {
-    workspaceId
+    workspaceId,
+    workspaceBindingId
   }).then(({ data }) => first(data, (value) => conversationSchema.parse(value)));
 
 export const cancelModelRequest = (conversationId: string, messageId: string): Promise<void> =>

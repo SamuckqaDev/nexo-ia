@@ -79,7 +79,7 @@ class NexoApplicationContextTest {
                 WHERE table_schema = 'public' AND table_name = 'image_generation_job'
                 """, Integer.class);
 
-        assertThat(applied).isEqualTo(36);
+        assertThat(applied).isEqualTo(37);
         assertThat(activeRequestIndex).isEqualTo(1);
         assertThat(imageJobTable).isEqualTo(1);
     }

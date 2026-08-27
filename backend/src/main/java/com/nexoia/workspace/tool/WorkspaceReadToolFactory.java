@@ -45,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /** Builds the governed request-scoped Spring AI tools that may only read an attached workspace. */
@@ -71,6 +72,29 @@ public class WorkspaceReadToolFactory {
     private final WorkspaceContentPolicy contentPolicy;
     private final AuditService audit;
     private final Clock clock;
+    private final LocalWorkspaceToolGateway localGateway;
+
+    @Autowired
+    public WorkspaceReadToolFactory(
+            WorkspaceAccessService access,
+            WorkspaceInspectionService inspection,
+            WorkspaceSearchService search,
+            WorkspaceGitReadService git,
+            WorkspacePathResolver pathResolver,
+            WorkspaceContentPolicy contentPolicy,
+            AuditService audit,
+            Clock clock,
+            LocalWorkspaceToolGateway localGateway) {
+        this.access = access;
+        this.inspection = inspection;
+        this.search = search;
+        this.git = git;
+        this.pathResolver = pathResolver;
+        this.contentPolicy = contentPolicy;
+        this.audit = audit;
+        this.clock = clock;
+        this.localGateway = localGateway;
+    }
 
     public WorkspaceReadToolFactory(
             WorkspaceAccessService access,
@@ -81,14 +105,7 @@ public class WorkspaceReadToolFactory {
             WorkspaceContentPolicy contentPolicy,
             AuditService audit,
             Clock clock) {
-        this.access = access;
-        this.inspection = inspection;
-        this.search = search;
-        this.git = git;
-        this.pathResolver = pathResolver;
-        this.contentPolicy = contentPolicy;
-        this.audit = audit;
-        this.clock = clock;
+        this(access, inspection, search, git, pathResolver, contentPolicy, audit, clock, null);
     }
 
     public WorkspaceReadToolSession open(
@@ -161,6 +178,11 @@ public class WorkspaceReadToolFactory {
                     "Workspace listing was denied by the request policy.");
         }
         try {
+            if (scope.localDevice()) {
+                WorkspaceListFilesResult result = localGateway.listFiles(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
             Workspace workspace = workspace(scope);
             WorkspaceTreeResponse tree = inspection.tree(
                     workspace,
@@ -190,6 +212,11 @@ public class WorkspaceReadToolFactory {
             return failedRead(ToolExecutionStatus.DENIED, "Workspace file read was denied by the request policy.");
         }
         try {
+            if (scope.localDevice()) {
+                WorkspaceReadFileResult result = localGateway.readFile(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
             WorkspaceFileResponse file = inspection.file(
                     workspace(scope), input.path().trim(), input.startLine(), input.endLine());
             finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
@@ -228,6 +255,11 @@ public class WorkspaceReadToolFactory {
                     "Workspace search was denied by the request policy.");
         }
         try {
+            if (scope.localDevice()) {
+                WorkspaceSearchResult result = localGateway.search(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
             int requested = input.limit() == null ? DEFAULT_SEARCH_LIMIT : input.limit();
             int limit = Math.max(1, Math.min(requested, 100));
             List<WorkspaceSearchMatch> found = search.search(
@@ -267,6 +299,11 @@ public class WorkspaceReadToolFactory {
                     "Git status was denied by the request policy.");
         }
         try {
+            if (scope.localDevice()) {
+                WorkspaceGitStatusResult result = localGateway.gitStatus(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
             Workspace workspace = workspace(scope);
             String raw = git.status(workspace);
             Optional<WorkspaceGitSummary> summary = inspection.gitSummary(pathResolver.workspaceRoot(workspace));
@@ -303,6 +340,11 @@ public class WorkspaceReadToolFactory {
                     "Git diff requires one authorized workspace-relative path.");
         }
         try {
+            if (scope.localDevice()) {
+                WorkspaceGitDiffResult result = localGateway.gitDiff(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
             String relativePath = input.path().trim();
             String diff = git.diff(workspace(scope), relativePath);
             ToolExecutionStatus status = diff.isBlank()
@@ -338,6 +380,11 @@ public class WorkspaceReadToolFactory {
                     "Project inspection was denied by the request policy.");
         }
         try {
+            if (scope.localDevice()) {
+                WorkspaceInspectProjectResult result = localGateway.inspectProject(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
             Workspace workspace = workspace(scope);
             var root = pathResolver.workspaceRoot(workspace);
             WorkspaceInspectProjectResult result = new WorkspaceInspectProjectResult(

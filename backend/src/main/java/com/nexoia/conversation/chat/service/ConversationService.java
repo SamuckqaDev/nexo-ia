@@ -14,6 +14,7 @@ import com.nexoia.conversation.chat.dto.RenameConversationRequest;
 import com.nexoia.conversation.chat.dto.ToolExecutionResponse;
 import com.nexoia.conversation.chat.dto.UpdateConversationKnowledgeRequest;
 import com.nexoia.conversation.chat.dto.UpdateConversationModelRequest;
+import com.nexoia.conversation.chat.dto.UpdateConversationWorkspaceRequest;
 import com.nexoia.conversation.chat.exception.ConversationNotFoundException;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
@@ -27,20 +28,22 @@ import com.nexoia.conversation.inference.model.AgentPlanRecord;
 import com.nexoia.conversation.inference.model.ToolExecutionRecord;
 import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
-import com.nexoia.conversation.chat.dto.UpdateConversationWorkspaceRequest;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.workspace.model.WorkspaceBinding;
+import com.nexoia.workspace.service.WorkspaceBindingService;
 import com.nexoia.workspace.service.WorkspaceService;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class ConversationService {
 
     private final ConversationRepository conversations;
@@ -52,6 +55,21 @@ public class ConversationService {
     private final ConversationContextProperties contextProperties;
     private final ConversationKnowledgeService knowledge;
     private final WorkspaceService workspaceService;
+    private final WorkspaceBindingService workspaceBindings;
+
+    public ConversationService(
+            ConversationRepository conversations,
+            ConversationMessageRepository messages,
+            ToolExecutionRepository toolExecutions,
+            AgentPlanRepository agentPlans,
+            ProviderConfigurationRepository providers,
+            AuditService audit,
+            ConversationContextProperties contextProperties,
+            ConversationKnowledgeService knowledge,
+            WorkspaceService workspaceService) {
+        this(conversations, messages, toolExecutions, agentPlans, providers, audit, contextProperties,
+                knowledge, workspaceService, null);
+    }
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> list(UUID userId) {
@@ -170,7 +188,18 @@ public class ConversationService {
             conversation.clearWorkspace();
         } else {
             workspaceService.ownedWorkspace(userId, request.workspaceId());
-            conversation.attachWorkspace(request.workspaceId());
+            UUID bindingId = request.workspaceBindingId();
+            if (request.workspaceBindingId() != null) {
+                if (workspaceBindings == null) {
+                    throw new IllegalStateException("Workspace bindings are unavailable");
+                }
+                workspaceBindings.ownedBinding(userId, request.workspaceId(), request.workspaceBindingId());
+            } else if (workspaceBindings != null) {
+                bindingId = workspaceBindings.preferredAvailable(userId, request.workspaceId())
+                        .map(WorkspaceBinding::getId)
+                        .orElse(null);
+            }
+            conversation.attachWorkspace(request.workspaceId(), bindingId);
         }
         audit.record(RecordAuditCommand.success(
                 AuditAction.CONVERSATION_WORKSPACE_SELECTED, userId, null,
@@ -207,6 +236,7 @@ public class ConversationService {
                 value.getSelectedModel(),
                 knowledgeVaultIds,
                 value.getWorkspaceId(),
+                value.getWorkspaceBindingId(),
                 value.getCreatedAt(),
                 value.getUpdatedAt());
     }

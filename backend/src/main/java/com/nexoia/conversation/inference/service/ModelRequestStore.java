@@ -73,8 +73,10 @@ import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.provider.service.ProviderEndpointGuard;
 import com.nexoia.workspace.model.Workspace;
+import com.nexoia.workspace.model.WorkspaceBinding;
 import com.nexoia.workspace.model.WorkspaceStatus;
 import com.nexoia.workspace.service.WorkspaceAccessService;
+import com.nexoia.workspace.service.WorkspaceBindingService;
 import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import java.time.Clock;
 import java.time.Instant;
@@ -85,6 +87,7 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,7 +101,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class ModelRequestStore {
 
     private static final Set<MessageStatus> IN_FLIGHT =
@@ -118,7 +121,29 @@ public class ModelRequestStore {
     private final PersonalMemoryService personalMemories;
     private final PermissionEngine permissionEngine;
     private final WorkspaceAccessService workspaceAccess;
+    private final WorkspaceBindingService workspaceBindings;
     private final Clock clock;
+
+    public ModelRequestStore(
+            ConversationRepository conversations,
+            ConversationMessageRepository messages,
+            ToolExecutionRepository toolExecutions,
+            AgentPlanRepository agentPlans,
+            ProviderConfigurationRepository providers,
+            UserAccountRepository users,
+            ConversationKnowledgeService conversationKnowledge,
+            ConversationContextAssembler contextAssembler,
+            ProviderEndpointGuard endpointGuard,
+            RetrievalService retrievalService,
+            McpConnectionService mcpConnections,
+            PersonalMemoryService personalMemories,
+            PermissionEngine permissionEngine,
+            WorkspaceAccessService workspaceAccess,
+            Clock clock) {
+        this(conversations, messages, toolExecutions, agentPlans, providers, users, conversationKnowledge,
+                contextAssembler, endpointGuard, retrievalService, mcpConnections, personalMemories,
+                permissionEngine, workspaceAccess, null, clock);
+    }
 
     /**
      * Reserves without selecting any Knowledge Vault — equivalent to {@code knowledgeVaultIds =
@@ -231,8 +256,15 @@ public class ModelRequestStore {
         Workspace selectedWorkspace = conversation.getWorkspaceId() == null
                 ? null
                 : workspaceAccess.accessibleWorkspace(userId, conversation.getWorkspaceId());
+        WorkspaceBinding selectedBinding = workspaceBindings == null
+                || selectedWorkspace == null || conversation.getWorkspaceBindingId() == null
+                ? null
+                : workspaceBindings.ownedBinding(
+                        userId, selectedWorkspace.getId(), conversation.getWorkspaceBindingId());
         boolean workspaceAvailable = selectedWorkspace != null
-                && workspaceAccess.lightStatus(selectedWorkspace) == WorkspaceStatus.AVAILABLE;
+                && (selectedBinding != null
+                ? workspaceBindings.isAvailable(userId, selectedBinding)
+                : workspaceAccess.lightStatus(selectedWorkspace) == WorkspaceStatus.AVAILABLE);
         RequestPermission requestPermission = resolvePermission(
                 mode, enabledMcpConnections, writableVault != null, workspaceAvailable, assignedProfile);
         boolean workspaceReadAllowed = mode == ConversationMode.AGENT
@@ -288,7 +320,10 @@ public class ModelRequestStore {
                                         selectedWorkspace.getId(),
                                         selectedWorkspace.getName(),
                                         selectedWorkspace.getAccessMode(),
-                                        true)
+                                        true,
+                                        selectedBinding == null ? null : selectedBinding.getId(),
+                                        selectedBinding == null ? null : selectedBinding.getDeviceId(),
+                                        selectedBinding == null ? null : selectedBinding.getLocalBindingId())
                                 : null,
                         ToolExecutionObserver.NOOP,
                         AgentPlanUpdateObserver.NOOP),

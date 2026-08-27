@@ -28,6 +28,7 @@ per-message token and latency accounting. See
 ```bash
 cd backend && ./mvnw test
 cd frontend && npm test
+cd desktop && npm test
 ```
 
 Tests tagged `ollama` need a real installed model and stay out of the default suite. Run them
@@ -118,6 +119,20 @@ project, configure a narrow `NEXO_WORKSPACE_IMPORT_ROOT` when running the backen
 container deployment, mount that directory explicitly and set `NEXO_CONTAINER_WORKSPACE_IMPORT_ROOT`
 to its container path; an empty value deliberately disables mounted-project registration. See
 [Server workspaces](docs/SERVER_WORKSPACES.md) for the authorization and path rules.
+
+To test the optional local Workspace runtime, build the frontend and start the Electron Companion
+against the development renderer:
+
+```bash
+cd frontend && npm run build
+cd ../desktop && npm install && npm run typecheck && npm test
+NEXO_RENDERER_URL=http://127.0.0.1:5173 npm run dev
+```
+
+Open Projects inside Nexo Desktop, pair it from the authenticated session, and choose a local folder
+for an `UNBOUND` Workspace. The absolute path remains on the device; the server receives only an
+opaque binding and dispatches the existing read-only Spring AI Workspace tools over the authenticated
+runtime channel. See [Device management](docs/DEVICE_MANAGEMENT.md).
 
 ## Documentation site
 

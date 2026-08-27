@@ -42,9 +42,12 @@ import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.provider.service.ProviderEndpointGuard;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.model.WorkspaceAccessMode;
+import com.nexoia.workspace.model.WorkspaceBinding;
+import com.nexoia.workspace.model.WorkspaceBindingStatus;
 import com.nexoia.workspace.model.WorkspaceStatus;
 import com.nexoia.workspace.model.WorkspaceStorageType;
 import com.nexoia.workspace.service.WorkspaceAccessService;
+import com.nexoia.workspace.service.WorkspaceBindingService;
 import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import java.time.Clock;
 import java.time.Instant;
@@ -75,6 +78,7 @@ class ModelRequestStoreTest {
     @Mock private McpConnectionService mcpConnections;
     @Mock private PersonalMemoryService personalMemories;
     @Mock private WorkspaceAccessService workspaceAccess;
+    @Mock private WorkspaceBindingService workspaceBindings;
 
     private ModelRequestStore store;
     private final UUID userId = UUID.randomUUID();
@@ -98,6 +102,7 @@ class ModelRequestStoreTest {
                 personalMemories,
                 new PermissionEngine(),
                 workspaceAccess,
+                workspaceBindings,
                 Clock.fixed(Instant.parse("2026-08-21T12:00:00Z"), ZoneOffset.UTC));
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(Conversation.builder()
@@ -240,5 +245,57 @@ class ModelRequestStoreTest {
                         WorkspaceReadToolFactory.GIT_STATUS,
                         WorkspaceReadToolFactory.GIT_DIFF,
                         WorkspaceReadToolFactory.INSPECT_PROJECT);
+    }
+
+    @Test
+    void agentModeDoesNotAdvertiseAnOfflineSelectedLocalBindingAsAvailable() {
+        UUID workspaceId = UUID.randomUUID();
+        UUID bindingId = UUID.randomUUID();
+        UUID deviceId = UUID.randomUUID();
+        when(conversations.findOwnedForUpdate(conversationId, userId))
+                .thenReturn(Optional.of(Conversation.builder()
+                        .id(conversationId)
+                        .userId(userId)
+                        .title("Chat")
+                        .providerConfigurationId(providerId)
+                        .selectedModel("qwen3:8b")
+                        .workspaceId(workspaceId)
+                        .workspaceBindingId(bindingId)
+                        .build()));
+        when(users.findById(userId)).thenReturn(Optional.of(
+                UserAccount.builder()
+                        .id(userId)
+                        .username("owner")
+                        .assignedProfile(ProfileKey.OPERATOR)
+                        .build()));
+        Workspace workspace = Workspace.builder()
+                .id(workspaceId)
+                .ownerId(userId)
+                .name("Nexo")
+                .storageType(WorkspaceStorageType.MOUNTED)
+                .accessMode(WorkspaceAccessMode.READ_ONLY)
+                .relativePath("nexo")
+                .build();
+        WorkspaceBinding binding = WorkspaceBinding.builder()
+                .id(bindingId)
+                .workspaceId(workspaceId)
+                .deviceId(deviceId)
+                .localBindingId("local-binding")
+                .displayName("Nexo")
+                .status(WorkspaceBindingStatus.OFFLINE)
+                .build();
+        when(workspaceAccess.accessibleWorkspace(userId, workspaceId)).thenReturn(workspace);
+        when(workspaceBindings.ownedBinding(userId, workspaceId, bindingId)).thenReturn(binding);
+        when(workspaceBindings.isAvailable(userId, binding)).thenReturn(false);
+
+        ModelRequestReservation reservation = store.reserve(
+                userId, conversationId, "inspect the project", false, List.of(), ConversationMode.AGENT);
+
+        assertThat(reservation.command().workspaceToolScope()).isNull();
+        verify(workspaceAccess, never()).lightStatus(workspace);
+        ArgumentCaptor<ModelContextEnvelope> envelope = ArgumentCaptor.forClass(ModelContextEnvelope.class);
+        verify(contextAssembler).assemble(
+                eq(conversationId), eq("owner"), eq(List.of()), envelope.capture(), eq(List.of()));
+        assertThat(envelope.getValue().manifest().workspace().serverSideAccess()).isFalse();
     }
 }

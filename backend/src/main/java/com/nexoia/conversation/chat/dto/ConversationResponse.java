@@ -11,5 +11,20 @@ public record ConversationResponse(
         String selectedModel,
         List<UUID> knowledgeVaultIds,
         UUID workspaceId,
+        UUID workspaceBindingId,
         Instant createdAt,
-        Instant updatedAt) {}
+        Instant updatedAt) {
+
+    public ConversationResponse(
+            UUID id,
+            String title,
+            UUID providerConfigurationId,
+            String selectedModel,
+            List<UUID> knowledgeVaultIds,
+            UUID workspaceId,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(id, title, providerConfigurationId, selectedModel, knowledgeVaultIds, workspaceId, null,
+                createdAt, updatedAt);
+    }
+}

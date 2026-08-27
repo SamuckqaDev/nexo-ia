@@ -22,6 +22,7 @@ export type ConversationContextPanelProps = {
   onManageVaults: () => void;
   onManageWorkspace: () => void;
   workspaceId?: string | null;
+  workspaceBindingId?: string | null;
 };
 
 export type AgentContextSummary = {

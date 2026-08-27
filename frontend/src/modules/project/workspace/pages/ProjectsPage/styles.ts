@@ -94,6 +94,14 @@ export const DetailMeta = styled.div`
   @media (max-width: 38rem) { grid-template-columns: 1fr; }
 `;
 
+export const LocalBindings = styled.div`
+  display: grid;
+  gap: ${({ theme }) => theme.spacing.sm};
+  > div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: ${({ theme }) => theme.spacing.sm}; padding: ${({ theme }) => theme.spacing.sm}; border: 1px solid ${({ theme }) => theme.colors.line}; border-radius: ${({ theme }) => theme.radius.control}; color: ${({ theme }) => theme.colors.primary}; }
+  span { display: grid; color: ${({ theme }) => theme.colors.text}; font-size: 0.66rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.56rem; }
+`;
+
 export const DetailActions = styled.div`display: flex; flex-wrap: wrap; justify-content: flex-end; gap: ${({ theme }) => theme.spacing.sm};`;
 
 export const Structure = styled.section`

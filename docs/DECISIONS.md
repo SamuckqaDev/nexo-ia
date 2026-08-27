@@ -497,3 +497,24 @@ options considered, the selected approach, and its consequences.
   change is visible before reuse. The first vertical is deliberately read-only; editing, terminal
   commands, approval-gated writes, rollback, artifacts, and worker delegation require later
   permission-engine increments. See [Server workspaces](SERVER_WORKSPACES.md).
+
+## D-033 — Proxy local Workspace reads through a paired Desktop runtime
+
+- **Status:** accepted
+- **Context:** a browser cannot give a remote server durable access to an arbitrary user folder, and
+  copying the entire project to Nexo would violate the requested local-source-of-truth model. The
+  server must still own orchestration, plans, tool authorization, evidence, and model interaction.
+- **Decision:** add an optional sandboxed Electron Companion. A logged-in browser creates a
+  short-lived single-use pairing code; the Desktop exchanges it for a revocable credential whose
+  hash is stored server-side, then maintains an outbound authenticated `nexo.runtime.v1` WebSocket.
+  The server persists only opaque device/workspace binding metadata and never the absolute local
+  path. Existing request-scoped Spring AI Workspace callbacks route to either the server resolver or
+  the selected online device binding. The Desktop implements only fixed, read-only list/read/search/
+  inspect/Git-status/Git-diff operations with path containment and content policy checks.
+- **Consequence:** the model can inspect the real project on the user's computer while inference and
+  orchestration stay on the Nexo server and the repository is not uploaded. Folder fingerprints are
+  refreshed periodically and missing/changed state becomes visible in Chat. Write tools, shell,
+  arbitrary Git mutation, worker delegation, local approval UI, rollback, signed packages, and
+  credential rotation remain separate governed increments. This mirrors the public agent pattern of
+  a model-visible tool contract plus a local execution environment; it does not claim parity with
+  proprietary Codex infrastructure.

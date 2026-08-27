@@ -2,12 +2,25 @@
 
 ## Current increment
 
-**Increment 1 — local authentication foundation.**
+**Current verified foundation — multi-user Agent runtime with optional local Desktop workspace
+inspection.**
 
 The first implementation branch is `feat/project-scaffold`. It establishes the source layout and a
 minimal vertical connection plus the first release `0.1` identity slice.
 
 ## Added
+
+- Optional Electron `desktop/` runtime paired through a ten-minute single-use code and revocable
+  device credential. It maintains an outbound authenticated WebSocket, keeps absolute paths and the
+  raw credential encrypted on the device, and reports capability/heartbeat state without requiring
+  an open browser tab.
+- Owner-isolated device inventory and opaque local Workspace bindings. Conversations persist the
+  selected binding; Projects and Chat list its online, changed, missing, or error state and lazily
+  browse the local tree through the authenticated runtime.
+- The six existing Spring AI Workspace callbacks now route transparently to either server storage or
+  Nexo Desktop. The local implementation remains read-only and enforces bounded output, relative-path
+  containment, sensitive/binary/oversize denial, ignored dependency/build trees, fixed Git argument
+  arrays, task evidence, and server audit. Project files are not copied to the server. See D-033.
 
 - Java 25 Spring Boot backend definition with the accepted Spring Boot and Spring AI BOM lines.
 - Public, minimal `GET /api/v1/system` identity endpoint.

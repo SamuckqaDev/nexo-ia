@@ -39,7 +39,12 @@ vi.mock("../../hooks/useServerWorkspaces", () => ({
   }),
   useCreateServerWorkspace: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
   useDeleteServerWorkspace: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
-  useRefreshServerWorkspace: () => ({ mutate: refreshMock, isPending: false })
+  useRefreshServerWorkspace: () => ({ mutate: refreshMock, isPending: false }),
+  useWorkspaceBindings: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() })
+}));
+
+vi.mock("../../../../device/runtime/components/DesktopRuntimeCard", () => ({
+  DesktopRuntimeCard: () => <div>desktop runtime</div>
 }));
 
 vi.mock("../../components/ServerWorkspaceTree", () => ({

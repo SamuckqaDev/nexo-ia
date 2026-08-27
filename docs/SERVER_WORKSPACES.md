@@ -1,9 +1,10 @@
-# Server workspaces
+# Server and local-device workspaces
 
-Nexo project execution starts from a server-owned Workspace. The browser selects a persisted
-Workspace for one conversation; it never sends a local folder handle, an absolute filesystem path,
-or a command for the model to execute. This makes project context stable across browser sessions and
-devices while keeping authorization and audit on the Nexo server.
+Nexo project execution starts from an owner-scoped Workspace record on the server. Its content may
+live in server storage or in a folder bound through Nexo Desktop. The browser selects the persisted
+Workspace and optional device binding for one conversation; it never sends a local folder handle,
+an absolute filesystem path, or a command for the model to execute. Authorization, orchestration,
+plans, task evidence, and audit remain on the Nexo server.
 
 ## Storage modes
 
@@ -12,6 +13,12 @@ devices while keeping authorization and audit on the Nexo server.
 | `MANAGED` | `{managed-root}/{owner-id}/{workspace-id}` | Nexo creates and owns the directory. |
 | `MOUNTED` | `{import-root}/{relativePath}` | Existing server project; Owner only; disabled when the import root is empty. |
 | `UNBOUND` | no filesystem path | Metadata may exist, but no file or Agent tool is available. |
+
+An `UNBOUND` Workspace can additionally have one or more `workspace_binding` records owned through a
+paired device. Each record contains the Workspace id, device id, opaque Desktop-local binding id,
+display metadata, status, fingerprint, and Git metadata. It never contains the absolute device path.
+When that binding is selected on a Conversation and online, the same six Spring AI tools are proxied
+over the authenticated `nexo.runtime.v1` channel to Nexo Desktop.
 
 `relativePath` must remain inside the configured import root after normalization and real-path
 resolution. The resolver rejects absolute input, traversal, symlink escape, missing paths, and paths
@@ -46,6 +53,16 @@ All routes use the controller prefix `/api/v1/workspaces`:
 | `POST /{workspaceId}/refresh` | Accept and persist the current fingerprint and Git HEAD. |
 | `GET /{workspaceId}/tree` | Lazily list one bounded directory page. |
 | `GET /{workspaceId}/file` | Return one bounded text-only file excerpt. |
+| `GET /{workspaceId}/bindings` | List owned Desktop bindings and their effective online status. |
+| `GET /{workspaceId}/bindings/{bindingId}/tree` | Lazily list a local directory through its online Desktop. |
+
+The device-authenticated runtime routes use the controller prefix `/api/v1/device-runtime`:
+
+| Method and path | Behavior |
+|---|---|
+| `POST /pair` | Consume a short-lived browser-created pairing code and return the credential once. |
+| `GET /connect` (WebSocket upgrade) | Open the authenticated outbound runtime channel. |
+| `POST /workspaces/{workspaceId}/bindings` | Register or refresh opaque binding metadata. |
 
 Conversation workspace selection is authoritative server state. The Chat header changes that
 selection through the conversation API; the sidebar only links to Workspace management and does not
@@ -53,7 +70,8 @@ maintain a competing browser-local active project.
 
 ## Spring AI Agent tools
 
-For an Agent request, Nexo resolves the conversation's persisted Workspace and the caller's effective
+For an Agent request, Nexo resolves the conversation's persisted Workspace, optional local binding,
+and the caller's effective
 permission profile before building the callback list. When `WORKSPACE_READ` is allowed and the
 Workspace is available, these callbacks join the same request-scoped Spring AI advisor loop used by
 plans, Vault retrieval, memory, and MCP:
@@ -65,7 +83,9 @@ plans, Vault retrieval, memory, and MCP:
 - `workspace_git_diff`
 - `workspace_inspect_project`
 
-The runtime caps the group at 12 calls per request and denies identical repeats. Every call resolves
+The runtime caps the group at 12 calls per request and denies identical repeats. Server bindings run
+inside the backend; local bindings are dispatched to the exact authenticated device and opaque
+Desktop binding selected by the conversation. Every call resolves
 ownership and availability again, honors cancellation, produces sanitized task evidence, and records
 started/completed/denied/failed audit outcomes. Capability questions are answered from the actual
 callback snapshot, so a model cannot truthfully claim a Workspace tool that was not attached.
@@ -82,13 +102,20 @@ credential files, private keys, certificates/keystores, binary or invalid UTF-8 
 above the configured byte limit. Git support uses only fixed read-only argument arrays; no shell or
 model-authored process is started.
 
-A deterministic fingerprint includes sorted relative paths, entry type, size, and modification time,
+A deterministic fingerprint includes sorted relative paths, size, and modification time for local
+bindings and includes entry type plus Git HEAD for server bindings. The Desktop refreshes its
+fingerprint at connection time and every minute. A changed fingerprint marks the binding `CHANGED`;
+a missing folder marks it `MISSING`. The frontend polls binding status and warns before the Agent
+continues to rely on stale structure metadata.
+
+For server bindings, the fingerprint
+includes sorted relative paths, entry type, size, and modification time,
 plus the Git HEAD when present. `CHANGED` warns the user that server project state differs from the
 last accepted scan. Refresh records the new baseline; it does not modify project content.
 
 ## Deliberately deferred
 
-This delivery does not edit files, run arbitrary commands, mutate Git, upload an existing project,
-delegate to workers, or perform approval-gated actions. Those capabilities need explicit write and
+This delivery does not edit files, run arbitrary commands, mutate Git, copy a device project to the
+server, delegate to workers, or perform approval-gated actions. Those capabilities need explicit write and
 command permission families, approval records, bounded execution sandboxes, artifact capture, and
 rollback/recovery semantics before they can be attached to a model.

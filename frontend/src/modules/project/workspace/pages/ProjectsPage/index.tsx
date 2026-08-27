@@ -2,6 +2,7 @@ import {
   ArrowClockwise,
   ArrowRight,
   CheckCircle,
+  Desktop,
   FolderOpen,
   FolderSimplePlus,
   GitBranch,
@@ -17,6 +18,7 @@ import { Input } from "../../../../../shared/components/Input";
 import { Select } from "../../../../../shared/components/Select";
 import { WorkspaceBadge, WorkspaceEmptyState, WorkspacePage, WorkspacePanel } from "../../../../../shared/components/WorkspacePage";
 import { useConfirmationStore } from "../../../../../shared/feedback/stores/useConfirmationStore";
+import { DesktopRuntimeCard } from "../../../../device/runtime/components/DesktopRuntimeCard";
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { ServerWorkspaceTree } from "../../components/ServerWorkspaceTree";
 import {
@@ -24,12 +26,14 @@ import {
   useDeleteServerWorkspace,
   useRefreshServerWorkspace,
   useServerWorkspaces,
-  useServerWorkspaceStatus
+  useServerWorkspaceStatus,
+  useWorkspaceBindings
 } from "../../hooks/useServerWorkspaces";
 import type {
   ServerWorkspace,
   ServerWorkspaceAccessMode,
-  ServerWorkspaceStorageType
+  ServerWorkspaceStorageType,
+  WorkspaceBinding
 } from "../../types/serverWorkspaceTypes";
 import type { ProjectsPageProps } from "../../types/workspaceTypes";
 import {
@@ -38,6 +42,7 @@ import {
   DetailActions,
   DetailHeader,
   DetailMeta,
+  LocalBindings,
   Library,
   Path,
   ProjectsGrid,
@@ -60,12 +65,16 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
   const [query, setQuery] = useState<string>("");
   const [name, setName] = useState<string>("");
   const [relativePath, setRelativePath] = useState<string>("");
-  const [storageType, setStorageType] = useState<Exclude<ServerWorkspaceStorageType, "UNBOUND">>("MANAGED");
+  const [storageType, setStorageType] = useState<ServerWorkspaceStorageType>("UNBOUND");
   const [accessMode, setAccessMode] = useState<ServerWorkspaceAccessMode>("READ_ONLY");
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
   const selected: ServerWorkspace | undefined = workspaces.data
     ?.find((workspace: ServerWorkspace) => workspace.id === selectedId);
   const status = useServerWorkspaceStatus(selected?.id ?? null);
+  const bindings = useWorkspaceBindings(selected?.id ?? null);
+  const availableBinding: WorkspaceBinding | undefined = bindings.data?.find(
+    (binding: WorkspaceBinding): boolean => binding.status === "AVAILABLE" || binding.status === "CHANGED"
+  );
   const visibleWorkspaces = useMemo<ServerWorkspace[]>(() => (workspaces.data ?? []).filter(
     (workspace: ServerWorkspace): boolean =>
       `${workspace.name} ${workspace.relativePath ?? ""}`.toLowerCase().includes(query.toLowerCase())
@@ -102,9 +111,9 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
 
   return (
     <WorkspacePage
-      eyebrow="Server project context"
+      eyebrow="Local and server project context"
       title="Projects & workspaces"
-      description="Register projects the Nexo server can inspect. Conversations select one persisted workspace, so Agent tools work from any browser without relying on a local folder handle."
+      description="Keep a project on your computer through Nexo Desktop, or use an explicitly configured server workspace. Spring AI receives only the governed tools attached to the selected conversation."
       icon={FolderOpen}
       actions={<Button type="button" icon={Plus} onClick={(): void => setAdding(true)}>Add workspace</Button>}
     >
@@ -112,14 +121,22 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
         <ActiveContext>
           <FolderOpen size={22} weight="fill" />
           <div>
-            <span>Selected server workspace</span>
+            <span>Selected workspace</span>
             <strong>{selected.name}</strong>
-            <small>{selected.storageType.toLowerCase()} · {selected.status.toLowerCase()}</small>
+            <small>{availableBinding ? `${availableBinding.deviceName} · ${availableBinding.status.toLowerCase()}` : `${selected.storageType.toLowerCase()} · ${selected.status.toLowerCase()}`}</small>
           </div>
-          <WorkspaceBadge tone={selected.status === "AVAILABLE" ? "positive" : "default"}>{selected.status}</WorkspaceBadge>
+          <WorkspaceBadge tone={(availableBinding?.status ?? selected.status) === "AVAILABLE" ? "positive" : "default"}>
+            {availableBinding?.status ?? selected.status}
+          </WorkspaceBadge>
           <Button type="button" icon={ArrowRight} onClick={onOpenChat}>Open Chat</Button>
         </ActiveContext>
       )}
+
+      <DesktopRuntimeCard
+        workspaceId={selected?.id ?? null}
+        workspaceName={selected?.name ?? null}
+        onWorkspaceBound={(): void => { void bindings.refetch(); }}
+      />
 
       {(workspaces.isError || create.isError || remove.isError) && (
         <StorageWarning role="alert">
@@ -129,7 +146,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
 
       <ProjectsGrid>
         <WorkspacePanel
-          title="Server projects"
+          title="Projects"
           description="Each registration belongs to your authenticated Nexo account."
           action={<WorkspaceBadge>{workspaces.data?.length ?? 0} registered</WorkspaceBadge>}
         >
@@ -167,7 +184,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
               <WorkspaceEmptyState
                 icon={FolderSimplePlus}
                 title={workspaces.data?.length ? "No matching workspace" : "Register a server project"}
-                description="Managed workspaces live under Nexo storage. Mounted workspaces resolve only below the server import root configured by the administrator."
+                description="Create a local Workspace for Nexo Desktop, or explicitly choose server-managed storage."
                 action={!workspaces.data?.length
                   ? <Button type="button" icon={FolderSimplePlus} onClick={(): void => setAdding(true)}>Add first workspace</Button>
                   : undefined}
@@ -178,10 +195,10 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
 
         <WorkspacePanel
           as="aside"
-          title={adding ? "Add server workspace" : selected ? "Workspace details" : "No workspace selected"}
+          title={adding ? "Add workspace" : selected ? "Workspace details" : "No workspace selected"}
           description={adding
-            ? "Choose Nexo-managed storage or a path relative to the configured server import root."
-            : "Live status and structure come from the Nexo server, not browser storage."}
+            ? "Choose a local Desktop binding or an explicitly configured server location."
+            : "The binding identifies where tools execute; absolute local paths stay in Nexo Desktop."}
         >
           {adding ? (
             <Detail as="form" onSubmit={submit}>
@@ -190,8 +207,9 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
                 id="server-workspace-storage"
                 label="Storage"
                 value={storageType}
-                onChange={(event): void => setStorageType(event.target.value as Exclude<ServerWorkspaceStorageType, "UNBOUND">)}
+                onChange={(event): void => setStorageType(event.target.value as ServerWorkspaceStorageType)}
                 options={[
+                  { label: "Local folder via Nexo Desktop", value: "UNBOUND" },
                   { label: "Managed by Nexo server", value: "MANAGED" },
                   { label: "Mounted below server import root", value: "MOUNTED" }
                 ]}
@@ -214,7 +232,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
               <DetailActions>
                 <Button type="button" variant="outline" onClick={(): void => setAdding(false)}>Cancel</Button>
                 <Button type="submit" disabled={create.isPending || !name.trim() || (storageType === "MOUNTED" && !relativePath.trim())}>
-                  {create.isPending ? "Registering…" : "Register workspace"}
+                  {create.isPending ? "Registering…" : "Create workspace"}
                 </Button>
               </DetailActions>
             </Detail>
@@ -222,28 +240,57 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
             <Detail>
               <DetailHeader>
                 <span><FolderOpen size={25} weight="duotone" /></span>
-                <div><WorkspaceBadge tone={status.data?.status === "AVAILABLE" ? "positive" : "default"}>{status.data?.status ?? selected.status}</WorkspaceBadge><h2>{selected.name}</h2></div>
+                <div>
+                  <WorkspaceBadge tone={(availableBinding?.status ?? status.data?.status) === "AVAILABLE" ? "positive" : "default"}>
+                    {availableBinding?.status ?? status.data?.status ?? selected.status}
+                  </WorkspaceBadge>
+                  <h2>{selected.name}</h2>
+                </div>
               </DetailHeader>
               <Path>
-                <span>Server binding</span>
-                <code>{selected.storageType === "MANAGED" ? "Nexo managed storage" : selected.relativePath}</code>
-                <small>Absolute paths never leave the backend. Tools receive only workspace-relative paths.</small>
+                <span>Execution binding</span>
+                <code>{availableBinding
+                  ? `${availableBinding.displayName} · ${availableBinding.deviceName}`
+                  : selected.storageType === "MANAGED" ? "Nexo managed storage" : selected.relativePath ?? "No active binding"}</code>
+                <small>Local absolute paths remain encrypted inside Nexo Desktop. Tools receive only workspace-relative paths.</small>
               </Path>
+              {(bindings.data?.length ?? 0) > 0 && (
+                <LocalBindings>
+                  {bindings.data?.map((binding: WorkspaceBinding) => (
+                    <div key={binding.id}>
+                      <Desktop size={17} weight="duotone" />
+                      <span>{binding.displayName}<small>{binding.deviceName} · {binding.status.toLowerCase()}</small></span>
+                      <WorkspaceBadge tone={binding.status === "AVAILABLE" ? "positive" : "default"}>{binding.status}</WorkspaceBadge>
+                    </div>
+                  ))}
+                </LocalBindings>
+              )}
               <DetailMeta>
-                <div><HardDrives size={18} /><span>Storage<strong>{selected.storageType.toLowerCase()}</strong></span></div>
-                <div><GitBranch size={18} /><span>Git context<strong>{status.data?.git?.branch ?? "Not detected"}</strong></span></div>
+                <div><HardDrives size={18} /><span>Storage<strong>{availableBinding ? "local device" : selected.storageType.toLowerCase()}</strong></span></div>
+                <div><GitBranch size={18} /><span>Git context<strong>{availableBinding?.gitBranch ?? status.data?.git?.branch ?? "Not detected"}</strong></span></div>
                 <div><ShieldCheck size={18} /><span>Access ceiling<strong>{selected.accessMode.toLowerCase()}</strong></span></div>
               </DetailMeta>
               <Structure>
                 <StructureHeader>
-                  <div><strong>Live server structure</strong><span>Folders load lazily from the authenticated workspace endpoint.</span></div>
-                  <Button type="button" variant="outline" icon={ArrowClockwise} disabled={refresh.isPending} onClick={(): void => refresh.mutate(selected.id)}>Refresh</Button>
+                  <div>
+                    <strong>{availableBinding ? "Live local structure" : "Live server structure"}</strong>
+                    <span>
+                      {availableBinding
+                        ? "The paired desktop agent refreshes this workspace without uploading its files."
+                        : "Folders load lazily from the authenticated workspace endpoint."}
+                    </span>
+                  </div>
+                  {!availableBinding && (
+                    <Button type="button" variant="outline" icon={ArrowClockwise} disabled={refresh.isPending} onClick={(): void => refresh.mutate(selected.id)}>Refresh</Button>
+                  )}
                 </StructureHeader>
-                {status.isLoading && <StructureStatus>Checking server workspace…</StructureStatus>}
-                {status.isError && <StructureStatus role="alert">Workspace inspection failed.</StructureStatus>}
-                {status.data?.reason && <StructureStatus>{status.data.reason}</StructureStatus>}
-                {(status.data?.status === "AVAILABLE" || status.data?.status === "CHANGED")
-                  && <ServerWorkspaceTree workspaceId={selected.id} />}
+                {!availableBinding && status.isLoading && <StructureStatus>Checking server workspace…</StructureStatus>}
+                {!availableBinding && status.isError && <StructureStatus role="alert">Workspace inspection failed.</StructureStatus>}
+                {!availableBinding && status.data?.reason && <StructureStatus>{status.data.reason}</StructureStatus>}
+                {availableBinding
+                  ? <ServerWorkspaceTree workspaceId={selected.id} bindingId={availableBinding.id} />
+                  : (status.data?.status === "AVAILABLE" || status.data?.status === "CHANGED")
+                    && <ServerWorkspaceTree workspaceId={selected.id} />}
               </Structure>
               <DetailActions>
                 <Button type="button" variant="outline" icon={Trash} disabled={remove.isPending} onClick={(): void => deleteWorkspace(selected)}>Delete registration</Button>

@@ -60,3 +60,19 @@ export const serverWorkspaceTreeSchema = z.object({
   truncated: z.boolean(),
   nextCursor: z.string().nullable()
 });
+
+export const workspaceBindingSchema = z.object({
+  id: z.uuid(),
+  workspaceId: z.uuid(),
+  deviceId: z.uuid(),
+  deviceName: z.string(),
+  deviceStatus: z.enum(["OFFLINE", "ONLINE", "REVOKED"]),
+  displayName: z.string(),
+  status: z.enum(["AVAILABLE", "CHANGED", "OFFLINE", "MISSING", "ERROR"]),
+  structureFingerprint: z.string().nullable(),
+  gitHead: z.string().nullable(),
+  gitBranch: z.string().nullable(),
+  lastSeenAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime()
+});

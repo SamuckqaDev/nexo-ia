@@ -1,0 +1,81 @@
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { LocalWorkspaceBinding } from "../protocol/types.js";
+import type { SecureRuntimeStore } from "./secureStore.js";
+import { WorkspaceTools } from "./workspaceTools.js";
+
+describe("WorkspaceTools", (): void => {
+  let rootPath: string;
+  let tools: WorkspaceTools;
+  let workspace: LocalWorkspaceBinding;
+
+  beforeEach(async (): Promise<void> => {
+    rootPath = await mkdtemp(join(tmpdir(), "nexo-workspace-tools-"));
+    workspace = {
+      localBindingId: "local-test",
+      workspaceId: "workspace-test",
+      displayName: "Test project",
+      rootPath,
+      structureFingerprint: "fingerprint",
+      gitHead: null,
+      gitBranch: null
+    };
+    const store = {
+      workspace: (localBindingId: string): LocalWorkspaceBinding | null =>
+        localBindingId === workspace.localBindingId ? workspace : null
+    } as SecureRuntimeStore;
+    tools = new WorkspaceTools(store);
+  });
+
+  afterEach(async (): Promise<void> => {
+    await rm(rootPath, { recursive: true, force: true });
+  });
+
+  it("lists bounded workspace entries without ignored directories", async (): Promise<void> => {
+    await writeFile(join(rootPath, "README.md"), "Nexo\n", "utf8");
+    await mkdir(join(rootPath, "src"));
+    await mkdir(join(rootPath, "node_modules"));
+
+    const result = await tools.execute("workspace.listFiles", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "", limit: 20 }
+    }) as {
+      entries: Array<{ name: string }>;
+      omissions: Array<{ name: string; reason: string }>;
+    };
+
+    expect(result.entries.map((entry): string => entry.name)).toEqual(["README.md", "src"]);
+    expect(result.omissions).toContainEqual({ name: "node_modules", reason: "ignored" });
+  });
+
+  it("reads and numbers a bounded text range", async (): Promise<void> => {
+    await writeFile(join(rootPath, "README.md"), "one\ntwo\nthree", "utf8");
+
+    const result = await tools.execute("workspace.readFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "README.md", startLine: 2, endLine: 3 }
+    }) as { numberedContent: string; startLine: number; endLine: number };
+
+    expect(result.numberedContent).toBe("2: two\n3: three");
+    expect(result.startLine).toBe(2);
+    expect(result.endLine).toBe(3);
+  });
+
+  it("rejects traversal outside the selected workspace", async (): Promise<void> => {
+    await expect(tools.execute("workspace.readFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "../secret.txt" }
+    })).rejects.toMatchObject({ code: "PATH_OUTSIDE_WORKSPACE" });
+  });
+
+  it("denies credentials even when they are inside the workspace", async (): Promise<void> => {
+    await writeFile(join(rootPath, ".env"), "TOKEN=secret\n", "utf8");
+
+    await expect(tools.execute("workspace.readFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: ".env" }
+    })).rejects.toMatchObject({ code: "SENSITIVE_FILE_DENIED" });
+  });
+});

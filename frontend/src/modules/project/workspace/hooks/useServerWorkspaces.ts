@@ -5,6 +5,8 @@ import {
   deleteServerWorkspace,
   getServerWorkspaceStatus,
   getServerWorkspaceTree,
+  getLocalWorkspaceTree,
+  listWorkspaceBindings,
   listServerWorkspaces,
   refreshServerWorkspace
 } from "../api/serverWorkspaceApi";
@@ -12,7 +14,8 @@ import type {
   CreateServerWorkspaceInput,
   ServerWorkspace,
   ServerWorkspaceStatus,
-  ServerWorkspaceTree
+  ServerWorkspaceTree,
+  WorkspaceBinding
 } from "../types/serverWorkspaceTypes";
 
 export const serverWorkspacesKey = ["server-workspaces"] as const;
@@ -20,6 +23,8 @@ export const serverWorkspaceStatusKey = (workspaceId: string | null): readonly u
   ["server-workspaces", workspaceId, "status"];
 export const serverWorkspaceTreeKey = (workspaceId: string, path: string): readonly unknown[] =>
   ["server-workspaces", workspaceId, "tree", path];
+export const workspaceBindingsKey = (workspaceId: string | null): readonly unknown[] =>
+  ["server-workspaces", workspaceId, "bindings"];
 
 export const useServerWorkspaces = (enabled = true): UseQueryResult<ServerWorkspace[]> =>
   useQuery({ queryKey: serverWorkspacesKey, queryFn: listServerWorkspaces, enabled });
@@ -37,12 +42,25 @@ export const useServerWorkspaceStatus = (
 export const useServerWorkspaceTree = (
   workspaceId: string,
   path: string,
-  enabled = true
+  enabled = true,
+  bindingId?: string
 ): UseQueryResult<ServerWorkspaceTree> =>
   useQuery({
-    queryKey: serverWorkspaceTreeKey(workspaceId, path),
-    queryFn: (): Promise<ServerWorkspaceTree> => getServerWorkspaceTree(workspaceId, path),
+    queryKey: [...serverWorkspaceTreeKey(workspaceId, path), bindingId ?? "server"],
+    queryFn: (): Promise<ServerWorkspaceTree> => bindingId
+      ? getLocalWorkspaceTree(workspaceId, bindingId, path)
+      : getServerWorkspaceTree(workspaceId, path),
     enabled
+  });
+
+export const useWorkspaceBindings = (
+  workspaceId: string | null
+): UseQueryResult<WorkspaceBinding[]> =>
+  useQuery({
+    queryKey: workspaceBindingsKey(workspaceId),
+    queryFn: (): Promise<WorkspaceBinding[]> => listWorkspaceBindings(workspaceId ?? ""),
+    enabled: workspaceId !== null,
+    refetchInterval: 10_000
   });
 
 export const useCreateServerWorkspace = (): UseMutationResult<
