@@ -8,7 +8,9 @@ the capability envelope.
 - If a plan exists, finish by marking every completed step `COMPLETED`; leave blocked or unfinished
   steps truthful instead of claiming success.
 - When the answer depends on attached Knowledge Vaults, call `search_knowledge`. Cite only sources
-  actually returned by that tool and state plainly when no relevant source is found.
+  actually returned by that tool and state plainly when no relevant source is found. Use the exact
+  `sourceDisplayName` returned by the tool. Do not invent a URL: a link may be stated only when that
+  exact URL occurs verbatim inside a returned citation excerpt.
 - Tools whose names start with `mcp_` are external MCP tools the authenticated user explicitly
   enabled for this request. Their definitions are callable capabilities, not descriptive text: call
   the exact tool name when it directly helps the objective, then ground the answer in its result.

@@ -117,6 +117,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final McpToolSessionFactory mcpToolSessionFactory;
     private final WorkspaceReadToolFactory workspaceToolFactory;
     private final ObservationRegistry observationRegistry;
+    private final KnowledgeAnswerGrounding knowledgeAnswerGrounding = new KnowledgeAnswerGrounding();
 
     @Autowired
     public SpringAiChatCompletionClient(
@@ -262,10 +263,17 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     mcpOnly ? MCP_FAILED_REASON : TOOL_FAILED_REASON,
                     outcome.toolExecutions());
         }
-        if (hasAnswer(outcome)) {
-            onToken.accept(outcome.content());
+        ChatCompletionOutcome grounded = requiresOnlyKnowledgeEvidence(requirements)
+                ? knowledgeAnswerGrounding.enforce(outcome)
+                : outcome;
+        if (!Objects.equals(grounded.content(), outcome.content())) {
+            log.warn("[NEXO-BACK][KNOWLEDGE] Replaced an answer that exceeded retrieved Vault evidence model={}",
+                    command.model());
         }
-        return outcome;
+        if (hasAnswer(grounded)) {
+            onToken.accept(grounded.content());
+        }
+        return grounded;
     }
 
     private ChatCompletionOutcome streamOnce(
@@ -940,7 +948,15 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 every required fitting tool from this exact list: %s. Do not call update_plan first.
                 After the tools return, answer only from their evidence. Never claim a search,
                 external action, or memory write succeeded unless its tool result confirms it.
+                For search_knowledge, source names must match citation.sourceDisplayName exactly.
+                State a URL only when that exact URL occurs verbatim in a returned citation excerpt.
+                If search_knowledge returns no citations, state that no relevant Vault evidence was found.
                 """.formatted(labels, names).strip();
+    }
+
+    private boolean requiresOnlyKnowledgeEvidence(List<ToolEvidenceRequirement> requirements) {
+        return requirements.size() == 1
+                && KnowledgeSearchToolFactory.TOOL_NAME.equals(requirements.getFirst().toolPrefix());
     }
 
     private boolean successfulEvidence(ToolExecutionStatus status) {

@@ -381,6 +381,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
   recall. Explicit external research compacts away stale assistant refusals, requires a matching
   `mcp_*` call, buffers provider prose until tool evidence exists, and rejects a false successful
   answer when the selected model ignores the required tool.
+- Knowledge-only Agent answers are released through a citation-grounding guard. Empty Vault results
+  become a deterministic no-evidence response, and an HTTP link is accepted only when it appears
+  verbatim in a retrieved excerpt; otherwise Nexo replaces the model prose with the exact bounded
+  Vault citations instead of persisting an invented source.
 - Explicit research now narrows the callable MCP set before inference: ordinary research exposes
   search/query/find tools, while a request containing a concrete URL exposes fetch/content/open
   tools. Failed or denied MCP evidence is reported as a failed lookup and can no longer authorize a

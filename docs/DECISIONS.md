@@ -432,8 +432,12 @@ options considered, the selected approach, and its consequences.
   and rendered in a compact scroll-owning Plan panel. A separate Tasks panel renders the Agent
   lifecycle, plan publication, and only persisted tool executions. Explicit Vault, personal-memory,
   and MCP actions are evidence-gated: model prose is buffered and cannot complete the request or its
-  fallback-plan step without matching successful tool evidence. Tool executions keep sanitized
-  digests, status, duration, citations, correlation, and audit records.
+  fallback-plan step without matching successful tool evidence. A knowledge-only answer is also
+  checked against the returned citations before release: a URL is accepted only when it occurs
+  verbatim in a Vault excerpt, and an empty retrieval deterministically reports that no relevant
+  evidence was found. Unsupported model-authored links are replaced with a bounded server-rendered
+  citation summary. Tool executions keep sanitized digests, status, duration, citations,
+  correlation, and audit records.
 - **Consequence:** Nexo can plan, revise a plan, search selected private knowledge, and return grounded
   evidence without claiming general computer control. Unsupported or absent capabilities remain
   unavailable rather than being simulated in text. Additional tools must reuse this request-scoped

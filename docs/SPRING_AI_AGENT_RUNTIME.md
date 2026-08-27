@@ -138,6 +138,12 @@ If a required callback is absent, ignored, denied, unavailable, or failed, Nexo 
 runtime result instead of accepting a model-authored success claim. Capability inspection itself is
 also emitted and persisted as a visible `inspect_capabilities` task event.
 
+Knowledge-only requests have an additional output boundary because tool execution alone does not
+prove that the model attributed the result correctly. Nexo buffers the answer, accepts a URL only
+when the exact URL occurs in a returned Vault excerpt, and replaces unsupported links with a bounded
+summary built directly from the persisted citations. A successful search with zero citations always
+returns an explicit no-evidence result instead of allowing model recall to fill the gap.
+
 `toolSearchTool` is capped at three calls and `inspect_capabilities` at two calls per request. These
 internal discovery calls are included in the combined tool-call budget. `search_knowledge` accepts
 only a bounded query and result count, searches only server-captured Vault

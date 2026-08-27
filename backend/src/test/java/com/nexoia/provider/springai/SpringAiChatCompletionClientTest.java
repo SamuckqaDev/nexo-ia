@@ -182,7 +182,7 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
-    void executesTheGovernedKnowledgeToolThroughSpringAiAndReturnsItsEvidence() {
+    void executesTheGovernedKnowledgeToolAndRejectsALinkOutsideItsEvidence() {
         RetrievalService retrieval = mock(RetrievalService.class);
         when(retrieval.retrieve(any(), any())).thenReturn(new RetrievalResult(List.of(
                 new CitationResponse("Nexo KB", "Principles", 1, "Nexo is truthful.", 0.93))));
@@ -210,7 +210,8 @@ class SpringAiChatCompletionClientTest {
                       """
                     : """
                       {"model":"qwen3:8b","message":{"role":"assistant",\
-                      "content":"Nexo is truthful."},"done":true,"done_reason":"stop",\
+                      "content":"Centro de Suporte Nexo: https://support.nexo.com/unrelated"},\
+                      "done":true,"done_reason":"stop",\
                       "prompt_eval_count":30,"eval_count":4}
                       """;
             byte[] payload = body.getBytes(StandardCharsets.UTF_8);
@@ -236,12 +237,17 @@ class SpringAiChatCompletionClientTest {
         ChatCompletionOutcome outcome = agentClient.stream(
                 agentCommand, delta -> {}, delta -> {}, () -> false);
 
-        assertThat(outcome.content()).isEqualTo("Nexo is truthful.");
+        assertThat(outcome.content())
+                .doesNotContain("support.nexo.com")
+                .contains("link que não veio dos Knowledge Vaults")
+                .contains("Principles")
+                .contains("Nexo is truthful.");
         assertThat(outcome.toolExecutions()).hasSize(1);
         assertThat(outcome.toolExecutions().getFirst().citations()).hasSize(1);
         assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst())
                 .contains("MANDATORY NEXO TOOL EXECUTION GATE")
+                .contains("State a URL only when that exact URL occurs verbatim")
                 .contains("\"tools\"")
                 .contains("\"name\":\"search_knowledge\"")
                 .doesNotContain("\"name\":\"inspect_capabilities\"")

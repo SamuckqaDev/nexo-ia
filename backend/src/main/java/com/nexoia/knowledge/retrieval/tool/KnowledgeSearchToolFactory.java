@@ -114,7 +114,9 @@ public class KnowledgeSearchToolFactory {
                     : ToolExecutionStatus.FOUND;
             String message = citations.isEmpty()
                     ? "No relevant source was found in the selected Knowledge Vaults."
-                    : "Relevant sources were found in the selected Knowledge Vaults.";
+                    : "Relevant sources were found in the selected Knowledge Vaults. Source names and "
+                            + "excerpts are the only evidence. No canonical URL metadata is provided; "
+                            + "never invent or infer a link.";
             return finish(scope, observer, evidence, startedAt, executionId, status, citations, message);
         } catch (EmbeddingProviderUnavailableException exception) {
             return finish(scope, observer, evidence, startedAt, executionId,

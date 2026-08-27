@@ -60,7 +60,11 @@ class KnowledgeSearchToolFactoryTest {
         ArgumentCaptor<RetrievalQuery> query = ArgumentCaptor.forClass(RetrievalQuery.class);
         verify(retrieval).retrieve(eq(userId), query.capture());
         assertThat(query.getValue().vaultIds()).containsExactly(vaultId);
-        assertThat(result).contains("FOUND").contains("Nexo is truthful");
+        assertThat(result)
+                .contains("FOUND")
+                .contains("Nexo is truthful")
+                .contains("No canonical URL metadata is provided")
+                .contains("never invent or infer a link");
         assertThat(observer.started.argumentsDigest()).hasSize(64).doesNotContain("Nexo identity");
         assertThat(observer.completed.status()).isEqualTo(ToolExecutionStatus.FOUND);
         assertThat(session.evidence()).containsExactly(observer.completed);
