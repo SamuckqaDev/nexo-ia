@@ -543,6 +543,17 @@ public class ModelRequestStore {
                 message.fail(failureCode, message.getContent(), latencyMs, clock.instant()));
     }
 
+    /** Persists a controlled runtime failure together with the honest explanation already streamed. */
+    @Transactional
+    public void recordFailure(
+            UUID messageId,
+            String failureCode,
+            String partialContent,
+            long latencyMs) {
+        messages.findById(messageId).ifPresent(message ->
+                message.fail(failureCode, partialContent, latencyMs, clock.instant()));
+    }
+
     /**
      * Moves a running request to CANCELLING. The streaming stage writes the terminal state once the
      * reading loop stops.

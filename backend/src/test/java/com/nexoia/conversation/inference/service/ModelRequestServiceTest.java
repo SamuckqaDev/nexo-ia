@@ -163,6 +163,32 @@ class ModelRequestServiceTest {
     }
 
     @Test
+    void persistsARequiredToolFailureAsFailedInsteadOfCompleted() {
+        reservationIsAvailable(false);
+        when(client.supports(ProviderType.OLLAMA)).thenReturn(true);
+        when(client.stream(any(), any(), any(), any()))
+                .thenReturn(new ChatCompletionOutcome(
+                        "A ação obrigatória não foi concluída.",
+                        30,
+                        8,
+                        TokenSource.PROVIDER,
+                        false,
+                        "required_tool_failed"));
+
+        service.stream(userId, conversationId, "hi", false, listener);
+
+        assertThat(listener.completed).isNull();
+        assertThat(listener.error.code()).isEqualTo("REQUIRED_TOOL_FAILED");
+        assertThat(listener.usage.totalTokens()).isEqualTo(38L);
+        verify(store).recordFailure(
+                eq(assistantMessageId),
+                eq("REQUIRED_TOOL_FAILED"),
+                eq("A ação obrigatória não foi concluída."),
+                anyLong());
+        verify(store, never()).recordCompletion(any(), any(), anyLong(), any());
+    }
+
+    @Test
     void releasesTheCancellationSignalAfterEveryOutcome() {
         reservationIsAvailable(false);
         when(client.supports(ProviderType.OLLAMA)).thenReturn(true);

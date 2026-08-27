@@ -1,5 +1,7 @@
 package com.nexoia.conversation.inference.tool;
 
+import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -27,6 +29,9 @@ public class AgentTaskDecomposer {
 
     public List<AgentTaskDraft> decompose(String objective) {
         String request = userRequest(objective);
+        if (isProjectAnalysis(request)) {
+            return projectAnalysisSteps();
+        }
         Set<String> candidates = new LinkedHashSet<>();
         for (String listed : LIST_BOUNDARY.split(request)) {
             for (String sentence : SENTENCE_BOUNDARY.split(listed)) {
@@ -66,6 +71,51 @@ public class AgentTaskDecomposer {
                 "Entregar uma resposta objetiva, indicando evidências, limitações ou etapas pendentes.",
                 null));
         return List.copyOf(steps);
+    }
+
+    private List<AgentTaskDraft> projectAnalysisSteps() {
+        return List.of(
+                new AgentTaskDraft(
+                        "Confirmar o projeto selecionado",
+                        "Validar o objetivo e o Workspace autorizado para esta análise.",
+                        null),
+                new AgentTaskDraft(
+                        "Mapear a estrutura do Workspace",
+                        "Listar a raiz real do projeto e registrar arquivos, pastas e omissões.",
+                        WorkspaceReadToolFactory.LIST_FILES),
+                new AgentTaskDraft(
+                        "Identificar stack e repositório",
+                        "Detectar manifests, branch e HEAD sem alterar o projeto.",
+                        WorkspaceReadToolFactory.INSPECT_PROJECT),
+                new AgentTaskDraft(
+                        "Verificar o estado Git",
+                        "Conferir alterações atuais para separar código versionado de trabalho pendente.",
+                        WorkspaceReadToolFactory.GIT_STATUS),
+                new AgentTaskDraft(
+                        "Ler a documentação e o manifest principal",
+                        "Usar arquivos reais do projeto para fundamentar arquitetura e dependências.",
+                        WorkspaceReadToolFactory.READ_FILE),
+                new AgentTaskDraft(
+                        "Consolidar diagnóstico e prioridades",
+                        "Entregar achados, riscos, limitações da evidência e próximos passos priorizados.",
+                        null));
+    }
+
+    private boolean isProjectAnalysis(String request) {
+        String normalized = Normalizer.normalize(request, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT);
+        boolean project = normalized.contains("projeto")
+                || normalized.contains("workspace")
+                || normalized.contains("repositorio")
+                || normalized.contains("repository")
+                || normalized.contains("codebase");
+        boolean analysis = normalized.contains("analis")
+                || normalized.contains("avali")
+                || normalized.contains("diagnost")
+                || normalized.contains("review")
+                || normalized.contains("revise");
+        return project && analysis;
     }
 
     private String requiredToolPrefix(String step) {

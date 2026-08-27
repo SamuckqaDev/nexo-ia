@@ -1,6 +1,7 @@
 package com.nexoia.conversation.inference.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import org.junit.jupiter.api.Test;
 
@@ -52,5 +53,22 @@ class AgentTaskDecomposerTest {
                 "Consulte a base de conhecimento e guarde o resultado na memória"))
                 .extracting(AgentTaskDraft::requiredToolPrefix)
                 .contains("search_knowledge", "remember");
+    }
+
+    @Test
+    void expandsAProjectAnalysisIntoConcreteWorkspaceActions() {
+        assertThat(decomposer.decompose("Cara analisa esse projeto para mim"))
+                .extracting(AgentTaskDraft::title, AgentTaskDraft::requiredToolPrefix)
+                .containsExactly(
+                        tuple("Confirmar o projeto selecionado", null),
+                        tuple(
+                                "Mapear a estrutura do Workspace", "workspace_list_files"),
+                        tuple(
+                                "Identificar stack e repositório", "workspace_inspect_project"),
+                        tuple(
+                                "Verificar o estado Git", "workspace_git_status"),
+                        tuple(
+                                "Ler a documentação e o manifest principal", "workspace_read_file"),
+                        tuple("Consolidar diagnóstico e prioridades", null));
     }
 }

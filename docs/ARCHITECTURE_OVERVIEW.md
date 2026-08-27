@@ -381,6 +381,18 @@ persisted execution evidence, and correlated audit events. Explicit external res
 memory, and Workspace requests can be evidence-gated: model prose alone cannot claim success when a
 required matching tool never completed.
 
+Generic project analysis is server-orchestrated before the model synthesis step. The backend lists
+the root, inspects stack/repository metadata, reads Git status, and captures a recognized manifest and
+README when available. Those actions appear independently in Tasks and are injected as bounded tool
+results; printed JSON is never accepted as execution. Continuation messages reuse the preceding
+project-analysis objective. A missing or failed required action persists the assistant turn as
+`FAILED`, rather than displaying a false completed state.
+
+Content permission and provider behavior are separate boundaries. The profile's per-area matrix says
+what Nexo permits. A provider model can still refuse internally; when it falsely calls a lawful
+`FULL` request a Nexo policy violation, the output boundary reports the provider refusal honestly
+without weakening the fixed legal floor.
+
 ### 7.2 Permission Engine
 
 The Permission Engine is pure deterministic code. It combines:

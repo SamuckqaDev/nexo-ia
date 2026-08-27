@@ -135,8 +135,17 @@ Explicit requests to consult selected Vaults, persist personal memory, or perfor
 research are evidence-gated. The runtime narrows the callback set to the required tools, buffers the
 model's prose, and releases an answer only after each required action has successful tool evidence.
 If a required callback is absent, ignored, denied, unavailable, or failed, Nexo returns a controlled
-runtime result instead of accepting a model-authored success claim. Capability inspection itself is
-also emitted and persisted as a visible `inspect_capabilities` task event.
+runtime result instead of accepting a model-authored success claim. Controlled tool failures are
+persisted as `FAILED`, never as a completed Agent turn. Capability inspection itself is also emitted
+and persisted as a visible `inspect_capabilities` task event.
+
+Project-analysis requests have a deterministic server preflight because small local models may print
+tool-call JSON as prose instead of using Spring AI's native tool protocol. Before the synthesis turn,
+Nexo executes `workspace_list_files`, `workspace_inspect_project`, and `workspace_git_status`, then
+reads the first recognized project manifest and README when present. Each call emits normal Tasks,
+evidence, and audit records. The model receives bounded real results without tool schemas and must
+produce the completed analysis rather than a future-tense plan. A short `continue`/`continua` resumes
+the preceding project-analysis intent and runs the same governed preflight.
 
 Knowledge-only requests have an additional output boundary because tool execution alone does not
 prove that the model attributed the result correctly. Nexo buffers the answer, accepts a URL only
@@ -166,6 +175,12 @@ reauthorizes ownership and live availability. The six callbacks share a 12-call 
 duplicate-argument denial, sanitized evidence and audit. Explicit project/repository inspection is
 evidence-gated in the same way as MCP, Vault, and memory work. See
 [Server workspaces](SERVER_WORKSPACES.md).
+
+The resolved content matrix is authoritative for Nexo, but an individual provider model may still
+have its own non-configurable refusal behavior. When a model falsely attributes a refusal to Nexo for
+a lawful area resolved as `FULL`, the output guard replaces that claim with an honest distinction:
+the Nexo profile allowed the request, the selected model refused it, and no media/action was executed.
+This does not bypass the fixed legal floor or force a provider to generate unsupported content.
 
 ## Knowledge and isolation
 

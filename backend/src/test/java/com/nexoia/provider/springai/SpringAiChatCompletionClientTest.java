@@ -39,6 +39,9 @@ import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
 import com.nexoia.workspace.model.WorkspaceAccessMode;
+import com.nexoia.workspace.tool.WorkspaceListFilesInput;
+import com.nexoia.workspace.tool.WorkspaceProjectQueryInput;
+import com.nexoia.workspace.tool.WorkspaceReadFileInput;
 import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import com.nexoia.workspace.tool.WorkspaceReadToolSession;
 import com.sun.net.httpserver.HttpServer;
@@ -50,6 +53,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -179,6 +183,33 @@ class SpringAiChatCompletionClientTest {
         assertThat(client.supports(ProviderType.OLLAMA)).isTrue();
         assertThat(client.supports(ProviderType.OPENAI)).isFalse();
         assertThat(client.supports(ProviderType.ANTHROPIC)).isFalse();
+    }
+
+    @Test
+    void doesNotStreamAProviderRefusalThatContradictsTheResolvedFullPolicy() {
+        serve("""
+                {"model":"qwen3:8b","message":{"role":"assistant",\
+                "content":"A solicitação viola as políticas de segurança e ética."},\
+                "done":true,"done_reason":"stop","prompt_eval_count":20,"eval_count":8}
+                """);
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "qwen3:8b",
+                List.of(
+                        new ChatCompletionMessage("system", "sexual explicit = full"),
+                        new ChatCompletionMessage("user", "Gera uma mulher nua")),
+                false);
+        StringBuilder streamed = new StringBuilder();
+
+        ChatCompletionOutcome outcome = client.stream(
+                command, delta -> { }, streamed::append, () -> false);
+
+        assertThat(streamed.toString())
+                .isEqualTo(outcome.content())
+                .contains("política de conteúdo ativa do Nexo permite")
+                .doesNotContain("viola as políticas");
+        assertThat(outcome.doneReason()).isEqualTo("provider_content_policy_refusal");
     }
 
     @Test
@@ -717,6 +748,83 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
+    void executesAProjectAnalysisPreflightInsteadOfTrustingModelNarration() {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        WorkspaceReadToolFactory workspaceFactory = analysisWorkspaceFactory(evidence);
+        SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
+        serve("""
+                {"model":"granite4.1:8b","message":{"role":"assistant",\
+                "content":"O projeto usa React e Vite. A árvore está limpa e o README define a arquitetura."},\
+                "done":true,"done_reason":"stop","prompt_eval_count":120,"eval_count":24}
+                """);
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                workspaceCommand(workspaceScope(), "Analisa esse projeto para mim"),
+                delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).contains("React e Vite");
+        assertThat(outcome.toolExecutions())
+                .extracting(ToolExecutionEvidence::toolName)
+                .containsExactly(
+                        "workspace_list_files",
+                        "workspace_inspect_project",
+                        "workspace_git_status",
+                        "workspace_read_file",
+                        "workspace_read_file");
+        assertThat(requestBody.get())
+                .contains("SERVER-EXECUTED WORKSPACE ANALYSIS PREFLIGHT")
+                .contains("package.json")
+                .contains("README.md")
+                .contains("react", "vite build")
+                .contains("Produce the completed project analysis now")
+                .doesNotContain("\"name\":\"workspace_list_files\"")
+                .doesNotContain("\"tool_calls\"");
+        verify(workspaceFactory).open(any(), any(), any());
+    }
+
+    @Test
+    void resumesThePreviousProjectAnalysisWhenTheUserSaysContinue() {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        WorkspaceReadToolFactory workspaceFactory = analysisWorkspaceFactory(evidence);
+        SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
+        serve("""
+                {"model":"granite4.1:8b","message":{"role":"assistant",\
+                "content":"Análise concluída com evidências do Workspace."},\
+                "done":true,"done_reason":"stop","prompt_eval_count":120,"eval_count":12}
+                """);
+        WorkspaceToolScope scope = workspaceScope();
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "granite4.1:8b",
+                List.of(
+                        new ChatCompletionMessage("user", "Analisa esse projeto para mim"),
+                        new ChatCompletionMessage("assistant", "Vou começar listando os arquivos."),
+                        new ChatCompletionMessage("user", "continue")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                null,
+                null,
+                null,
+                scope,
+                ToolExecutionObserver.NOOP,
+                update -> { });
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                command, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).contains("Análise concluída");
+        assertThat(outcome.toolExecutions())
+                .extracting(ToolExecutionEvidence::toolName)
+                .contains("workspace_list_files", "workspace_inspect_project", "workspace_git_status");
+        assertThat(requestBody.get())
+                .contains("SERVER-EXECUTED WORKSPACE ANALYSIS PREFLIGHT")
+                .doesNotContain("Vou começar listando os arquivos");
+    }
+
+    @Test
     void requiresAndVerifiesMcpEvidenceForAnExplicitResearchRequest() {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
         ToolCallback callback = FunctionToolCallback
@@ -985,6 +1093,69 @@ class SpringAiChatCompletionClientTest {
                 mock(McpToolSessionFactory.class),
                 workspaceFactory,
                 ObservationRegistry.NOOP);
+    }
+
+    private WorkspaceReadToolFactory analysisWorkspaceFactory(
+            List<ToolExecutionEvidence> evidence) {
+        List<ToolCallback> callbacks = List.of(
+                FunctionToolCallback.builder(
+                                "workspace_list_files", (WorkspaceListFilesInput input) -> {
+                                    recordCompletedEvidence(evidence, "workspace_list_files");
+                                    return Map.of("status", "COMPLETED", "entries", List.of(
+                                            Map.of("path", "src", "name", "src", "type", "DIRECTORY"),
+                                            Map.of("path", "package.json", "name", "package.json", "type", "FILE"),
+                                            Map.of("path", "README.md", "name", "README.md", "type", "FILE")));
+                                })
+                        .description("List project files")
+                        .inputType(WorkspaceListFilesInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                "workspace_read_file", (WorkspaceReadFileInput input) -> {
+                                    recordCompletedEvidence(evidence, "workspace_read_file");
+                                    String content = "package.json".equals(input.path())
+                                            ? "{\"scripts\":{\"build\":\"vite build\"},\"dependencies\":{\"react\":\"19\"}}"
+                                            : "# Project architecture\nFeature modules live under src.";
+                                    return Map.of("status", "COMPLETED", "path", input.path(), "content", content);
+                                })
+                        .description("Read project file")
+                        .inputType(WorkspaceReadFileInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                "workspace_git_status", (WorkspaceProjectQueryInput input) -> {
+                                    recordCompletedEvidence(evidence, "workspace_git_status");
+                                    return Map.of("status", "COMPLETED", "branch", "main", "changedPaths", List.of());
+                                })
+                        .description("Read Git status")
+                        .inputType(WorkspaceProjectQueryInput.class)
+                        .build(),
+                FunctionToolCallback.builder(
+                                "workspace_inspect_project", (WorkspaceProjectQueryInput input) -> {
+                                    recordCompletedEvidence(evidence, "workspace_inspect_project");
+                                    return Map.of(
+                                            "status", "COMPLETED",
+                                            "workspaceName", "Demo",
+                                            "detectedStack", List.of("node"),
+                                            "git", Map.of("branch", "main", "head", "abc123", "detached", false));
+                                })
+                        .description("Inspect project")
+                        .inputType(WorkspaceProjectQueryInput.class)
+                        .build());
+        WorkspaceReadToolFactory workspaceFactory = mock(WorkspaceReadToolFactory.class);
+        when(workspaceFactory.open(any(), any(), any()))
+                .thenReturn(new WorkspaceReadToolSession(callbacks, evidence));
+        return workspaceFactory;
+    }
+
+    private void recordCompletedEvidence(
+            List<ToolExecutionEvidence> evidence,
+            String toolName) {
+        evidence.add(new ToolExecutionEvidence(
+                UUID.randomUUID(),
+                toolName,
+                ToolExecutionStatus.COMPLETED,
+                2L,
+                List.of(),
+                Instant.now()));
     }
 
     private WorkspaceToolScope workspaceScope() {

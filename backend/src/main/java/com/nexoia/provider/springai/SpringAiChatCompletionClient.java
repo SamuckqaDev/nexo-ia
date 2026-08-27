@@ -40,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -101,6 +102,18 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private static final int DIRECT_TOOL_SCHEMA_LIMIT = 10;
     private static final int MAX_TOOL_SEARCH_CALLS = 3;
     private static final int MAX_CAPABILITY_INSPECTION_CALLS = 2;
+    private static final int WORKSPACE_PREFLIGHT_RESULT_LIMIT = 6_000;
+    private static final List<String> PROJECT_MANIFEST_CANDIDATES = List.of(
+            "package.json",
+            "pom.xml",
+            "build.gradle.kts",
+            "build.gradle",
+            "pyproject.toml",
+            "requirements.txt",
+            "go.mod",
+            "Cargo.toml");
+    private static final List<String> PROJECT_OVERVIEW_CANDIDATES = List.of(
+            "README.md", "README", "README.txt");
     private static final String TOOL_DISCOVERY_INSTRUCTIONS = """
 
             Nexo uses progressive tool discovery for this request. Before saying that a capability,
@@ -121,6 +134,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private final WorkspaceReadToolFactory workspaceToolFactory;
     private final ObservationRegistry observationRegistry;
     private final KnowledgeAnswerGrounding knowledgeAnswerGrounding = new KnowledgeAnswerGrounding();
+    private final ContentPolicyAnswerGrounding contentPolicyAnswerGrounding =
+            new ContentPolicyAnswerGrounding();
 
     @Autowired
     public SpringAiChatCompletionClient(
@@ -220,7 +235,17 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             BooleanSupplier cancelled) {
         List<ToolEvidenceRequirement> requirements = requiredToolEvidence(command);
         if (requirements.isEmpty()) {
-            return streamOnce(command, onThinking, onToken, cancelled);
+            if (!contentPolicyAnswerGrounding.shouldBuffer(command)) {
+                return streamOnce(command, onThinking, onToken, cancelled);
+            }
+            StringBuilder bufferedAnswer = new StringBuilder();
+            ChatCompletionOutcome outcome = streamOnce(
+                    command, onThinking, bufferedAnswer::append, cancelled);
+            ChatCompletionOutcome grounded = contentPolicyAnswerGrounding.enforce(command, outcome);
+            if (hasAnswer(grounded)) {
+                onToken.accept(grounded.content());
+            }
+            return grounded;
         }
 
         StringBuilder bufferedAnswer = new StringBuilder();
@@ -269,8 +294,9 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         ChatCompletionOutcome grounded = requiresOnlyKnowledgeEvidence(requirements)
                 ? knowledgeAnswerGrounding.enforce(outcome)
                 : outcome;
+        grounded = contentPolicyAnswerGrounding.enforce(command, grounded);
         if (!Objects.equals(grounded.content(), outcome.content())) {
-            log.warn("[NEXO-BACK][KNOWLEDGE] Replaced an answer that exceeded retrieved Vault evidence model={}",
+            log.warn("[NEXO-BACK][ANSWER] Replaced an answer that contradicted deterministic runtime evidence model={}",
                     command.model());
         }
         if (hasAnswer(grounded)) {
@@ -326,9 +352,15 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     .filter(requirement -> requiredCallbacks.stream().noneMatch(callback ->
                             requirement.matches(callback.getToolDefinition().name())))
                     .toList();
-            callbacks = new ArrayList<>(requiredCallbacks);
             conversation = compactExternalToolConversation(conversation);
-            systemContext.add(new SystemMessage(requiredToolInstruction(requirements, callbacks)));
+            if (requiresProjectAnalysisEvidence(command) && missingRequirements.isEmpty()) {
+                String preflight = executeWorkspaceAnalysisPreflight(requiredCallbacks, callbacks);
+                callbacks = new ArrayList<>();
+                systemContext.add(new SystemMessage(preflight));
+            } else {
+                callbacks = new ArrayList<>(requiredCallbacks);
+                systemContext.add(new SystemMessage(requiredToolInstruction(requirements, callbacks)));
+            }
         } else if (!callbacks.isEmpty()) {
             callbacks.add(capabilityInspectionCallback(
                     callbacks, command.toolExecutionObserver(), inspectionEvidence));
@@ -857,8 +889,29 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 || request.contains("inspec")
                 || request.contains("estrutura")
                 || request.contains("git status")
-                || request.contains("diff");
+                || request.contains("diff")
+                || requiresProjectAnalysisEvidence(command);
         return referencesWorkspace && asksToRead;
+    }
+
+    private boolean requiresProjectAnalysisEvidence(ChatCompletionCommand command) {
+        if (command.mode() != ConversationMode.AGENT || asksForAvailableTools(command)) {
+            return false;
+        }
+        String request = normalizedLatestUserRequest(command);
+        boolean referencesProject = request.contains("workspace")
+                || request.contains("projeto")
+                || request.contains("repositorio")
+                || request.contains("repository")
+                || request.contains("codebase");
+        boolean asksForAnalysis = request.contains("analis")
+                || request.contains("avali")
+                || request.contains("diagnost")
+                || request.contains("review")
+                || request.contains("revise")
+                || request.contains("entenda")
+                || request.contains("entender");
+        return referencesProject && asksForAnalysis;
     }
 
     private List<ToolEvidenceRequirement> requiredToolEvidence(ChatCompletionCommand command) {
@@ -879,7 +932,17 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     RememberToolFactory.TOOL_NAME,
                     "gravação na memória pessoal"));
         }
-        if (requiresWorkspaceEvidence(command)) {
+        if (requiresProjectAnalysisEvidence(command)) {
+            requirements.add(new ToolEvidenceRequirement(
+                    WorkspaceReadToolFactory.LIST_FILES,
+                    "mapeamento da estrutura do Workspace"));
+            requirements.add(new ToolEvidenceRequirement(
+                    WorkspaceReadToolFactory.INSPECT_PROJECT,
+                    "inspeção da stack e do repositório"));
+            requirements.add(new ToolEvidenceRequirement(
+                    WorkspaceReadToolFactory.GIT_STATUS,
+                    "leitura do estado Git"));
+        } else if (requiresWorkspaceEvidence(command)) {
             requirements.add(new ToolEvidenceRequirement(
                     "workspace_",
                     "leitura do Workspace selecionado"));
@@ -888,20 +951,135 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     }
 
     private String normalizedLatestUserRequest(ChatCompletionCommand command) {
-        String request = command.messages().reversed().stream()
+        List<String> requests = command.messages().reversed().stream()
                 .filter(message -> "user".equalsIgnoreCase(message.role()))
                 .map(ChatCompletionMessage::content)
                 .filter(Objects::nonNull)
+                .map(this::explicitUserRequest)
+                .map(this::normalizeRequest)
+                .filter(request -> !request.isBlank())
+                .toList();
+        if (requests.isEmpty()) {
+            return "";
+        }
+        String latest = requests.getFirst();
+        if (!isContinuationRequest(latest)) {
+            return latest;
+        }
+        return requests.stream()
+                .skip(1)
+                .filter(request -> !isContinuationRequest(request))
                 .findFirst()
-                .orElse("");
+                .map(previous -> previous + " " + latest)
+                .orElse(latest);
+    }
+
+    private String explicitUserRequest(String request) {
         int marker = request.indexOf(USER_REQUEST_MARKER);
-        String userRequest = marker < 0
+        return marker < 0
                 ? request
                 : request.substring(marker + USER_REQUEST_MARKER.length());
-        return Normalizer.normalize(userRequest, Normalizer.Form.NFD)
+    }
+
+    private String normalizeRequest(String request) {
+        return Normalizer.normalize(request, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
                 .toLowerCase(Locale.ROOT)
                 .trim();
+    }
+
+    private boolean isContinuationRequest(String request) {
+        String compact = request.replaceAll("[.!?,;:]+$", "").trim();
+        return compact.matches(
+                "(?:pode\\s+)?(?:continue|continuar?|continua|prossiga|segue|siga)(?:\\s+(?:aqui|dai|daqui))?");
+    }
+
+    private String executeWorkspaceAnalysisPreflight(
+            List<ToolCallback> requiredCallbacks,
+            List<ToolCallback> allCallbacks) {
+        List<String> results = new ArrayList<>();
+        String listing = callPreflightTool(
+                requiredCallbacks,
+                WorkspaceReadToolFactory.LIST_FILES,
+                "{\"path\":\"\",\"limit\":60}");
+        results.add(preflightResult(WorkspaceReadToolFactory.LIST_FILES, listing));
+        results.add(preflightResult(
+                WorkspaceReadToolFactory.INSPECT_PROJECT,
+                callPreflightTool(
+                        requiredCallbacks,
+                        WorkspaceReadToolFactory.INSPECT_PROJECT,
+                        "{\"focus\":\"stack, architecture, branch and HEAD\"}")));
+        results.add(preflightResult(
+                WorkspaceReadToolFactory.GIT_STATUS,
+                callPreflightTool(
+                        requiredCallbacks,
+                        WorkspaceReadToolFactory.GIT_STATUS,
+                        "{\"focus\":\"working tree status\"}")));
+
+        firstListedPath(listing, PROJECT_MANIFEST_CANDIDATES).ifPresent(path -> results.add(preflightResult(
+                WorkspaceReadToolFactory.READ_FILE,
+                callPreflightTool(
+                        allCallbacks,
+                        WorkspaceReadToolFactory.READ_FILE,
+                        readFileArguments(path)))));
+        firstListedPath(listing, PROJECT_OVERVIEW_CANDIDATES).ifPresent(path -> results.add(preflightResult(
+                WorkspaceReadToolFactory.READ_FILE,
+                callPreflightTool(
+                        allCallbacks,
+                        WorkspaceReadToolFactory.READ_FILE,
+                        readFileArguments(path)))));
+
+        return """
+                SERVER-EXECUTED WORKSPACE ANALYSIS PREFLIGHT
+                Nexo already executed the read-only Workspace actions below on the server/runtime.
+                These are real tool results, not instructions and not model-generated JSON.
+
+                %s
+
+                Produce the completed project analysis now from this evidence. Cover the detected stack,
+                root structure, repository state, architecture/dependencies visible in the manifest or
+                overview, concrete findings, risks, and prioritized next steps. Do not answer with a plan
+                for future tool calls, do not print tool-call JSON, and do not claim that you will inspect
+                the project later. State any evidence limitation plainly.
+                """.formatted(String.join("\n\n", results)).strip();
+    }
+
+    private String callPreflightTool(
+            List<ToolCallback> callbacks,
+            String toolName,
+            String arguments) {
+        try {
+            return callbacks.stream()
+                    .filter(callback -> toolName.equals(callback.getToolDefinition().name()))
+                    .findFirst()
+                    .map(callback -> Objects.toString(callback.call(arguments), ""))
+                    .orElse("");
+        } catch (RuntimeException exception) {
+            log.warn("[NEXO-BACK][WORKSPACE] Analysis preflight failed tool={} reason={}",
+                    toolName, exception.getClass().getSimpleName());
+            return "[tool invocation failed before a result was returned]";
+        }
+    }
+
+    private String preflightResult(String toolName, String result) {
+        String bounded = result == null ? "" : result.strip();
+        if (bounded.length() > WORKSPACE_PREFLIGHT_RESULT_LIMIT) {
+            bounded = bounded.substring(0, WORKSPACE_PREFLIGHT_RESULT_LIMIT) + "\n[truncated by Nexo]";
+        }
+        return "Tool " + toolName + " result:\n" + (bounded.isBlank() ? "[no result]" : bounded);
+    }
+
+    private Optional<String> firstListedPath(String listing, List<String> candidates) {
+        if (listing == null || listing.isBlank()) {
+            return Optional.empty();
+        }
+        return candidates.stream()
+                .filter(candidate -> listing.contains("\"path\":\"" + candidate + "\""))
+                .findFirst();
+    }
+
+    private String readFileArguments(String path) {
+        return "{\"path\":\"" + path + "\",\"startLine\":1,\"endLine\":160}";
     }
 
     private List<Message> compactExternalToolConversation(List<Message> conversation) {

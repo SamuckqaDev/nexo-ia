@@ -35,6 +35,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -55,6 +56,11 @@ import org.springframework.stereotype.Service;
 public class ModelRequestService {
 
     private static final String STREAM_FAILURE = "PROVIDER_STREAM_FAILED";
+    private static final List<String> CONTROLLED_TOOL_FAILURES = List.of(
+            "mcp_unavailable",
+            "mcp_failed",
+            "required_tool_unavailable",
+            "required_tool_failed");
     private static final String SHUTDOWN_FAILURE = "SERVER_SHUTDOWN";
 
     private final ModelRequestStore store;
@@ -172,6 +178,29 @@ public class ModelRequestService {
 
             List<CitationResponse> citations = mergeCitations(
                     reservation.citations(), outcome.toolExecutions());
+            if (isControlledToolFailure(outcome)) {
+                String failureCode = outcome.doneReason().toUpperCase(Locale.ROOT);
+                store.recordFailure(messageId, failureCode, outcome.content(), latencyMs);
+                auditModelRequest(
+                        reservation,
+                        AuditAction.MODEL_REQUEST_FAILED,
+                        AuditOutcome.FAILURE,
+                        failureCode);
+                listener.onUsage(new UsageEvent(
+                        outcome.inputTokens(),
+                        outcome.outputTokens(),
+                        totalTokens(outcome),
+                        outcome.inputTokens(),
+                        contextProperties.tokenBudget(),
+                        outcome.tokenSource(),
+                        latencyMs));
+                emitAgentState(reservation, listener, AgentState.FAILED);
+                listener.onError(new StreamErrorEvent(
+                        messageId,
+                        failureCode,
+                        "A required Agent action did not complete; review Tasks for its recorded status"));
+                return;
+            }
             if (reservation.command().mode() == ConversationMode.AGENT) {
                 store.markVerifying(messageId);
                 listener.onAgentState(new AgentStateEvent(AgentState.VERIFYING, clock.instant()));
@@ -304,6 +333,11 @@ public class ModelRequestService {
         if (reservation.command().mode() == ConversationMode.AGENT) {
             listener.onAgentState(new AgentStateEvent(state, clock.instant()));
         }
+    }
+
+    private boolean isControlledToolFailure(ChatCompletionOutcome outcome) {
+        return outcome.doneReason() != null
+                && CONTROLLED_TOOL_FAILURES.contains(outcome.doneReason());
     }
 
     private Long totalTokens(ChatCompletionOutcome outcome) {
