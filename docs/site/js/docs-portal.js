@@ -19,7 +19,7 @@
   docs.forEach((doc) => nav.append(buttonFor(doc)));
   count.textContent = `${docs.length} documents`;
 
-  function openDocument(id, heading) {
+  function openDocument(id, heading, shouldNavigate = true) {
     const doc = docs.find((item) => item.id === id) || docs[0];
     if (!doc) return;
     const rendered = window.NexoMarkdown.render(doc.markdown);
@@ -34,9 +34,11 @@
       link.textContent = item.label;
       toc.append(link);
     });
-    history.replaceState(null, "", `#docs/${doc.id}${heading ? `/${heading}` : ""}`);
-    const target = heading && content.querySelector(`#${CSS.escape(heading)}`);
-    (target || document.querySelector("#documentation")).scrollIntoView({ behavior: "smooth", block: "start" });
+    if (shouldNavigate) {
+      history.replaceState(null, "", `#docs/${doc.id}${heading ? `/${heading}` : ""}`);
+      const target = heading && content.querySelector(`#${CSS.escape(heading)}`);
+      (target || document.querySelector("#documentation")).scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   nav.addEventListener("click", (event) => {
@@ -58,6 +60,12 @@
     const target = docs.find((doc) => doc.file.toLowerCase() === `${file[1]}.md`.toLowerCase());
     if (target) { event.preventDefault(); openDocument(target.id, file[2]); }
   });
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-doc-link]");
+    if (!link) return;
+    event.preventDefault();
+    openDocument(link.dataset.docLink);
+  });
   search.addEventListener("input", () => {
     const query = search.value.trim().toLowerCase();
     let visible = 0;
@@ -71,5 +79,9 @@
   });
 
   const route = location.hash.match(/^#docs\/([^/]+)(?:\/(.+))?$/);
-  openDocument(route?.[1] || "product_vision", route?.[2]);
+  openDocument(route?.[1] || "product_vision", route?.[2], Boolean(route));
+  window.addEventListener("load", () => {
+    if (!location.hash || location.hash.startsWith("#docs/")) return;
+    document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({ behavior: "instant", block: "start" });
+  }, { once: true });
 }());

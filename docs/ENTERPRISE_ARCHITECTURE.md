@@ -1,5 +1,10 @@
 # Enterprise architecture
 
+This document describes the enterprise product shape and architectural direction. For the complete
+code-backed topology, request lifecycle, module map, deployment boundaries, and an explicit
+implemented/partial/deferred matrix, see
+[Nexo IA current architecture](ARCHITECTURE_OVERVIEW.md).
+
 ## Product shape
 
 Nexo IA is designed as a team product even when deployed for one person. The initial implementation

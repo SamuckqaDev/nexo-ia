@@ -99,29 +99,83 @@
         <div class="section-heading">
           <span class="eyebrow">System architecture</span>
           <h2>The model proposes. Nexo IA governs.</h2>
-          <p>A modular Java core keeps product rules independent from providers and transports. Every real-world effect crosses one permission boundary and produces inspectable evidence.</p>
+          <p>The server owns identity, context, policy, orchestration, and evidence. The browser presents state; optional Companions and MCP servers execute only the bounded capabilities assigned to the current request.</p>
         </div>
-        <figure class="architecture-art">
-          <img src="assets/architecture/nexo-ia-solution-overview.png" alt="Nexo IA solution overview connecting Chat, Cowork, and Scheduled work to the agent core, Permission Engine, Ollama, PostgreSQL with pgvector, MCP servers, and ComfyUI">
-          <figcaption>Solution overview — user experiences enter the Java agent core, while external capabilities remain behind the Permission Engine and Capability Gateway.</figcaption>
-        </figure>
-        <div class="architecture">
-          <div class="architecture-column">
-            <div class="arch-node">React + TypeScript<small>Chat, Cowork, plans, approvals</small></div>
-            <div class="arch-node">SSE + REST<small>Versioned events and contracts</small></div>
+        <div class="architecture-header">
+          <span class="architecture-status">Current verified runtime · August 2026</span>
+          <p>One server authority, multiple governed execution boundaries.</p>
+        </div>
+        <div class="system-map" role="img" aria-label="Current Nexo IA runtime from user surfaces through the server to models, tools, knowledge, devices, and persisted data">
+          <div class="system-lane">
+            <strong class="system-lane-label">User surfaces</strong>
+            <div class="system-nodes">
+              <div class="system-node endpoint"><strong>React SPA</strong><small>Chat · Agent · Vaults · MCP · Settings</small></div>
+              <div class="system-node endpoint"><strong>Electron Companion</strong><small>Optional project access on another computer</small></div>
+            </div>
           </div>
-          <div class="architecture-column">
-            <div class="arch-node core">Spring Boot Application<small>Modular monolith</small></div>
-            <div class="arch-node core">Agent Orchestrator<small>Context · plans · limits · verification</small></div>
-            <div class="arch-node control">Permission Engine<small>Risk · policy · scope · consent · audit</small></div>
-            <div class="arch-node core">Capability Gateway<small>Native tools · MCP · Skills · Image jobs</small></div>
+          <div class="system-connector"><span>REST + JSON</span><span>SSE events</span><span>authenticated WSS</span></div>
+          <div class="system-lane server-lane">
+            <strong class="system-lane-label">Nexo Server</strong>
+            <div class="system-nodes server-grid">
+              <div class="system-node server"><strong>Identity &amp; sessions</strong><small>Principal · ownership · CSRF · device credentials</small></div>
+              <div class="system-node server"><strong>Request reservation</strong><small>Conversation · model · resources · immutable command</small></div>
+              <div class="system-node control"><strong>Context &amp; Permission Engine</strong><small>Policy · scope · ceilings · allowed capabilities</small></div>
+              <div class="system-node server"><strong>Spring AI Agent</strong><small>ChatClient · bounded tool loop · plan events</small></div>
+              <div class="system-node server"><strong>Evidence &amp; lifecycle</strong><small>Streaming · usage · audit · terminal state</small></div>
+            </div>
           </div>
-          <div class="architecture-column">
-            <div class="arch-node">Ollama / Providers<small>Chat and embeddings</small></div>
-            <div class="arch-node">PostgreSQL + pgvector<small>Rebuildable Vault index and RAG</small></div>
-            <div class="arch-node">MCP Servers<small>External context and actions</small></div>
-            <div class="arch-node">ComfyUI<small>Local image generation</small></div>
+          <div class="system-connector"><span>request-scoped context</span><span>allowed tool callbacks</span><span>persisted evidence</span></div>
+          <div class="system-lane">
+            <strong class="system-lane-label">Capabilities &amp; data</strong>
+            <div class="system-nodes capability-grid">
+              <div class="system-node external"><strong>Ollama</strong><small>Chat models and embeddings</small></div>
+              <div class="system-node external"><strong>PostgreSQL + pgvector</strong><small>State, ownership, vectors, plans, audit</small></div>
+              <div class="system-node external"><strong>Knowledge &amp; memory</strong><small>Vault retrieval, citations, personal facts</small></div>
+              <div class="system-node external"><strong>MCP servers</strong><small>Docker Gateway or personal Streamable HTTP</small></div>
+              <div class="system-node external"><strong>Workspace adapters</strong><small>Server roots or paired Companion reads</small></div>
+              <div class="system-node external"><strong>ComfyUI &amp; media</strong><small>Asynchronous image jobs and artifacts</small></div>
+            </div>
           </div>
+        </div>
+        <p class="architecture-rule"><strong>Core invariant:</strong> the model never discovers authority by itself. It receives only the context and tools that deterministic server code resolved for that authenticated request.</p>
+        <div class="architecture-flows">
+          <article class="architecture-flow">
+            <span>01 · Agent request</span>
+            <h3>From intention to verified completion</h3>
+            <ol class="flow-steps">
+              <li><b>Reserve</b><small>Persist queued work</small></li>
+              <li><b>Resolve</b><small>Model and owned resources</small></li>
+              <li><b>Assemble</b><small>Context and permissions</small></li>
+              <li><b>Execute</b><small>Spring AI tool loop</small></li>
+              <li><b>Evidence</b><small>Persist and stream result</small></li>
+            </ol>
+          </article>
+          <article class="architecture-flow">
+            <span>02 · Knowledge</span>
+            <h3>From source to cited context</h3>
+            <ol class="flow-steps">
+              <li><b>Upload</b><small>Authorize the Vault</small></li>
+              <li><b>Normalize</b><small>Extract bounded text</small></li>
+              <li><b>Embed</b><small>Store chunks and vectors</small></li>
+              <li><b>Retrieve</b><small>Scope and rank matches</small></li>
+              <li><b>Cite</b><small>Attach real provenance</small></li>
+            </ol>
+          </article>
+          <article class="architecture-flow">
+            <span>03 · Remote workspace</span>
+            <h3>Server reasoning, bounded device access</h3>
+            <ol class="flow-steps">
+              <li><b>Pair</b><small>Issue device credential</small></li>
+              <li><b>Connect</b><small>Outbound authenticated WSS</small></li>
+              <li><b>Bind</b><small>Opaque local project root</small></li>
+              <li><b>Read</b><small>Typed safe operation</small></li>
+              <li><b>Return</b><small>Bounded tool evidence</small></li>
+            </ol>
+          </article>
+        </div>
+        <div class="architecture-actions">
+          <a class="button primary" href="#docs/architecture_overview" data-doc-link="architecture_overview">Read the complete runtime architecture</a>
+          <span>Includes module map, request sequences, security boundaries, current limitations, and source navigation.</span>
         </div>
       </div>
     </section>

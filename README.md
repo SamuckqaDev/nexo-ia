@@ -43,6 +43,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 ## Documentation
 
 - [Bilingual product and identity presentation](docs/site/index.html) — English and Portuguese selected in the page.
+- [Current architecture and end-to-end runtime flows](docs/ARCHITECTURE_OVERVIEW.md)
 - [Identity](docs/IDENTITY.md)
 - [Goals](docs/GOALS.md)
 - [Product vision](docs/PRODUCT_VISION.md)
@@ -57,7 +58,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 - [MCP runtime and implementation plan](docs/MCP_RUNTIME.md)
 - [Execution plans](docs/EXECUTION_PLANS.md)
 - [Local image generation](docs/IMAGE_GENERATION.md)
-- [Enterprise architecture](docs/ENTERPRISE_ARCHITECTURE.md)
+- [Enterprise architecture and target product shape](docs/ENTERPRISE_ARCHITECTURE.md)
 - [Device management and execution audit](docs/DEVICE_MANAGEMENT.md)
 - [Server workspaces and read-only Agent tools](docs/SERVER_WORKSPACES.md)
 - [Technology stack](docs/TECH_STACK.md)
