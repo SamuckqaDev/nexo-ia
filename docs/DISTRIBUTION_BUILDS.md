@@ -71,10 +71,20 @@ installers. A browser alone never receives host privileges.
 Development verification:
 
 ```bash
+./scripts/dev-electron.sh
+
+# Or verify each layer manually
 cd frontend && npm run build
 cd desktop && npm install && npm run typecheck && npm test && npm run build
 NEXO_RENDERER_URL=http://127.0.0.1:5173 npm run dev
 ```
+
+`scripts/dev-electron.sh` is the macOS/Linux development launcher. By default it starts the shared
+Compose stack, waits for the Vite renderer, installs missing desktop dependencies, builds the
+Electron runtime, and keeps Electron in the foreground. `--skip-stack` reuses a running local stack;
+`--renderer-url http://<server-ip>:5173` loads a trusted remote development renderer without starting
+local containers; and `--dry-run` validates the launcher configuration without opening a window.
+Plain HTTP remains limited to a trusted development network.
 
 The packaged static renderer still requires a production server-origin/bootstrap contract before it
 is a supported distributable. Code signing, notarization, automatic updates, credential rotation,

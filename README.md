@@ -121,8 +121,23 @@ container deployment, mount that directory explicitly and set `NEXO_CONTAINER_WO
 to its container path; an empty value deliberately disables mounted-project registration. See
 [Server workspaces](docs/SERVER_WORKSPACES.md) for the authorization and path rules.
 
-To test the optional local Workspace runtime, build the frontend and start the Electron Companion
-against the development renderer:
+To start the complete local development stack and open the Electron Companion with one command:
+
+```bash
+./scripts/dev-electron.sh
+```
+
+The launcher validates Node.js 24, starts the existing Compose development stack, waits for the Vite
+renderer, installs `desktop/` dependencies when missing, builds the Electron main/preload runtime,
+and opens the application. Closing Electron intentionally leaves the development containers running.
+Use `--skip-stack` when Compose is already running, `--dry-run` to validate without starting
+anything, or connect the desktop application to an existing trusted development server:
+
+```bash
+./scripts/dev-electron.sh --renderer-url http://<server-ip>:5173
+```
+
+The expanded manual verification remains available when diagnosing the individual layers:
 
 ```bash
 cd frontend && npm run build
