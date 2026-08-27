@@ -10,7 +10,7 @@ import {
   selectConversationModel,
   selectConversationWorkspace
 } from "../api/chatApi";
-import type { Conversation, ConversationMessage } from "../types/chatTypes";
+import type { Conversation, ConversationMessage, CreateConversationInput } from "../types/chatTypes";
 
 export const conversationsKey = ["conversations"] as const;
 
@@ -29,12 +29,18 @@ export const useConversationMessages = (
     enabled: conversationId !== null
   });
 
-export const useCreateConversation = (): UseMutationResult<Conversation, Error, string> => {
+export const useCreateConversation = (): UseMutationResult<Conversation, Error, CreateConversationInput> => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: createConversation,
-    onSuccess: (): Promise<void> => queryClient.invalidateQueries({ queryKey: conversationsKey })
+    onSuccess: (conversation: Conversation): Promise<void> => {
+      queryClient.setQueryData<Conversation[]>(conversationsKey, (current: Conversation[] | undefined) => [
+        conversation,
+        ...(current ?? []).filter((item: Conversation): boolean => item.id !== conversation.id)
+      ]);
+      return queryClient.invalidateQueries({ queryKey: conversationsKey });
+    }
   });
 };
 

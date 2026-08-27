@@ -249,13 +249,15 @@ A separate persisted organization-root entity and full organization budgets are 
 ```mermaid
 sequenceDiagram
   participant UI as React Chat
-  participant API as ModelRequestController
+  participant API as Spring API
   participant Store as ModelRequestStore
   participant DB as PostgreSQL
   participant AI as SpringAiChatCompletionClient
   participant Model as Ollama
   participant Tool as Governed tool
 
+  UI->>API: POST conversation (title, optional workspaceId)
+  API->>DB: authorize Workspace and persist conversation + preferred binding atomically
   UI->>API: POST message stream (mode, content, thinking preference)
   API->>Store: reserve request
   Store->>DB: lock owned conversation and persist USER + QUEUED ASSISTANT

@@ -136,6 +136,9 @@ the owner-scoped Workspace registration, pairs the desktop when necessary, binds
 and selects it for the current conversation. The absolute path never enters React or the server.
 The Projects page uses the same path-free flow as its primary action: local users never type a folder
 path or workspace name. The selected directory name becomes the Workspace name automatically.
+Starting a new chat now presents the Workspace selector in the empty conversation surface. The first
+message creates the conversation with that authorized `workspaceId` in the same backend transaction,
+so Agent tools cannot race ahead before the project context is attached.
 The sandboxed preload is intentionally emitted as CommonJS (`dist/preload/index.cjs`); the desktop
 build verifies this contract so a broken native bridge cannot be packaged silently. If the running
 window predates a desktop rebuild, close and restart Electron before using the folder action.

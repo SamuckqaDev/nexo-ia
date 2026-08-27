@@ -44,7 +44,7 @@ public class ConversationController {
     }
 
     @PostMapping
-    @Operation(summary = "Create a private conversation for the authenticated user")
+    @Operation(summary = "Create a private conversation with an optional authorized Workspace")
     public ResponseEntity<BaseResponse<ConversationResponse>> create(
             @AuthenticationPrincipal NexoUserPrincipal principal,
             @Valid @RequestBody CreateConversationRequest request) {

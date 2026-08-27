@@ -156,6 +156,31 @@ export const PrivacyBadge = styled.span`
   color: ${({ theme }) => theme.colors.accentSoft};
 `;
 
+export const NewConversationWorkspace = styled.section`
+  display: grid;
+  width: min(34rem, 100%);
+  box-sizing: border-box;
+  justify-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  margin-top: ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.md};
+  border: 1px solid ${({ theme }) => theme.colors.lineStrong};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+
+  > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.sm};
+    color: ${({ theme }) => theme.colors.primary};
+    text-align: left;
+  }
+
+  span { display: grid; gap: 0.15rem; }
+  strong { color: ${({ theme }) => theme.colors.text}; font-size: 0.76rem; }
+  small { color: ${({ theme }) => theme.colors.textSubtle}; font-size: 0.62rem; line-height: 1.45; }
+`;
+
 export const WorkspaceServerNotice = styled.div`
   display: flex;
   align-items: center;

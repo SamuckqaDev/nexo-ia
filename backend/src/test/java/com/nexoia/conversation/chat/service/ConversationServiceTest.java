@@ -25,6 +25,8 @@ import com.nexoia.conversation.inference.repository.AgentPlanRepository;
 import com.nexoia.conversation.inference.repository.ToolExecutionRepository;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.workspace.service.WorkspaceBindingService;
+import com.nexoia.workspace.service.WorkspaceService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,7 +54,9 @@ class ConversationServiceTest {
     @Mock
     private ConversationKnowledgeService knowledge;
     @Mock
-    private com.nexoia.workspace.service.WorkspaceService workspaceService;
+    private WorkspaceService workspaceService;
+    @Mock
+    private WorkspaceBindingService workspaceBindings;
     private ConversationService service;
 
     private final UUID userId = UUID.randomUUID();
@@ -62,7 +66,8 @@ class ConversationServiceTest {
     void setUp() {
         service = new ConversationService(
                 conversations, messages, toolExecutions, agentPlans, providers, audit,
-                new ConversationContextProperties(8000, 4), knowledge, workspaceService);
+                new ConversationContextProperties(8000, 4), knowledge, workspaceService,
+                workspaceBindings);
     }
 
     @Test
@@ -73,6 +78,18 @@ class ConversationServiceTest {
 
         assertThat(response.title()).isEqualTo("Planning");
         assertThat(response.selectedModel()).isNull();
+    }
+
+    @Test
+    void createsTheConversationAlreadyBoundToTheSelectedWorkspace() {
+        UUID workspaceId = UUID.randomUUID();
+        when(conversations.save(any(Conversation.class))).thenAnswer(call -> call.getArgument(0));
+
+        var response = service.create(
+                userId, new CreateConversationRequest("Workspace chat", workspaceId));
+
+        verify(workspaceService).ownedWorkspace(userId, workspaceId);
+        assertThat(response.workspaceId()).isEqualTo(workspaceId);
     }
 
     @Test

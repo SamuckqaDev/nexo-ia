@@ -9,6 +9,31 @@ describe("MessageList", () => {
     vi.useRealTimers();
   });
 
+  it("shows workspace selection as part of starting a conversation", () => {
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <MessageList
+          messages={[]}
+          isLoading={false}
+          hasConversation={false}
+          hasModel
+          hasConfiguredProvider
+          phase="idle"
+          startedAt={null}
+          thinkingContent=""
+          streamingContent=""
+          errorMessage={null}
+          mode="chat"
+          startAccessory={<button type="button">Choose workspace</button>}
+          onConfigureProvider={(): void => undefined}
+        />
+      </ThemeProvider>
+    );
+
+    expect(screen.getByRole("button", { name: "Choose workspace" })).toBeVisible();
+    expect(screen.getByText(/choose the project context for this chat/i)).toBeInTheDocument();
+  });
+
   it("uses the Nexo loading identity while conversation history is restored", () => {
     render(
       <ThemeProvider theme={darkTheme}>

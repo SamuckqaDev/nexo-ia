@@ -1,5 +1,5 @@
 import { Brain, ChatCircleDots, Coins, Cpu, ShieldCheck, Sparkle, SlidersHorizontal } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Button } from "../../../../../shared/components/Button";
 import type {
   AgentState,
@@ -43,6 +43,7 @@ type MessageListProps = {
   toolExecutions?: ToolExecution[];
   accountTokenTotal?: number | null;
   mode: ConversationMode;
+  startAccessory?: ReactNode;
   onConfigureProvider: () => void;
 };
 
@@ -109,6 +110,7 @@ export function MessageList({
   toolExecutions = [],
   accountTokenTotal = null,
   mode,
+  startAccessory,
   onConfigureProvider
 }: MessageListProps): ReactElement {
   const bottom = useRef<HTMLDivElement>(null);
@@ -122,7 +124,8 @@ export function MessageList({
       <Messages>
         <Empty>
           <EmptyTitle>No conversation open</EmptyTitle>
-          Start a new chat to talk to a model running on your own machine.
+          Choose the project context for this chat, then send your first message.
+          {startAccessory}
         </Empty>
       </Messages>
     );

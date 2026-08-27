@@ -84,15 +84,24 @@ public class ConversationService {
 
     @Transactional
     public ConversationResponse create(UUID userId, CreateConversationRequest request) {
-        Conversation conversation = conversations.save(Conversation.builder()
+        Conversation conversation = Conversation.builder()
                 .id(UUID.randomUUID())
                 .userId(userId)
                 .title(request.title().trim())
                 .archived(false)
-                .build());
+                .build();
+        if (request.workspaceId() != null) {
+            attachOwnedWorkspace(userId, conversation, request.workspaceId(), null);
+        }
+        conversation = conversations.save(conversation);
         audit.record(RecordAuditCommand.success(
                 AuditAction.CONVERSATION_CREATED, userId, null,
                 AuditTargetType.CONVERSATION, conversation.getId()));
+        if (request.workspaceId() != null) {
+            audit.record(RecordAuditCommand.success(
+                    AuditAction.CONVERSATION_WORKSPACE_SELECTED, userId, null,
+                    AuditTargetType.CONVERSATION, conversation.getId()));
+        }
 
         return conversationResponse(conversation, List.of());
     }
@@ -187,25 +196,31 @@ public class ConversationService {
         if (request.workspaceId() == null) {
             conversation.clearWorkspace();
         } else {
-            workspaceService.ownedWorkspace(userId, request.workspaceId());
-            UUID bindingId = request.workspaceBindingId();
-            if (request.workspaceBindingId() != null) {
-                if (workspaceBindings == null) {
-                    throw new IllegalStateException("Workspace bindings are unavailable");
-                }
-                workspaceBindings.ownedBinding(userId, request.workspaceId(), request.workspaceBindingId());
-            } else if (workspaceBindings != null) {
-                bindingId = workspaceBindings.preferredAvailable(userId, request.workspaceId())
-                        .map(WorkspaceBinding::getId)
-                        .orElse(null);
-            }
-            conversation.attachWorkspace(request.workspaceId(), bindingId);
+            attachOwnedWorkspace(
+                    userId, conversation, request.workspaceId(), request.workspaceBindingId());
         }
         audit.record(RecordAuditCommand.success(
                 AuditAction.CONVERSATION_WORKSPACE_SELECTED, userId, null,
                 AuditTargetType.CONVERSATION, conversationId));
 
         return conversationResponse(conversation, knowledge.selectionIds(conversationId));
+    }
+
+    private void attachOwnedWorkspace(
+            UUID userId, Conversation conversation, UUID workspaceId, UUID requestedBindingId) {
+        workspaceService.ownedWorkspace(userId, workspaceId);
+        UUID bindingId = requestedBindingId;
+        if (requestedBindingId != null) {
+            if (workspaceBindings == null) {
+                throw new IllegalStateException("Workspace bindings are unavailable");
+            }
+            workspaceBindings.ownedBinding(userId, workspaceId, requestedBindingId);
+        } else if (workspaceBindings != null) {
+            bindingId = workspaceBindings.preferredAvailable(userId, workspaceId)
+                    .map(WorkspaceBinding::getId)
+                    .orElse(null);
+        }
+        conversation.attachWorkspace(workspaceId, bindingId);
     }
 
     @Transactional

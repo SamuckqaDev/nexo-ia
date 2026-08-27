@@ -26,6 +26,10 @@ import type {
 } from "../schemas/streamEventSchemas";
 
 export type Conversation = z.infer<typeof conversationSchema>;
+export type CreateConversationInput = {
+  title: string;
+  workspaceId: string | null;
+};
 export type ConversationMessage = z.infer<typeof conversationMessageSchema>;
 export type MessageStatus = z.infer<typeof messageStatusSchema>;
 export type TokenSource = z.infer<typeof tokenSourceSchema>;

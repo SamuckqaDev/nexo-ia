@@ -1,6 +1,7 @@
 package com.nexoia.conversation.chat.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -96,6 +97,23 @@ class ConversationControllerTest {
                         .content("{\"title\":\"New chat\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data[0].title").value("New chat"));
+    }
+
+    @Test
+    void acceptsTheWorkspaceAsPartOfConversationCreation() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
+        when(service.create(eq(userId), any())).thenReturn(new ConversationResponse(
+                conversationId, "Project chat", null, null,
+                List.of(), workspaceId,
+                Instant.parse("2026-08-20T12:00:00Z"), Instant.parse("2026-08-20T12:00:00Z")));
+
+        mockMvc.perform(post("/api/v1/conversations").with(principal()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Project chat\",\"workspaceId\":\"" + workspaceId + "\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data[0].workspaceId").value(workspaceId.toString()));
+
+        verify(service).create(eq(userId), argThat(request -> workspaceId.equals(request.workspaceId())));
     }
 
     @Test

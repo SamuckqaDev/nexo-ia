@@ -1,7 +1,7 @@
 import { apiClient } from "../../../../shared/api/client";
 import type { BaseResponse } from "../../../../shared/types/apiTypes";
 import { conversationMessageSchema, conversationSchema } from "../schemas/chatSchemas";
-import type { Conversation, ConversationMessage } from "../types/chatTypes";
+import type { Conversation, ConversationMessage, CreateConversationInput } from "../types/chatTypes";
 
 const first = <T>(response: BaseResponse<unknown>, parse: (value: unknown) => T): T => {
   const value: unknown = response.data?.[0];
@@ -13,8 +13,8 @@ export const listConversations = (): Promise<Conversation[]> =>
   apiClient.get<BaseResponse<unknown>>("/conversations")
     .then(({ data }) => (data.data ?? []).map((item: unknown) => conversationSchema.parse(item)));
 
-export const createConversation = (title: string): Promise<Conversation> =>
-  apiClient.post<BaseResponse<unknown>>("/conversations", { title })
+export const createConversation = (input: CreateConversationInput): Promise<Conversation> =>
+  apiClient.post<BaseResponse<unknown>>("/conversations", input)
     .then(({ data }) => first(data, (value) => conversationSchema.parse(value)));
 
 export const renameConversation = (conversationId: string, title: string): Promise<Conversation> =>

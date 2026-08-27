@@ -1,4 +1,4 @@
-import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
+import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
@@ -64,6 +64,7 @@ import {
   LoadFailure,
   ModelArea,
   ModelLockNotice,
+  NewConversationWorkspace,
   OpenConversations,
   PrivacyBadge,
   VaultBar,
@@ -220,10 +221,11 @@ export function ChatPage(): ReactElement {
   ]);
 
   const createConversation = (title: string): void => {
-    create.mutate(title, {
+    create.mutate({ title, workspaceId: draftWorkspaceId }, {
       onSuccess: (conversation: Conversation): void => {
         setIsStartingNewConversation(false);
         setSelectedId(conversation.id);
+        setDraftWorkspaceId(null);
         if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) {
           setIsConversationMenuOpen(false);
         }
@@ -253,13 +255,6 @@ export function ChatPage(): ReactElement {
     setPendingMessage(null);
     stream.send(content);
   }, [selected?.selectedModel, pendingMessage, selectedId, selectModel.isPending, stream]);
-
-  useEffect((): void => {
-    if (!selectedId || !draftWorkspaceId || selected?.workspaceId || selectWorkspace.isPending) return;
-    selectWorkspace.mutate(draftWorkspaceId, {
-      onSuccess: (): void => setDraftWorkspaceId(null)
-    });
-  }, [draftWorkspaceId, selected?.workspaceId, selectedId, selectWorkspace.isPending]);
 
   const chooseModel = (providerConfigurationId: string, selectedModel: string): void => {
     if (!selectedId) {
@@ -381,23 +376,21 @@ export function ChatPage(): ReactElement {
               ) : <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>}
               <HeaderMeta>
                 <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
-                <WorkspacePickerControl
-                  workspaceId={effectiveWorkspaceId}
-                  workspaces={serverWorkspaces.data ?? []}
-                  selectDisabled={!selectedId || selectWorkspace.isPending || stream.isBusy}
-                  localDisabled={stream.isBusy}
-                  localAvailable={localWorkspacePicker.available}
-                  localPending={localWorkspacePicker.pending}
-                  onSelect={(workspaceId: string | null): void => {
-                    if (!selectedId) {
-                      setDraftWorkspaceId(workspaceId);
-                      return;
-                    }
-                    setDraftWorkspaceId(null);
-                    selectWorkspace.mutate(workspaceId);
-                  }}
-                  onChooseLocal={chooseLocalFolder}
-                />
+                {selectedId && (
+                  <WorkspacePickerControl
+                    workspaceId={effectiveWorkspaceId}
+                    workspaces={serverWorkspaces.data ?? []}
+                    selectDisabled={serverWorkspaces.isLoading || selectWorkspace.isPending || stream.isBusy}
+                    localDisabled={stream.isBusy}
+                    localAvailable={localWorkspacePicker.available}
+                    localPending={localWorkspacePicker.pending}
+                    onSelect={(workspaceId: string | null): void => {
+                      setDraftWorkspaceId(null);
+                      selectWorkspace.mutate(workspaceId);
+                    }}
+                    onChooseLocal={chooseLocalFolder}
+                  />
+                )}
                 {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
               </HeaderMeta>
             </HeaderCopy>
@@ -472,6 +465,27 @@ export function ChatPage(): ReactElement {
                 toolExecutions={stream.toolExecutions}
                 accountTokenTotal={accountUsage.data?.totals.totalTokens ?? null}
                 mode={mode}
+                startAccessory={(
+                  <NewConversationWorkspace aria-label="New conversation workspace">
+                    <div>
+                      <FolderOpen size={22} weight="duotone" />
+                      <span>
+                        <strong>Workspace for this chat</strong>
+                        <small>Select an existing workspace or open a project folder. The first message will already use this context.</small>
+                      </span>
+                    </div>
+                    <WorkspacePickerControl
+                      workspaceId={draftWorkspaceId}
+                      workspaces={serverWorkspaces.data ?? []}
+                      selectDisabled={serverWorkspaces.isLoading || create.isPending}
+                      localDisabled={create.isPending}
+                      localAvailable={localWorkspacePicker.available}
+                      localPending={localWorkspacePicker.pending}
+                      onSelect={setDraftWorkspaceId}
+                      onChooseLocal={chooseLocalFolder}
+                    />
+                  </NewConversationWorkspace>
+                )}
                 onConfigureProvider={(): void => { navigate("/settings/providers"); }}
               />
 
@@ -502,7 +516,7 @@ export function ChatPage(): ReactElement {
               <ChatComposer
                 initialContent={initialDraft}
                 messageHistory={messageHistory}
-                disabled={false}
+                disabled={create.isPending || selectWorkspace.isPending}
                 hasModel={hasModel}
                 phase={stream.phase}
                 isBusy={stream.isBusy}

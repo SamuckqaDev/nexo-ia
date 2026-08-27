@@ -64,9 +64,14 @@ The device-authenticated runtime routes use the controller prefix `/api/v1/devic
 | `GET /connect` (WebSocket upgrade) | Open the authenticated outbound runtime channel. |
 | `POST /workspaces/{workspaceId}/bindings` | Register or refresh opaque binding metadata. |
 
-Conversation workspace selection is authoritative server state. The Chat header changes that
-selection through the conversation API; the sidebar only links to Workspace management and does not
-maintain a competing browser-local active project.
+Conversation workspace selection is authoritative server state. A new Chat shows an explicit
+Workspace setup card before the first message: the user may choose **No workspace**, select an
+existing registration, or open a local project folder. `POST /api/v1/conversations` accepts the
+optional selected `workspaceId`; the backend authorizes it, resolves the preferred available local
+binding, and persists both with the new conversation in one transaction. The first model request can
+therefore never run between conversation creation and Workspace attachment. Existing conversations
+change or clear the selection through `PUT /api/v1/conversations/{conversationId}/workspace` in the
+Chat header. The sidebar does not maintain a competing browser-local active project.
 
 In Nexo Desktop, the folder-plus action beside the Chat workspace selector is the primary local
 project entry point. One click opens the operating system's native directory chooser: Finder on
