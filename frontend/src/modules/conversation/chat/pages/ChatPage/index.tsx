@@ -278,10 +278,6 @@ export function ChatPage(): ReactElement {
   };
 
   const chooseLocalFolder = (): void => {
-    if (!localWorkspacePicker.available) {
-      void navigate("/projects");
-      return;
-    }
     localWorkspacePicker.chooseLocalWorkspace()
       .then((workspace: ServerWorkspace | null): Promise<unknown> | void => {
         if (!workspace) return;

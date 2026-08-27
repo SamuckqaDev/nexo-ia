@@ -44,4 +44,28 @@ describe("WorkspacePickerControl", () => {
     expect(onSelect).toHaveBeenCalledWith(workspace.id);
     expect(onChooseLocal).toHaveBeenCalledOnce();
   });
+
+  it("keeps the folder action explicit when the desktop bridge is unavailable", () => {
+    const onChooseLocal = vi.fn();
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <WorkspacePickerControl
+          workspaceId={null}
+          workspaces={[]}
+          selectDisabled={false}
+          localDisabled={false}
+          localAvailable={false}
+          localPending={false}
+          onSelect={vi.fn()}
+          onChooseLocal={onChooseLocal}
+        />
+      </ThemeProvider>
+    );
+
+    const button = screen.getByRole("button", { name: "Choose a project folder from this computer" });
+    expect(button).toHaveAttribute("title", "Native folder picker unavailable. Restart Nexo Desktop");
+
+    fireEvent.click(button);
+    expect(onChooseLocal).toHaveBeenCalledOnce();
+  });
 });

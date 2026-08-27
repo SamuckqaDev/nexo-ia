@@ -44,7 +44,7 @@ export function WorkspacePickerControl({
         aria-label="Choose a project folder from this computer"
         title={localAvailable
           ? "Open Finder or the system folder chooser"
-          : "Open Projects to configure Nexo Desktop"}
+          : "Native folder picker unavailable. Restart Nexo Desktop"}
         disabled={localDisabled || localPending}
         onClick={onChooseLocal}
       >

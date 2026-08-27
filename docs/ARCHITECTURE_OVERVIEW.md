@@ -196,7 +196,9 @@ does not decide which tool the server attaches.
 ### 3.3 Desktop Companion
 
 Electron uses context isolation, a sandboxed renderer, a narrow preload API, and denied arbitrary
-window navigation. The main process owns:
+window navigation. The preload is compiled as CommonJS (`index.cjs`) because sandboxed Electron
+preloads cannot depend on an unbundled ESM module graph; the desktop build verifies that invariant.
+The main process owns:
 
 - secure device and local binding storage;
 - the outbound authenticated `nexo.runtime.v1` WebSocket;

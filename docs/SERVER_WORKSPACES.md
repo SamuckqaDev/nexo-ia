@@ -78,6 +78,11 @@ binding. The conversation then persists that Workspace and the backend resolves 
 available binding. Cancellation creates no registration; a binding failure removes the empty
 registration. The native absolute path remains only in Electron's encrypted runtime store.
 
+The native bridge depends on a sandbox-compatible CommonJS preload at
+`desktop/dist/preload/index.cjs`. The desktop build validates that artifact, and Chat reports an
+unavailable native picker instead of redirecting silently when the bridge is absent. Restart the
+Electron process after rebuilding so the BrowserWindow loads the current preload.
+
 ## Spring AI Agent tools
 
 For an Agent request, Nexo resolves the conversation's persisted Workspace, optional local binding,

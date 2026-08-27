@@ -118,7 +118,7 @@ const chooseWorkspace = async (input: ChooseWorkspaceInput): Promise<DesktopStat
 };
 
 const createWindow = (): void => {
-  const preload = fileURLToPath(new URL("../preload/index.js", import.meta.url));
+  const preload = fileURLToPath(new URL("../preload/index.cjs", import.meta.url));
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 940,
@@ -126,6 +126,9 @@ const createWindow = (): void => {
     minHeight: 640,
     backgroundColor: "#071226",
     webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true }
+  });
+  mainWindow.webContents.on("preload-error", (_event, preloadPath, error): void => {
+    console.error(`[Nexo Desktop] Preload failed at ${preloadPath}`, error);
   });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event, url): void => {
