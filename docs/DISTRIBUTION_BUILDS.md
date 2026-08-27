@@ -75,6 +75,8 @@ The Chat workspace control includes a native folder action in Electron. It opens
 or the Linux directory chooser, then completes authenticated Workspace creation and device binding
 without exposing the absolute path to React or the server. A regular browser keeps the action
 visible but reports that Nexo Desktop is required because it has no host filesystem authority.
+The Projects page follows the same zero-path flow: **Open project folder** is primary, while the
+secondary server-managed Workspace form never asks for a local directory path.
 
 Development verification:
 

@@ -134,6 +134,8 @@ Inside Electron, the folder-plus action beside the Chat workspace selector opens
 Explorer, or the platform's native directory chooser. After confirmation, Nexo automatically creates
 the owner-scoped Workspace registration, pairs the desktop when necessary, binds the selected folder,
 and selects it for the current conversation. The absolute path never enters React or the server.
+The Projects page uses the same path-free flow as its primary action: local users never type a folder
+path or workspace name. The selected directory name becomes the Workspace name automatically.
 The sandboxed preload is intentionally emitted as CommonJS (`dist/preload/index.cjs`); the desktop
 build verifies this contract so a broken native bridge cannot be packaged silently. If the running
 window predates a desktop rebuild, close and restart Electron before using the folder action.

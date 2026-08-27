@@ -33,7 +33,6 @@ import { useLocalWorkspacePicker } from "../../hooks/useLocalWorkspacePicker";
 import type {
   ServerWorkspace,
   ServerWorkspaceAccessMode,
-  ServerWorkspaceStorageType,
   WorkspaceBinding
 } from "../../types/serverWorkspaceTypes";
 import type { ProjectsPageProps } from "../../types/workspaceTypes";
@@ -67,8 +66,6 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
   const [adding, setAdding] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
   const [name, setName] = useState<string>("");
-  const [relativePath, setRelativePath] = useState<string>("");
-  const [storageType, setStorageType] = useState<ServerWorkspaceStorageType>("UNBOUND");
   const [accessMode, setAccessMode] = useState<ServerWorkspaceAccessMode>("READ_ONLY");
   const ask: ConfirmationState["ask"] = useConfirmationStore((state: ConfirmationState) => state.ask);
   const selected: ServerWorkspace | undefined = workspaces.data
@@ -89,13 +86,12 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!name.trim() || (storageType === "MOUNTED" && !relativePath.trim())) return;
-    create.mutate({ name, storageType, accessMode, relativePath }, {
+    if (!name.trim()) return;
+    create.mutate({ name, storageType: "MANAGED", accessMode }, {
       onSuccess: (workspace: ServerWorkspace): void => {
         setSelectedId(workspace.id);
         setAdding(false);
         setName("");
-        setRelativePath("");
       }
     });
   };
@@ -124,22 +120,21 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
     <WorkspacePage
       eyebrow="Local and server project context"
       title="Projects & workspaces"
-      description="Keep a project on your computer through Nexo Desktop, or use an explicitly configured server workspace. Spring AI receives only the governed tools attached to the selected conversation."
+      description="Open a project folder with Finder, Explorer, or your Linux folder chooser. Nexo registers and binds it automatically without asking you to type its path."
       icon={FolderOpen}
       actions={(
         <PageActions>
-          {localWorkspacePicker.available && (
-            <Button
-              type="button"
-              variant="outline"
-              icon={FolderSimplePlus}
-              disabled={localWorkspacePicker.pending}
-              onClick={chooseLocalWorkspace}
-            >
-              {localWorkspacePicker.pending ? "Opening…" : "Choose project folder"}
-            </Button>
-          )}
-          <Button type="button" icon={Plus} onClick={(): void => setAdding(true)}>Add workspace</Button>
+          <Button
+            type="button"
+            icon={FolderSimplePlus}
+            disabled={localWorkspacePicker.pending}
+            onClick={chooseLocalWorkspace}
+          >
+            {localWorkspacePicker.pending ? "Opening folder chooser…" : "Open project folder"}
+          </Button>
+          <Button type="button" variant="outline" icon={Plus} onClick={(): void => setAdding(true)}>
+            New server workspace
+          </Button>
         </PageActions>
       )}
     >
@@ -187,7 +182,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
                 icon={MagnifyingGlass}
                 value={query}
                 onChange={(event): void => setQuery(event.target.value)}
-                placeholder="Name or relative import path"
+                placeholder="Workspace name"
               />
             )}
             {visibleWorkspaces.length > 0 ? (
@@ -212,10 +207,10 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
             ) : (
               <WorkspaceEmptyState
                 icon={FolderSimplePlus}
-                title={workspaces.data?.length ? "No matching workspace" : "Register a server project"}
-                description="Create a local Workspace for Nexo Desktop, or explicitly choose server-managed storage."
+                title={workspaces.data?.length ? "No matching workspace" : "Open your first project folder"}
+                description="Nexo opens the native folder chooser and configures the workspace automatically. No path to type."
                 action={!workspaces.data?.length
-                  ? <Button type="button" icon={FolderSimplePlus} onClick={(): void => setAdding(true)}>Add first workspace</Button>
+                  ? <Button type="button" icon={FolderSimplePlus} onClick={chooseLocalWorkspace}>Open project folder</Button>
                   : undefined}
               />
             )}
@@ -224,28 +219,14 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
 
         <WorkspacePanel
           as="aside"
-          title={adding ? "Add workspace" : selected ? "Workspace details" : "No workspace selected"}
+          title={adding ? "New server workspace" : selected ? "Workspace details" : "No workspace selected"}
           description={adding
-            ? "Choose a local Desktop binding or an explicitly configured server location."
+            ? "Creates storage managed by Nexo Server. Local projects must be opened through the native folder chooser."
             : "The binding identifies where tools execute; absolute local paths stay in Nexo Desktop."}
         >
           {adding ? (
             <Detail as="form" onSubmit={submit}>
               <Input id="server-workspace-name" label="Workspace name" value={name} maxLength={160} onChange={(event): void => setName(event.target.value)} placeholder="Nexo backend" />
-              <Select
-                id="server-workspace-storage"
-                label="Storage"
-                value={storageType}
-                onChange={(event): void => setStorageType(event.target.value as ServerWorkspaceStorageType)}
-                options={[
-                  { label: "Local folder via Nexo Desktop", value: "UNBOUND" },
-                  { label: "Managed by Nexo server", value: "MANAGED" },
-                  { label: "Mounted below server import root", value: "MOUNTED" }
-                ]}
-              />
-              {storageType === "MOUNTED" && (
-                <Input id="server-workspace-path" label="Relative import path" value={relativePath} maxLength={1024} onChange={(event): void => setRelativePath(event.target.value)} placeholder="projects/nexo-ia" />
-              )}
               <Select
                 id="server-workspace-access"
                 label="Governed access ceiling"
@@ -260,7 +241,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
               {create.isError && <StorageWarning role="alert">{create.error.message}</StorageWarning>}
               <DetailActions>
                 <Button type="button" variant="outline" onClick={(): void => setAdding(false)}>Cancel</Button>
-                <Button type="submit" disabled={create.isPending || !name.trim() || (storageType === "MOUNTED" && !relativePath.trim())}>
+                <Button type="submit" disabled={create.isPending || !name.trim()}>
                   {create.isPending ? "Registering…" : "Create workspace"}
                 </Button>
               </DetailActions>

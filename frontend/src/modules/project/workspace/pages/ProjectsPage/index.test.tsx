@@ -5,7 +5,9 @@ import { darkTheme } from "../../../../../app/styles/theme";
 import type { ServerWorkspace } from "../../types/serverWorkspaceTypes";
 import { ProjectsPage } from "./index";
 
-const { refreshMock, workspace } = vi.hoisted(() => ({
+const { chooseLocalWorkspaceMock, createMock, refreshMock, workspace } = vi.hoisted(() => ({
+  chooseLocalWorkspaceMock: vi.fn(),
+  createMock: vi.fn(),
   refreshMock: vi.fn(),
   workspace: {
     id: "427d6713-f2d4-4b0d-8f72-eaa7f19ebd23",
@@ -37,7 +39,7 @@ vi.mock("../../hooks/useServerWorkspaces", () => ({
     isLoading: false,
     isError: false
   }),
-  useCreateServerWorkspace: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
+  useCreateServerWorkspace: () => ({ mutate: createMock, isPending: false, isError: false, error: null }),
   useDeleteServerWorkspace: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
   useRefreshServerWorkspace: () => ({ mutate: refreshMock, isPending: false }),
   useWorkspaceBindings: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() })
@@ -48,7 +50,7 @@ vi.mock("../../hooks/useLocalWorkspacePicker", () => ({
     available: false,
     pending: false,
     error: null,
-    chooseLocalWorkspace: vi.fn()
+    chooseLocalWorkspace: chooseLocalWorkspaceMock
   })
 }));
 
@@ -61,7 +63,11 @@ vi.mock("../../components/ServerWorkspaceTree", () => ({
 }));
 
 describe("ProjectsPage", () => {
-  beforeEach(() => refreshMock.mockReset());
+  beforeEach(() => {
+    chooseLocalWorkspaceMock.mockReset().mockResolvedValue(null);
+    createMock.mockReset();
+    refreshMock.mockReset();
+  });
 
   it("shows the server workspace and opens Chat", async () => {
     const onOpenChat = vi.fn();
@@ -79,5 +85,28 @@ describe("ProjectsPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
     expect(refreshMock).toHaveBeenCalledWith(workspace.id);
+  });
+
+  it("opens the native folder chooser without asking for a path", async () => {
+    render(<ThemeProvider theme={darkTheme}><ProjectsPage onOpenChat={vi.fn()} /></ThemeProvider>);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open project folder" }));
+
+    expect(chooseLocalWorkspaceMock).toHaveBeenCalledOnce();
+    expect(screen.queryByLabelText(/path/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps server-managed creation separate and path-free", async () => {
+    render(<ThemeProvider theme={darkTheme}><ProjectsPage onOpenChat={vi.fn()} /></ThemeProvider>);
+
+    fireEvent.click(await screen.findByRole("button", { name: "New server workspace" }));
+    fireEvent.change(screen.getByLabelText("Workspace name"), { target: { value: "Remote build" } });
+    fireEvent.submit(screen.getByLabelText("Workspace name").closest("form") as HTMLFormElement);
+
+    expect(screen.queryByLabelText(/path/i)).not.toBeInTheDocument();
+    expect(createMock).toHaveBeenCalledWith(
+      { name: "Remote build", storageType: "MANAGED", accessMode: "READ_ONLY" },
+      expect.any(Object)
+    );
   });
 });

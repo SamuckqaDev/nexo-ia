@@ -78,6 +78,12 @@ binding. The conversation then persists that Workspace and the backend resolves 
 available binding. Cancellation creates no registration; a binding failure removes the empty
 registration. The native absolute path remains only in Electron's encrypted runtime store.
 
+The Projects page exposes that native chooser as its primary **Open project folder** action. It does
+not ask for a path or name: the confirmed directory supplies the display name and the one-time native
+selection supplies the binding. Server-managed creation remains a separate secondary action and also
+does not accept a local path. `MOUNTED` remains a backend deployment capability for an explicitly
+configured server import root; it is not presented as the normal local-project workflow.
+
 The native bridge depends on a sandbox-compatible CommonJS preload at
 `desktop/dist/preload/index.cjs`. The desktop build validates that artifact, and Chat reports an
 unavailable native picker instead of redirecting silently when the bridge is absent. Restart the
