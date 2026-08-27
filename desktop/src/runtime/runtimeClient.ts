@@ -11,6 +11,7 @@ import { RuntimeToolError, type WorkspaceTools } from "./workspaceTools.js";
 const capabilities = [
   "workspace_list_files",
   "workspace_read_file",
+  "workspace_write_file",
   "workspace_search",
   "workspace_inspect_project",
   "workspace_git_status",

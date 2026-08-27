@@ -7,7 +7,7 @@ const workspace: ServerWorkspace = {
   id: "427d6713-f2d4-4b0d-8f72-eaa7f19ebd23",
   name: "nexo-ia",
   storageType: "UNBOUND",
-  accessMode: "READ_ONLY",
+  accessMode: "WRITE_WITH_APPROVAL",
   status: "UNBOUND",
   relativePath: null,
   lastScannedAt: null,
@@ -42,7 +42,7 @@ describe("provisionLocalWorkspace", () => {
     expect(createWorkspace).toHaveBeenCalledWith({
       name: "nexo-ia",
       storageType: "UNBOUND",
-      accessMode: "READ_ONLY"
+      accessMode: "WRITE_WITH_APPROVAL"
     });
     expect(desktop.chooseWorkspace).toHaveBeenCalledWith(workspace.id, workspace.name, "selection-1");
     expect(deleteWorkspace).not.toHaveBeenCalled();

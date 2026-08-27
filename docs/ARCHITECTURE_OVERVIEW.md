@@ -41,7 +41,7 @@ flowchart LR
   Server --> Data
   Server --> Comfy
   Server <-->|authenticated WSS task channel| Desktop
-  Desktop -->|bounded read-only operations| Project
+  Desktop -->|bounded governed Workspace operations| Project
 ```
 
 The central design rule is:
@@ -114,17 +114,20 @@ sequenceDiagram
   C->>S: Open outbound authenticated WebSocket
   C->>S: Publish capabilities, heartbeat, binding fingerprint and Git metadata
   U->>S: Select Workspace and opaque device binding for the conversation
-  S->>C: Send typed read-only workspace request
+  S->>C: Send typed governed workspace request
   C->>P: Validate root, path, size, file type and sensitive-name policy
-  P-->>C: Bounded file, tree, search or Git result
+  C->>P: On explicit Agent request, perform one bounded atomic file write
+  P-->>C: Bounded read/Git result or verified write evidence
   C-->>S: Structured response or controlled error
   S-->>U: Task evidence and model answer
 ```
 
 The project does **not** need to be copied to the server. The server stores the Workspace record,
 device identifier, opaque local binding identifier, status, structure fingerprint, and Git metadata.
-Only the Companion stores the absolute local path. The current Companion capabilities are read-only:
-list files, read a text file, literal search, inspect the project, Git status, and Git diff.
+Only the Companion stores the absolute local path. It can list files, read a text file, perform a
+literal search, inspect the project, read Git status/diff, and execute one bounded atomic file write
+when the server has attached that callback for an explicit authorized Agent request. It cannot run a
+model-authored shell command or mutate Git.
 
 Loopback remains the safe default. `NEXO_BIND_ADDRESS=0.0.0.0` is an explicit trusted-LAN opt-in.
 Untrusted or internet exposure additionally requires HTTPS/WSS, secure cookies, a trusted reverse
@@ -136,7 +139,7 @@ proxy, firewall policy, signed Companion distribution, and normal production har
 nexo-ia/
   backend/    Java 25 modular monolith and authoritative runtime
   frontend/   React 19 SPA and all visible product workspaces
-  desktop/    Electron Companion and endpoint-local read-only adapters
+  desktop/    Electron Companion and endpoint-local governed Workspace adapters
   docs/       Markdown source of truth plus the generated HTML portal
   scripts/    setup, startup, documentation, smoke, and validation automation
   compose*.yaml
@@ -503,10 +506,13 @@ One `Workspace` is server-owned metadata and may resolve in two ways:
 | Device binding | Folder on the paired user's computer | Electron Companion |
 | `UNBOUND` | No content path | No Workspace tool |
 
-Both execution paths implement the same six Spring AI read contracts. The server path resolver and
+Both execution paths implement the same read contracts plus an optional governed
+`workspace_write_file` contract. The server path resolver and
 the Companion both reject absolute paths, traversal, symlink escape, secrets, keys, binary files,
-oversized content, and ignored dependency/build directories. Git access uses fixed read-only argument
-arrays rather than a model-authored shell command.
+oversized content, and ignored dependency/build directories. A write is attached only to a direct
+Agent request with the resolved write permission and access mode; replacement requires the SHA-256
+of the current file. Git access uses fixed read-only argument arrays rather than a model-authored
+shell command.
 
 Fingerprint and Git metadata let the frontend warn when a selected project changed after binding.
 Refreshing accepts the new baseline; it never edits the project.
@@ -588,7 +594,7 @@ Current recovery boundaries:
 | Knowledge ingestion, RAG, citations and semantic graph | Implemented first slice | Only text formats; authored graph relationships deferred |
 | Team-shared Vault access | Implemented | Full organization root and budget enforcement deferred |
 | Docker and personal HTTP MCP | Implemented first slice | OAuth/secrets and destructive approval gate deferred |
-| Server and remote-device Workspace reads | Implemented | File writes, shell, Git mutation and arbitrary computer control deferred |
+| Server and remote-device Workspace tools | Implemented bounded read + single-file write slice | Shell, Git mutation, multi-file transactions and arbitrary computer control deferred |
 | ComfyUI image jobs | Implemented optional adapter | Durable distributed job queue and richer progress deferred |
 | Skills catalog and slash selection | Frontend/session preview | No authoritative backend publication or dependency grant |
 | Cowork | Frontend product surface | No durable Cowork orchestration backend |

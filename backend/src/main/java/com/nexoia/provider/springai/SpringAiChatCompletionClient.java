@@ -1,6 +1,7 @@
 package com.nexoia.provider.springai;
 
 import com.nexoia.conversation.chat.model.ConversationMode;
+import com.nexoia.conversation.inference.intent.UserRequestIntentResolver;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.conversation.inference.tool.AgentPlanToolSession;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionInput;
@@ -15,7 +16,6 @@ import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.memory.personal.tool.RememberToolFactory;
 import com.nexoia.memory.personal.tool.RememberToolSession;
 import com.nexoia.provider.dto.ChatCompletionCommand;
-import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
@@ -31,7 +31,6 @@ import io.micrometer.observation.ObservationRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -86,8 +85,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 @Service
 public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
-    private static final String USER_REQUEST_MARKER =
-            "\n[/NEXO_EXPLICIT_CONTEXT]\n\n[USER_REQUEST]\n";
 
     private static final String THINKING_KEY = "thinking";
     private static final String CANCELLED_REASON = "cancelled";
@@ -312,7 +309,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             BooleanSupplier cancelled) {
         OllamaChatModel model =
                 modelFactory.chatModel(command.endpoint(), command.model(), command.thinkingEnabled());
-        List<Message> mapped = messageMapper.toSpringAi(command.messages());
+        List<Message> mapped = messageMapper.toSpringAi(
+                UserRequestIntentResolver.resolveContinuation(command.messages()));
         List<SystemMessage> systemContext = new ArrayList<>(mapped.stream()
                 .filter(SystemMessage.class::isInstance)
                 .map(SystemMessage.class::cast)
@@ -932,7 +930,11 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     RememberToolFactory.TOOL_NAME,
                     "gravação na memória pessoal"));
         }
-        if (requiresProjectAnalysisEvidence(command)) {
+        if (requiresWorkspaceWriteEvidence(command)) {
+            requirements.add(new ToolEvidenceRequirement(
+                    WorkspaceReadToolFactory.WRITE_FILE,
+                    "gravação efetiva do arquivo no Workspace"));
+        } else if (requiresProjectAnalysisEvidence(command)) {
             requirements.add(new ToolEvidenceRequirement(
                     WorkspaceReadToolFactory.LIST_FILES,
                     "mapeamento da estrutura do Workspace"));
@@ -951,47 +953,15 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     }
 
     private String normalizedLatestUserRequest(ChatCompletionCommand command) {
-        List<String> requests = command.messages().reversed().stream()
-                .filter(message -> "user".equalsIgnoreCase(message.role()))
-                .map(ChatCompletionMessage::content)
-                .filter(Objects::nonNull)
-                .map(this::explicitUserRequest)
-                .map(this::normalizeRequest)
-                .filter(request -> !request.isBlank())
-                .toList();
-        if (requests.isEmpty()) {
-            return "";
-        }
-        String latest = requests.getFirst();
-        if (!isContinuationRequest(latest)) {
-            return latest;
-        }
-        return requests.stream()
-                .skip(1)
-                .filter(request -> !isContinuationRequest(request))
-                .findFirst()
-                .map(previous -> previous + " " + latest)
-                .orElse(latest);
+        return UserRequestIntentResolver.normalize(
+                UserRequestIntentResolver.effectiveRequest(command.messages()));
     }
 
-    private String explicitUserRequest(String request) {
-        int marker = request.indexOf(USER_REQUEST_MARKER);
-        return marker < 0
-                ? request
-                : request.substring(marker + USER_REQUEST_MARKER.length());
-    }
-
-    private String normalizeRequest(String request) {
-        return Normalizer.normalize(request, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .trim();
-    }
-
-    private boolean isContinuationRequest(String request) {
-        String compact = request.replaceAll("[.!?,;:]+$", "").trim();
-        return compact.matches(
-                "(?:pode\\s+)?(?:continue|continuar?|continua|prossiga|segue|siga)(?:\\s+(?:aqui|dai|daqui))?");
+    private boolean requiresWorkspaceWriteEvidence(ChatCompletionCommand command) {
+        return command.mode() == ConversationMode.AGENT
+                && !asksForAvailableTools(command)
+                && UserRequestIntentResolver.requestsWorkspaceWrite(
+                        UserRequestIntentResolver.effectiveRequest(command.messages()));
     }
 
     private String executeWorkspaceAnalysisPreflight(
@@ -1104,6 +1074,15 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             }
             matches.forEach(callback -> selected.put(callback.getToolDefinition().name(), callback));
         }
+        if (requirements.stream().anyMatch(requirement ->
+                WorkspaceReadToolFactory.WRITE_FILE.equals(requirement.toolPrefix()))) {
+            callbacks.stream()
+                    .filter(callback -> WorkspaceReadToolFactory.READ_FILE.equals(
+                            callback.getToolDefinition().name())
+                            || WorkspaceReadToolFactory.LIST_FILES.equals(
+                            callback.getToolDefinition().name()))
+                    .forEach(callback -> selected.put(callback.getToolDefinition().name(), callback));
+        }
         return List.copyOf(selected.values());
     }
 
@@ -1127,6 +1106,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 .collect(Collectors.joining(", "));
         boolean mcpOnly = requirements.size() == 1
                 && "mcp_".equals(requirements.getFirst().toolPrefix());
+        boolean workspaceWrite = requirements.stream().anyMatch(requirement ->
+                WorkspaceReadToolFactory.WRITE_FILE.equals(requirement.toolPrefix()));
         if (mcpOnly) {
             return """
                     MANDATORY MCP EXECUTION GATE
@@ -1135,6 +1116,19 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     Your next response MUST be a tool call to one fitting tool from this exact list: %s.
                     Do not answer with prose and do not call update_plan first. After the tool returns,
                     answer only from its evidence. Never claim MCP is unavailable for this request.
+                    """.formatted(names).strip();
+        }
+        if (workspaceWrite) {
+            return """
+                    MANDATORY WORKSPACE WRITE GATE
+                    The user explicitly authorized a concrete Workspace change in this request.
+                    Your next response MUST call workspace_write_file; prose, shell instructions, and
+                    tool-call JSON printed as text do not perform the action. Use workspace_read_file
+                    first when replacing an existing file, then pass its exact SHA-256 as
+                    expectedSha256. When no filename was specified, choose a descriptive new filename
+                    rather than overwriting the project's existing entry point. After the tool returns,
+                    report only the path and result confirmed by its evidence.
+                    Callable tools for this action: %s.
                     """.formatted(names).strip();
         }
         return """

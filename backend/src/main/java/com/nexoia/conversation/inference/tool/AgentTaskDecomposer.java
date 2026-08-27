@@ -1,5 +1,6 @@
 package com.nexoia.conversation.inference.tool;
 
+import com.nexoia.conversation.inference.intent.UserRequestIntentResolver;
 import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -29,6 +30,9 @@ public class AgentTaskDecomposer {
 
     public List<AgentTaskDraft> decompose(String objective) {
         String request = userRequest(objective);
+        if (UserRequestIntentResolver.requestsWorkspaceWrite(request)) {
+            return workspaceWriteSteps(request);
+        }
         if (isProjectAnalysis(request)) {
             return projectAnalysisSteps();
         }
@@ -101,6 +105,30 @@ public class AgentTaskDecomposer {
                         null));
     }
 
+    private List<AgentTaskDraft> workspaceWriteSteps(String request) {
+        return List.of(
+                new AgentTaskDraft(
+                        "Confirmar a alteração solicitada",
+                        normalize(request),
+                        null),
+                new AgentTaskDraft(
+                        "Verificar o destino no Workspace",
+                        "Validar o caminho relativo e exigir o hash atual antes de qualquer substituição.",
+                        WorkspaceReadToolFactory.WRITE_FILE),
+                new AgentTaskDraft(
+                        "Gravar o arquivo solicitado",
+                        "Executar a escrita real e registrar caminho, tamanho e SHA-256 confirmados.",
+                        WorkspaceReadToolFactory.WRITE_FILE),
+                new AgentTaskDraft(
+                        "Validar a alteração",
+                        "Confirmar caminho, tamanho e SHA-256 retornados pela gravação concluída.",
+                        WorkspaceReadToolFactory.WRITE_FILE),
+                new AgentTaskDraft(
+                        "Apresentar o resultado",
+                        "Informar objetivamente o arquivo criado ou alterado e qualquer conflito pendente.",
+                        null));
+    }
+
     private boolean isProjectAnalysis(String request) {
         String normalized = Normalizer.normalize(request, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
@@ -120,6 +148,9 @@ public class AgentTaskDecomposer {
 
     private String requiredToolPrefix(String step) {
         String normalized = step.toLowerCase(Locale.ROOT);
+        if (UserRequestIntentResolver.requestsWorkspaceWrite(step)) {
+            return WorkspaceReadToolFactory.WRITE_FILE;
+        }
         if (normalized.contains("memória") || normalized.contains("memoria")
                 || normalized.contains("lembre") || normalized.contains("guarde")) {
             return "remember";

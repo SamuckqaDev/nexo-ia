@@ -9,12 +9,14 @@ opens an outbound authenticated WebSocket using protocol `nexo.runtime.v1`. The 
 the credential hash. The raw credential and absolute workspace paths remain encrypted by the
 operating-system credential service in the Desktop application data directory.
 
-The implemented capability set is deliberately read-only:
+The implemented capability set is deliberately bounded:
 
 - bounded directory listing and literal text search;
 - bounded UTF-8 file excerpts;
 - stack and repository inspection;
 - Git status and one-file unstaged diff.
+- one atomic UTF-8 file write for a direct Agent request, with relative-path containment and
+  SHA-256 required before replacing an existing file.
 
 The server sends only an opaque local binding identifier and workspace-relative tool input. The
 Desktop resolves the binding to the real local path, rejects traversal, symlink escape, secrets,
@@ -32,10 +34,11 @@ can therefore load the server renderer (for the current unsigned build, set
 Public or untrusted-network deployment requires HTTPS/WSS, secure cookies, a trusted TLS proxy and
 firewall policy; setting a non-loopback bind by itself is not a production security configuration.
 
-This foundation does not yet execute arbitrary shell commands, write files, mutate Git, delegate to
-worker models, elevate operating-system privileges, or present local approval dialogs. Those effects
-require the policy, approval, sandbox, rollback, and artifact layers described below before they may
-be exposed as Spring AI tools.
+This foundation does not execute arbitrary shell commands, mutate Git, delegate to worker models,
+elevate operating-system privileges, or present standing local approvals. Multi-file transactions,
+commands, rollback, and artifact capture still require the policy, sandbox, and approval layers
+described below. The current single-file write is authorized only by a fresh explicit Agent request
+and is independently constrained by the Workspace access mode and permission profile.
 
 ## Nexo Companion
 

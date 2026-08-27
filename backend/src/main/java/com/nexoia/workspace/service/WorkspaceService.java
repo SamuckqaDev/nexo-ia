@@ -61,6 +61,9 @@ public class WorkspaceService {
                 .id(UUID.randomUUID())
                 .ownerId(ownerId)
                 .name(request.name().trim())
+                .accessMode(request.accessMode() == null
+                        ? WorkspaceAccessMode.READ_ONLY
+                        : request.accessMode())
                 .build());
 
         return response(workspace);

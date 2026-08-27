@@ -30,6 +30,10 @@ public class LocalWorkspaceToolGateway {
         return execute(scope, "workspace.readFile", input, WorkspaceReadFileResult.class);
     }
 
+    public WorkspaceWriteFileResult writeFile(WorkspaceToolScope scope, WorkspaceWriteFileInput input) {
+        return execute(scope, "workspace.writeFile", input, WorkspaceWriteFileResult.class);
+    }
+
     public WorkspaceSearchResult search(WorkspaceToolScope scope, WorkspaceSearchInput input) {
         return execute(scope, "workspace.search", input, WorkspaceSearchResult.class);
     }

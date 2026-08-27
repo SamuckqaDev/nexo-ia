@@ -1,11 +1,14 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import {
   lstat,
   readdir,
   readFile,
+  rename,
   realpath,
-  stat
+  stat,
+  unlink,
+  writeFile
 } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -45,6 +48,7 @@ export class WorkspaceTools {
     const input = this.object(payload.input);
     if (method === "workspace.listFiles") return this.listFiles(workspace, input);
     if (method === "workspace.readFile") return this.readTextFile(workspace, input);
+    if (method === "workspace.writeFile") return this.writeTextFile(workspace, input);
     if (method === "workspace.search") return this.search(workspace, input);
     if (method === "workspace.inspect") return this.inspect(workspace);
     if (method === "git.status") return this.gitStatus(workspace);
@@ -132,6 +136,50 @@ export class WorkspaceTools {
       sha256: createHash("sha256").update(buffer).digest("hex"),
       truncated: endLine < lines.length,
       message: "Workspace file read successfully."
+    };
+  }
+
+  private async writeTextFile(workspace: LocalWorkspaceBinding, input: ToolInput): Promise<unknown> {
+    const path = this.requiredPath(input);
+    this.assertReadableName(path);
+    const content = typeof input.content === "string" ? input.content : null;
+    if (content === null) {
+      throw new RuntimeToolError("COMMAND_DENIED", "Workspace writes require text content");
+    }
+    const bytes = Buffer.from(content, "utf8");
+    if (bytes.byteLength > MAX_FILE_BYTES || bytes.includes(0)) {
+      throw new RuntimeToolError("COMMAND_DENIED", "Workspace writes are limited to bounded UTF-8 text");
+    }
+
+    const { target, created } = await this.safeWritablePath(workspace.rootPath, path);
+    if (!created) {
+      const expectedSha256 = typeof input.expectedSha256 === "string"
+        ? input.expectedSha256.toLowerCase()
+        : "";
+      const current = await readFile(target);
+      const currentSha256 = createHash("sha256").update(current).digest("hex");
+      if (!expectedSha256 || expectedSha256 !== currentSha256) {
+        throw new RuntimeToolError(
+          "WRITE_CONFLICT",
+          "Existing files require the current SHA-256 from workspace_read_file"
+        );
+      }
+    }
+
+    const temporary = `${target}.nexo-${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporary, bytes, { flag: "wx" });
+      await rename(temporary, target);
+    } finally {
+      await unlink(temporary).catch((): undefined => undefined);
+    }
+    return {
+      status: "COMPLETED",
+      path,
+      created,
+      sizeBytes: bytes.byteLength,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      message: created ? "Workspace file created successfully." : "Workspace file replaced successfully."
     };
   }
 
@@ -293,6 +341,37 @@ export class WorkspaceTools {
       throw new RuntimeToolError("SENSITIVE_FILE_DENIED", "The requested workspace entry cannot be read safely");
     }
     return resolvedPath;
+  }
+
+  private async safeWritablePath(
+    rootPath: string,
+    requested: string
+  ): Promise<{ target: string; created: boolean }> {
+    if (isAbsolute(requested) || requested.split(/[\\/]+/).includes("..")) {
+      throw new RuntimeToolError("PATH_OUTSIDE_WORKSPACE", "Only workspace-relative paths are allowed");
+    }
+    const realRoot = await realpath(rootPath);
+    const target = resolve(realRoot, requested);
+    if (target === realRoot || !this.contained(realRoot, target)) {
+      throw new RuntimeToolError("PATH_OUTSIDE_WORKSPACE", "The requested path leaves the workspace");
+    }
+    const parent = await realpath(resolve(target, "..")).catch(() => {
+      throw new RuntimeToolError("PATH_NOT_FOUND", "The target directory does not exist");
+    });
+    if (!this.contained(realRoot, parent)) {
+      throw new RuntimeToolError("SYMLINK_ESCAPE", "Symbolic links cannot leave the workspace");
+    }
+    const info = await lstat(target).catch(() => null);
+    if (info?.isSymbolicLink() || (info && !info.isFile())) {
+      throw new RuntimeToolError("SENSITIVE_FILE_DENIED", "The target cannot be written safely");
+    }
+    if (info) {
+      const resolvedTarget = await realpath(target);
+      if (!this.contained(realRoot, resolvedTarget)) {
+        throw new RuntimeToolError("SYMLINK_ESCAPE", "Symbolic links cannot leave the workspace");
+      }
+    }
+    return { target, created: info === null };
   }
 
   private contained(rootPath: string, candidate: string): boolean {

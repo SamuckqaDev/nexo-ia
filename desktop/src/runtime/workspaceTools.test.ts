@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -61,6 +61,36 @@ describe("WorkspaceTools", (): void => {
     expect(result.numberedContent).toBe("2: two\n3: three");
     expect(result.startLine).toBe(2);
     expect(result.endLine).toBe(3);
+  });
+
+  it("creates a bounded text file and returns verifiable evidence", async (): Promise<void> => {
+    const result = await tools.execute("workspace.writeFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "hello.html", content: "<h1>Hello</h1>\n" }
+    }) as { status: string; path: string; created: boolean; sha256: string };
+
+    expect(result).toMatchObject({ status: "COMPLETED", path: "hello.html", created: true });
+    expect(result.sha256).toMatch(/^[a-f0-9]{64}$/);
+    await expect(readFile(join(rootPath, "hello.html"), "utf8")).resolves.toBe("<h1>Hello</h1>\n");
+  });
+
+  it("requires the current hash before replacing an existing file", async (): Promise<void> => {
+    await writeFile(join(rootPath, "hello.html"), "old", "utf8");
+
+    await expect(tools.execute("workspace.writeFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "hello.html", content: "new" }
+    })).rejects.toMatchObject({ code: "WRITE_CONFLICT" });
+
+    const read = await tools.execute("workspace.readFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "hello.html" }
+    }) as { sha256: string };
+    await expect(tools.execute("workspace.writeFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "hello.html", content: "new", expectedSha256: read.sha256 }
+    })).resolves.toMatchObject({ status: "COMPLETED", created: false });
+    await expect(readFile(join(rootPath, "hello.html"), "utf8")).resolves.toBe("new");
   });
 
   it("rejects traversal outside the selected workspace", async (): Promise<void> => {

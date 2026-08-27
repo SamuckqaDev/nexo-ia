@@ -44,6 +44,7 @@ import com.nexoia.workspace.tool.WorkspaceProjectQueryInput;
 import com.nexoia.workspace.tool.WorkspaceReadFileInput;
 import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import com.nexoia.workspace.tool.WorkspaceReadToolSession;
+import com.nexoia.workspace.tool.WorkspaceWriteFileInput;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
@@ -822,6 +823,96 @@ class SpringAiChatCompletionClientTest {
         assertThat(requestBody.get())
                 .contains("SERVER-EXECUTED WORKSPACE ANALYSIS PREFLIGHT")
                 .doesNotContain("Vou começar listando os arquivos");
+    }
+
+    @Test
+    void executesARealWorkspaceWriteForAConfirmedContinuationInsteadOfPrintingInstructions() {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        ToolCallback write = FunctionToolCallback.builder(
+                        "workspace_write_file", (WorkspaceWriteFileInput input) -> {
+                            recordCompletedEvidence(evidence, "workspace_write_file");
+                            return Map.of(
+                                    "status", "COMPLETED",
+                                    "path", input.path(),
+                                    "created", true,
+                                    "sizeBytes", input.content().length(),
+                                    "sha256", "abc123");
+                        })
+                .description("Write one Workspace file")
+                .inputType(WorkspaceWriteFileInput.class)
+                .build();
+        WorkspaceReadToolFactory workspaceFactory = mock(WorkspaceReadToolFactory.class);
+        when(workspaceFactory.open(any(), any(), any()))
+                .thenReturn(new WorkspaceReadToolSession(List.of(write), evidence));
+        SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            String body = requests.incrementAndGet() == 1
+                    ? """
+                      {"model":"granite4.1:8b","message":{"role":"assistant","content":"",\
+                      "tool_calls":[{"id":"call-write","function":{\
+                      "name":"workspace_write_file","arguments":{\
+                      "path":"hello-mais-prevencao.html",\
+                      "content":"<h1>Hello Mais Prevenção</h1>"}}}]},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":20,"eval_count":4}
+                      """
+                    : """
+                      {"model":"granite4.1:8b","message":{"role":"assistant",\
+                      "content":"Criei hello-mais-prevencao.html na raiz do projeto."},\
+                      "done":true,"done_reason":"stop","prompt_eval_count":35,"eval_count":8}
+                      """;
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+        WorkspaceToolScope base = workspaceScope();
+        WorkspaceToolScope scope = new WorkspaceToolScope(
+                base.userId(), base.conversationId(), base.assistantMessageId(), base.correlationId(),
+                base.workspaceId(), base.workspaceName(), WorkspaceAccessMode.WRITE_WITH_APPROVAL,
+                true, null, null, null, true);
+        String contextualConfirmation = """
+                [NEXO_EXPLICIT_CONTEXT]
+                Skill: Research brief
+                [/NEXO_EXPLICIT_CONTEXT]
+
+                [USER_REQUEST]
+                faça
+                """;
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "granite4.1:8b",
+                List.of(
+                        new ChatCompletionMessage("user", "Coloque o arquivo HTML na raiz do projeto"),
+                        new ChatCompletionMessage("assistant", "Execute cat para criar o arquivo"),
+                        new ChatCompletionMessage("user", contextualConfirmation)),
+                false,
+                ConversationMode.AGENT,
+                null, null, null, null, null, scope,
+                ToolExecutionObserver.NOOP,
+                update -> { });
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                command, delta -> { }, delta -> { }, () -> false);
+
+        assertThat(outcome.content()).contains("Criei hello-mais-prevencao.html");
+        assertThat(outcome.toolExecutions()).singleElement()
+                .satisfies(execution -> {
+                    assertThat(execution.toolName()).isEqualTo("workspace_write_file");
+                    assertThat(execution.status()).isEqualTo(ToolExecutionStatus.COMPLETED);
+                });
+        assertThat(requestBodies).hasSize(2);
+        assertThat(requestBodies.getFirst())
+                .contains("MANDATORY WORKSPACE WRITE GATE")
+                .contains("Coloque o arquivo HTML na raiz do projeto")
+                .contains("workspace_write_file")
+                .doesNotContain("Research brief")
+                .doesNotContain("Execute cat");
     }
 
     @Test

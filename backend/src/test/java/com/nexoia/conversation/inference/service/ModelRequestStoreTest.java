@@ -12,6 +12,7 @@ import com.nexoia.auth.user.repository.UserAccountRepository;
 import com.nexoia.conversation.chat.model.Conversation;
 import com.nexoia.conversation.chat.model.ConversationMessage;
 import com.nexoia.conversation.chat.model.ConversationMode;
+import com.nexoia.conversation.chat.model.ConversationRole;
 import com.nexoia.conversation.chat.repository.ConversationMessageRepository;
 import com.nexoia.conversation.chat.repository.ConversationRepository;
 import com.nexoia.conversation.chat.service.ConversationKnowledgeService;
@@ -245,6 +246,65 @@ class ModelRequestStoreTest {
                         WorkspaceReadToolFactory.GIT_STATUS,
                         WorkspaceReadToolFactory.GIT_DIFF,
                         WorkspaceReadToolFactory.INSPECT_PROJECT);
+    }
+
+    @Test
+    void agentModeResolvesAConfirmationAndAuthorizesThePreviousExplicitWriteRequest() {
+        UUID workspaceId = UUID.randomUUID();
+        when(conversations.findOwnedForUpdate(conversationId, userId))
+                .thenReturn(Optional.of(Conversation.builder()
+                        .id(conversationId)
+                        .userId(userId)
+                        .title("Chat")
+                        .providerConfigurationId(providerId)
+                        .selectedModel("qwen3:8b")
+                        .workspaceId(workspaceId)
+                        .build()));
+        when(users.findById(userId)).thenReturn(Optional.of(
+                UserAccount.builder()
+                        .id(userId)
+                        .username("owner")
+                        .assignedProfile(ProfileKey.OPERATOR)
+                        .build()));
+        Workspace workspace = Workspace.builder()
+                .id(workspaceId)
+                .ownerId(userId)
+                .name("Nexo")
+                .storageType(WorkspaceStorageType.MANAGED)
+                .accessMode(WorkspaceAccessMode.WRITE_WITH_APPROVAL)
+                .build();
+        when(workspaceAccess.accessibleWorkspace(userId, workspaceId)).thenReturn(workspace);
+        when(workspaceAccess.lightStatus(workspace)).thenReturn(WorkspaceStatus.AVAILABLE);
+        when(messages.findContextHistory(eq(conversationId), any())).thenReturn(List.of(
+                ConversationMessage.builder()
+                        .role(ConversationRole.USER)
+                        .content("Crie o arquivo hello.html na raiz do projeto")
+                        .build(),
+                ConversationMessage.builder()
+                        .role(ConversationRole.ASSISTANT)
+                        .content("Aqui está o código sugerido")
+                        .build(),
+                ConversationMessage.builder()
+                        .role(ConversationRole.USER)
+                        .content("faça")
+                        .build()));
+
+        ModelRequestReservation reservation = store.reserve(
+                userId,
+                conversationId,
+                "faça",
+                false,
+                List.of(),
+                ConversationMode.AGENT);
+
+        assertThat(reservation.command().workspaceToolScope().writeAuthorized()).isTrue();
+        assertThat(reservation.command().agentPlanToolScope().objective())
+                .contains("hello.html");
+        ArgumentCaptor<ModelContextEnvelope> envelope = ArgumentCaptor.forClass(ModelContextEnvelope.class);
+        verify(contextAssembler).assemble(
+                eq(conversationId), eq("owner"), eq(List.of()), envelope.capture(), eq(List.of()));
+        assertThat(envelope.getValue().manifest().tools().exposedToolNames())
+                .contains(WorkspaceReadToolFactory.WRITE_FILE);
     }
 
     @Test

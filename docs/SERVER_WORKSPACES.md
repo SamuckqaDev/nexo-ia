@@ -17,7 +17,7 @@ plans, task evidence, and audit remain on the Nexo server.
 An `UNBOUND` Workspace can additionally have one or more `workspace_binding` records owned through a
 paired device. Each record contains the Workspace id, device id, opaque Desktop-local binding id,
 display metadata, status, fingerprint, and Git metadata. It never contains the absolute device path.
-When that binding is selected on a Conversation and online, the same six Spring AI tools are proxied
+When that binding is selected on a Conversation and online, the same governed Spring AI tools are proxied
 over the authenticated `nexo.runtime.v1` channel to Nexo Desktop.
 
 `relativePath` must remain inside the configured import root after normalization and real-path
@@ -85,7 +85,8 @@ In Nexo Desktop, the folder-plus action beside the Chat workspace selector is th
 project entry point. One click opens the operating system's native directory chooser: Finder on
 macOS, Explorer on Windows, and the configured desktop chooser on Linux. Electron returns only an
 opaque, five-minute selection id and the folder's display name to React. After the user confirms a
-folder, the authenticated frontend creates an `UNBOUND` Workspace, pairs the Desktop automatically
+folder, the authenticated frontend creates an `UNBOUND` Workspace with
+`WRITE_WITH_APPROVAL`, pairs the Desktop automatically
 when required, and asks Electron to consume the one-time selection while registering the device
 binding. The conversation then persists that Workspace and the backend resolves its preferred
 available binding. Cancellation creates no registration; a binding failure removes the empty
@@ -120,6 +121,7 @@ plans, Vault retrieval, memory, and MCP:
 - `workspace_git_status`
 - `workspace_git_diff`
 - `workspace_inspect_project`
+- `workspace_write_file` for a direct, explicit write request in Agent mode
 
 The runtime caps the group at 12 calls per request and denies identical repeats. Server bindings run
 inside the backend; local bindings are dispatched to the exact authenticated device and opaque
@@ -127,6 +129,20 @@ Desktop binding selected by the conversation. Every call resolves
 ownership and availability again, honors cancellation, produces sanitized task evidence, and records
 started/completed/denied/failed audit outcomes. Capability questions are answered from the actual
 callback snapshot, so a model cannot truthfully claim a Workspace tool that was not attached.
+
+`workspace_write_file` is not attached merely because a Workspace is writable. Nexo first resolves
+the effective user objective, including short continuations such as **faça** or **continue**, then
+requires Agent mode, `WORKSPACE_WRITE`, `WRITE_WITH_APPROVAL` (or the stronger command access mode),
+and an explicit request to create or change a Workspace file. The direct request is the fresh,
+single-request authorization; it is not retained for later messages. A selected Skill is auxiliary
+context and cannot replace the unresolved user objective.
+
+Writes accept one Workspace-relative path and bounded UTF-8 content (maximum 1 MiB). They reject
+absolute paths, traversal, symlink escapes, sensitive names, binary/NUL content, and non-regular
+targets. Creating a new file is atomic. Replacing an existing file additionally requires the exact
+SHA-256 returned by a preceding read, providing optimistic concurrency protection against silent
+overwrites. Successful task evidence contains the relative path, byte count, creation/replacement
+state, and resulting SHA-256; model prose, JSON, or shell instructions never count as execution.
 
 Explicit requests to inspect project files, repository state, or Git diffs are evidence-gated. Model
 prose is buffered until a matching successful `workspace_*` execution exists; an invented claim is
@@ -157,7 +173,8 @@ last accepted scan. Refresh records the new baseline; it does not modify project
 
 ## Deliberately deferred
 
-This delivery does not edit files, run arbitrary commands, mutate Git, copy a device project to the
-server, delegate to workers, or perform approval-gated actions. Those capabilities need explicit write and
-command permission families, approval records, bounded execution sandboxes, artifact capture, and
-rollback/recovery semantics before they can be attached to a model.
+This delivery does not run arbitrary commands, mutate Git, copy a device project to the server,
+delegate to workers, or grant a standing write approval. Command execution, multi-file transactions,
+interactive approval records, rollback/recovery, and artifact capture remain separate future
+capabilities. The implemented write slice is intentionally one bounded file per tool call under a
+fresh explicit request and optimistic concurrency check.

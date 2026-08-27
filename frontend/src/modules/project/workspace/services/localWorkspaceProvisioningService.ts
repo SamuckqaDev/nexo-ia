@@ -40,7 +40,7 @@ export async function provisionLocalWorkspace(
   const workspace = await dependencies.createWorkspace({
     name: selection.displayName,
     storageType: "UNBOUND",
-    accessMode: "READ_ONLY"
+    accessMode: "WRITE_WITH_APPROVAL"
   });
 
   try {

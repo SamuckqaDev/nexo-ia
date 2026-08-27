@@ -26,7 +26,14 @@ import com.nexoia.workspace.service.WorkspaceGitReadService;
 import com.nexoia.workspace.service.WorkspaceInspectionService;
 import com.nexoia.workspace.service.WorkspacePathResolver;
 import com.nexoia.workspace.service.WorkspaceSearchService;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -48,13 +55,14 @@ import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-/** Builds the governed request-scoped Spring AI tools that may only read an attached workspace. */
+/** Builds governed request-scoped Spring AI tools for one attached Workspace. */
 @Slf4j
 @Component
 public class WorkspaceReadToolFactory {
 
     public static final String LIST_FILES = "workspace_list_files";
     public static final String READ_FILE = "workspace_read_file";
+    public static final String WRITE_FILE = "workspace_write_file";
     public static final String SEARCH = "workspace_search";
     public static final String GIT_STATUS = "workspace_git_status";
     public static final String GIT_DIFF = "workspace_git_diff";
@@ -63,6 +71,7 @@ public class WorkspaceReadToolFactory {
     private static final int DEFAULT_LIST_LIMIT = 100;
     private static final int DEFAULT_SEARCH_LIMIT = 20;
     private static final int MAX_QUERY_LENGTH = 1_000;
+    private static final int MAX_WRITE_BYTES = 1_048_576;
 
     private final WorkspaceAccessService access;
     private final WorkspaceInspectionService inspection;
@@ -116,7 +125,7 @@ public class WorkspaceReadToolFactory {
         AtomicInteger calls = new AtomicInteger();
         Set<String> seenCalls = new HashSet<>();
 
-        List<ToolCallback> callbacks = List.of(
+        List<ToolCallback> callbacks = new ArrayList<>(List.of(
                 FunctionToolCallback.builder(
                                 LIST_FILES,
                                 (WorkspaceListFilesInput input, ToolContext ignored) -> listFiles(
@@ -158,8 +167,105 @@ public class WorkspaceReadToolFactory {
                                         scope, observer, cancelled, evidence, calls, seenCalls, input))
                         .description("Inspect the attached project stack, branch, and HEAD without changing it")
                         .inputType(WorkspaceProjectQueryInput.class)
-                        .build());
+                        .build()));
+        if (scope.writeAuthorized()) {
+            callbacks.add(FunctionToolCallback.builder(
+                            WRITE_FILE,
+                            (WorkspaceWriteFileInput input, ToolContext ignored) -> writeFile(
+                                    scope, observer, cancelled, evidence, calls, seenCalls, input))
+                    .description("Create one bounded UTF-8 Workspace file, or replace an existing file only "
+                            + "with the current SHA-256 returned by workspace_read_file")
+                    .inputType(WorkspaceWriteFileInput.class)
+                    .build());
+        }
         return new WorkspaceReadToolSession(callbacks, evidence);
+    }
+
+    private WorkspaceWriteFileResult writeFile(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceWriteFileInput input) {
+        Call call = begin(scope, observer, WRITE_FILE, input, cancelled, calls, seenCalls);
+        if (!call.allowed()
+                || !scope.writeAuthorized()
+                || input == null
+                || input.path() == null
+                || input.path().isBlank()
+                || input.content() == null) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return failedWrite(ToolExecutionStatus.DENIED,
+                    "Workspace write was not authorized by this explicit user request.");
+        }
+        byte[] content = input.content().getBytes(StandardCharsets.UTF_8);
+        if (content.length > MAX_WRITE_BYTES || input.content().indexOf('\0') >= 0) {
+            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+            return failedWrite(ToolExecutionStatus.DENIED,
+                    "Workspace writes are limited to bounded UTF-8 text.");
+        }
+        try {
+            if (scope.localDevice()) {
+                WorkspaceWriteFileResult result = localGateway.writeFile(scope, input);
+                finish(scope, observer, evidence, call, result.status());
+                return result;
+            }
+            Workspace workspace = writableWorkspace(scope);
+            String relativePath = input.path().trim();
+            contentPolicy.requireReadable(relativePath);
+            Path candidate = pathResolver.resolveForCreate(workspace, relativePath);
+            Path target = Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)
+                    ? pathResolver.resolveExisting(workspace, relativePath)
+                    : candidate;
+            Path parent = target.getParent();
+            if (parent == null || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)) {
+                throw new WorkspaceInvalidPathException();
+            }
+            boolean created = !Files.exists(target, LinkOption.NOFOLLOW_LINKS);
+            if (!created) {
+                if (Files.isSymbolicLink(target) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new WorkspaceAccessDeniedException();
+                }
+                if (Files.size(target) > MAX_WRITE_BYTES) {
+                    throw new WorkspaceFileTooLargeException();
+                }
+                String currentSha256 = digestBytes(Files.readAllBytes(target));
+                if (input.expectedSha256() == null
+                        || !currentSha256.equalsIgnoreCase(input.expectedSha256().trim())) {
+                    finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
+                    return failedWrite(ToolExecutionStatus.DENIED,
+                            "Existing files require the current SHA-256 from workspace_read_file.");
+                }
+            }
+            Path temporary = Files.createTempFile(parent, ".nexo-write-", ".tmp");
+            try {
+                Files.write(temporary, content, StandardOpenOption.TRUNCATE_EXISTING);
+                moveAtomically(temporary, target);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+            String sha256 = digestBytes(content);
+            finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
+            return new WorkspaceWriteFileResult(
+                    ToolExecutionStatus.COMPLETED,
+                    relativePath,
+                    created,
+                    content.length,
+                    sha256,
+                    created ? "Workspace file created successfully." : "Workspace file replaced successfully.");
+        } catch (RuntimeException exception) {
+            ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
+            return failedWrite(status, status == ToolExecutionStatus.DENIED
+                    ? "Workspace write was denied by the path or content policy."
+                    : "Workspace file could not be written.");
+        } catch (IOException exception) {
+            log.warn("[NEXO-BACK][WORKSPACE] Write tool failed workspaceId={} reason={}",
+                    scope.workspaceId(), exception.getClass().getSimpleName());
+            finish(scope, observer, evidence, call, ToolExecutionStatus.UNAVAILABLE);
+            return failedWrite(ToolExecutionStatus.UNAVAILABLE, "Workspace file could not be written.");
+        }
     }
 
     private WorkspaceListFilesResult listFiles(
@@ -429,6 +535,34 @@ public class WorkspaceReadToolFactory {
             throw new WorkspaceUnavailableException();
         }
         return workspace;
+    }
+
+    private Workspace writableWorkspace(WorkspaceToolScope scope) {
+        Workspace workspace = workspace(scope);
+        if (!scope.writeAuthorized() || !workspace.getAccessMode().allowsWrite()) {
+            throw new WorkspaceAccessDeniedException();
+        }
+        return workspace;
+    }
+
+    private WorkspaceWriteFileResult failedWrite(ToolExecutionStatus status, String message) {
+        return new WorkspaceWriteFileResult(status, null, false, 0L, null, message);
+    }
+
+    private void moveAtomically(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException exception) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private String digestBytes(byte[] value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     private WorkspaceListFilesResult failedList(

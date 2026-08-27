@@ -26,6 +26,7 @@ import com.nexoia.conversation.inference.context.WorkspaceCapability;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.exception.ModelNotSelectedException;
 import com.nexoia.conversation.inference.exception.ModelRequestNotFoundException;
+import com.nexoia.conversation.inference.intent.UserRequestIntentResolver;
 import com.nexoia.conversation.inference.model.AgentPlanRecord;
 import com.nexoia.conversation.inference.model.AgentPlanStep;
 import com.nexoia.conversation.inference.model.AgentState;
@@ -57,6 +58,7 @@ import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.AgentPlanUpdateObserver;
 import com.nexoia.provider.dto.ChatCompletionCommand;
+import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.KnowledgeToolScope;
 import com.nexoia.provider.dto.KnowledgeWriteToolScope;
@@ -106,6 +108,8 @@ public class ModelRequestStore {
 
     private static final Set<MessageStatus> IN_FLIGHT =
             Set.of(MessageStatus.QUEUED, MessageStatus.STREAMING, MessageStatus.CANCELLING);
+    private static final Set<MessageStatus> INTENT_HISTORY =
+            Set.of(MessageStatus.COMPLETED, MessageStatus.CANCELLED);
 
     private final ConversationRepository conversations;
     private final ConversationMessageRepository messages;
@@ -265,11 +269,20 @@ public class ModelRequestStore {
                 && (selectedBinding != null
                 ? workspaceBindings.isAvailable(userId, selectedBinding)
                 : workspaceAccess.lightStatus(selectedWorkspace) == WorkspaceStatus.AVAILABLE);
+        boolean workspaceWriteTarget = workspaceAvailable
+                && selectedWorkspace.getAccessMode().allowsWrite();
         RequestPermission requestPermission = resolvePermission(
-                mode, enabledMcpConnections, writableVault != null, workspaceAvailable, assignedProfile);
+                mode, enabledMcpConnections, writableVault != null, workspaceAvailable,
+                workspaceWriteTarget, assignedProfile);
         boolean workspaceReadAllowed = mode == ConversationMode.AGENT
                 && workspaceAvailable
                 && requestPermission.resolved().isAllowed(CapabilityFamily.WORKSPACE_READ);
+        String effectiveObjective = effectiveObjective(conversationId, content);
+        boolean workspaceWriteAuthorized = mode == ConversationMode.AGENT
+                && workspaceWriteTarget
+                && UserRequestIntentResolver.requestsWorkspaceWrite(effectiveObjective)
+                && (requestPermission.resolved().isAllowed(CapabilityFamily.WORKSPACE_WRITE)
+                || requestPermission.resolved().requiresApproval(CapabilityFamily.WORKSPACE_WRITE));
 
         return new ModelRequestReservation(
                 userId,
@@ -285,7 +298,8 @@ public class ModelRequestStore {
                                 capabilityEnvelope(username, conversation.getSelectedModel(),
                                         processingLocation, selectedVaults, resolvedKnowledge,
                                         enabledMcpConnections, selectedWorkspace,
-                                        workspaceReadAllowed, requestPermission, mode),
+                                        workspaceReadAllowed, workspaceWriteAuthorized,
+                                        requestPermission, mode),
                                 personalMemories.context(userId)),
                         thinkingEnabled,
                         mode,
@@ -295,7 +309,7 @@ public class ModelRequestStore {
                                 : null,
                         mode == ConversationMode.AGENT
                                 ? new AgentPlanToolScope(
-                                        userId, assistantMessage.getId(), correlationId, content.trim())
+                                        userId, assistantMessage.getId(), correlationId, effectiveObjective)
                                 : null,
                         mode == ConversationMode.AGENT
                                 ? new MemoryToolScope(
@@ -323,7 +337,8 @@ public class ModelRequestStore {
                                         true,
                                         selectedBinding == null ? null : selectedBinding.getId(),
                                         selectedBinding == null ? null : selectedBinding.getDeviceId(),
-                                        selectedBinding == null ? null : selectedBinding.getLocalBindingId())
+                                        selectedBinding == null ? null : selectedBinding.getLocalBindingId(),
+                                        workspaceWriteAuthorized)
                                 : null,
                         ToolExecutionObserver.NOOP,
                         AgentPlanUpdateObserver.NOOP),
@@ -346,6 +361,7 @@ public class ModelRequestStore {
             List<McpRuntimeConnection> enabledMcpConnections,
             Workspace selectedWorkspace,
             boolean workspaceReadAllowed,
+            boolean workspaceWriteAuthorized,
             RequestPermission requestPermission,
             ConversationMode mode) {
         List<CitationResponse> citations = resolvedKnowledge.citations();
@@ -383,6 +399,9 @@ public class ModelRequestStore {
                         WorkspaceReadToolFactory.GIT_DIFF,
                         WorkspaceReadToolFactory.INSPECT_PROJECT));
             }
+            if (workspaceWriteAuthorized) {
+                exposedTools.add(WorkspaceReadToolFactory.WRITE_FILE);
+            }
             enabledMcpConnections.stream()
                     .flatMap(connection -> connection.enabledTools().stream())
                     .map(tool -> tool.exposedName())
@@ -411,6 +430,7 @@ public class ModelRequestStore {
             List<McpRuntimeConnection> enabledMcpConnections,
             boolean hasWritableVault,
             boolean hasAvailableWorkspace,
+            boolean hasWritableWorkspace,
             ProfileKey assignedProfile) {
         boolean agent = mode == ConversationMode.AGENT;
         PermissionProfile profile = BuiltInProfiles.of(
@@ -426,6 +446,9 @@ public class ModelRequestStore {
         }
         if (hasAvailableWorkspace) {
             authorizedTargets.add(CapabilityFamily.WORKSPACE_READ);
+        }
+        if (hasWritableWorkspace) {
+            authorizedTargets.add(CapabilityFamily.WORKSPACE_WRITE);
         }
 
         ResolvedPermissions resolved = permissionEngine.resolve(
@@ -444,6 +467,17 @@ public class ModelRequestStore {
     private record RequestPermission(
             ResolvedPermissions resolved,
             PermissionCapability capability) {}
+
+    private String effectiveObjective(UUID conversationId, String fallback) {
+        List<ChatCompletionMessage> history = messages.findContextHistory(conversationId, INTENT_HISTORY).stream()
+                .filter(message -> message.getRole() == ConversationRole.USER)
+                .map(message -> new ChatCompletionMessage("user", message.getContent()))
+                .toList();
+        if (history.isEmpty()) {
+            return UserRequestIntentResolver.explicitRequest(fallback);
+        }
+        return UserRequestIntentResolver.effectiveRequest(history);
+    }
 
     private ResolvedKnowledgeContext retrieve(
             UUID userId, List<UUID> knowledgeVaultIds, String content) {

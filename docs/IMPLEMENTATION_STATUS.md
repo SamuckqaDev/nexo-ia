@@ -3,7 +3,7 @@
 ## Current increment
 
 **Current verified foundation — multi-user Agent runtime with optional local Desktop workspace
-inspection.**
+inspection and governed file writes.**
 
 The first implementation branch is `feat/project-scaffold`. It establishes the source layout and a
 minimal vertical connection plus the first release `0.1` identity slice.
@@ -19,8 +19,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Owner-isolated device inventory and opaque local Workspace bindings. Conversations persist the
   selected binding; Projects and Chat list its online, changed, missing, or error state and lazily
   browse the local tree through the authenticated runtime.
-- The six existing Spring AI Workspace callbacks now route transparently to either server storage or
-  Nexo Desktop. The local implementation remains read-only and enforces bounded output, relative-path
+- The Spring AI Workspace callbacks now route transparently to either server storage or Nexo
+  Desktop. The local implementation provides bounded reads and explicit-request file writes and
+  enforces relative-path
   containment, sensitive/binary/oversize denial, ignored dependency/build trees, fixed Git argument
   arrays, task evidence, and server audit. Project files are not copied to the server. See D-033.
 
@@ -138,7 +139,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   the user attaches it to Chat, a bounded excerpt is deliberately sent inside each new message to the
   selected provider and displayed as message provenance. Detaching stops new inclusion; already sent
   excerpts remain in that conversation's history. Workspace file reads are a separate server-side,
-  permission-resolved Agent capability; Project/Cowork writes and commands remain unavailable.
+  permission-resolved Agent capability; arbitrary Project/Cowork commands remain unavailable.
 - Settings now uses a responsive two-column workspace layout with sticky section navigation on
   desktop and horizontal overflow-safe navigation on compact screens. Existing profile, security,
   preferences, provider, and usage components remain the owners of their implemented behavior.
@@ -477,8 +478,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   navigation, and thinking-only provider completions retry once without reasoning rather than being
   stored as empty successful answers. Plans and sanitized tool evidence persist on
   the assistant message, stream live, and
-  restore after navigation or reload. Bounded server Workspace reads and fixed read-only Git
-  inspection are now available conditionally; terminal, browser, write actions, the complete
+  restore after navigation or reload. Bounded server Workspace reads, single-file governed writes,
+  and fixed read-only Git inspection are now available conditionally; terminal, browser, the complete
   approval Permission Engine, MCP secrets/configuration, resumable backend-restart
   execution, and multi-agent workers remain intentionally unavailable. Image cancellation,
   resumable ComfyUI jobs after backend restart, source-image editing, and remote image providers are
@@ -493,11 +494,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Explicit Markdown links, `[[wikilinks]]`, tags, frontmatter, and user-approved relationships are not
   parsed into graph edges yet. The current semantic links are inferred from chunk embeddings and are
   deliberately labeled separately from authored relationships.
-- Agent mode conditionally attaches six read-only Spring AI Workspace callbacks for the persisted
+- Agent mode conditionally attaches bounded Spring AI Workspace callbacks for the persisted
   conversation Workspace: file listing/read/search, Git status/diff, and project inspection. They
   reuse permission resolution, bounded calls, duplicate denial, cancellation, sanitized evidence,
-  Tasks, and audit. File writes, arbitrary commands, Git mutation, approvals, artifacts, and worker
-  delegation remain deferred. See D-032 and [Server workspaces](SERVER_WORKSPACES.md).
+  Tasks, and audit. Direct explicit write requests can additionally attach an atomic, SHA-protected
+  `workspace_write_file` callback. Arbitrary commands, Git mutation, persistent approvals,
+  multi-file transactions, artifacts, and worker delegation remain deferred. See D-032 and
+  [Server workspaces](SERVER_WORKSPACES.md).
 - No retry-without-reupload endpoint exists; retrying a failed source means re-selecting and
   re-uploading the same file.
 - The Ollama embedding smoke test convention (`OllamaEmbeddingClient` against a real local Ollama with

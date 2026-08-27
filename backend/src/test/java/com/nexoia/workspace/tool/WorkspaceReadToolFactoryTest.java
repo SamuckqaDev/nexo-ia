@@ -12,6 +12,7 @@ import com.nexoia.provider.dto.ToolExecutionEvidence;
 import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.dto.WorkspaceToolScope;
+import com.nexoia.workspace.config.WorkspaceProperties;
 import com.nexoia.workspace.dto.WorkspaceFileResponse;
 import com.nexoia.workspace.dto.WorkspaceTreeEntryResponse;
 import com.nexoia.workspace.dto.WorkspaceTreeResponse;
@@ -27,13 +28,17 @@ import com.nexoia.workspace.service.WorkspaceGitReadService;
 import com.nexoia.workspace.service.WorkspaceInspectionService;
 import com.nexoia.workspace.service.WorkspacePathResolver;
 import com.nexoia.workspace.service.WorkspaceSearchService;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -47,6 +52,9 @@ class WorkspaceReadToolFactoryTest {
     @Mock private WorkspaceGitReadService git;
     @Mock private WorkspacePathResolver pathResolver;
     @Mock private AuditService audit;
+    @Mock private LocalWorkspaceToolGateway localGateway;
+
+    @TempDir Path temporaryDirectory;
 
     private WorkspaceReadToolFactory factory;
     private Workspace workspace;
@@ -82,7 +90,8 @@ class WorkspaceReadToolFactoryTest {
                 pathResolver,
                 new WorkspaceContentPolicy(),
                 audit,
-                Clock.fixed(Instant.parse("2026-08-26T12:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-08-26T12:00:00Z"), ZoneOffset.UTC),
+                localGateway);
     }
 
     @Test
@@ -159,5 +168,103 @@ class WorkspaceReadToolFactoryTest {
         assertThat(result).contains("DENIED").contains("content policy");
         assertThat(session.evidence()).extracting(ToolExecutionEvidence::status)
                 .containsExactly(ToolExecutionStatus.DENIED);
+    }
+
+    @Test
+    void exposesAndExecutesTheWriteToolOnlyForAnExplicitlyAuthorizedScope() {
+        WorkspaceToolScope writeScope = new WorkspaceToolScope(
+                scope.userId(),
+                scope.conversationId(),
+                scope.assistantMessageId(),
+                scope.correlationId(),
+                scope.workspaceId(),
+                scope.workspaceName(),
+                WorkspaceAccessMode.WRITE_WITH_APPROVAL,
+                true,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "local-1",
+                true);
+        when(localGateway.writeFile(eq(writeScope), any())).thenReturn(new WorkspaceWriteFileResult(
+                ToolExecutionStatus.COMPLETED,
+                "hello.html",
+                true,
+                15L,
+                "abc",
+                "created"));
+        WorkspaceReadToolSession session = factory.open(
+                writeScope, ToolExecutionObserver.NOOP, () -> false);
+
+        assertThat(session.callbacks())
+                .extracting(callback -> callback.getToolDefinition().name())
+                .contains(WorkspaceReadToolFactory.WRITE_FILE);
+        String result = session.callbacks().stream()
+                .filter(callback -> WorkspaceReadToolFactory.WRITE_FILE.equals(
+                        callback.getToolDefinition().name()))
+                .findFirst()
+                .orElseThrow()
+                .call("{\"path\":\"hello.html\",\"content\":\"<h1>Hello</h1>\"}");
+
+        assertThat(result).contains("COMPLETED", "hello.html", "abc");
+        assertThat(session.evidence()).extracting(ToolExecutionEvidence::status)
+                .containsExactly(ToolExecutionStatus.COMPLETED);
+    }
+
+    @Test
+    void createsAServerManagedFileAndRejectsABlindOverwrite() throws Exception {
+        Workspace writeWorkspace = Workspace.builder()
+                .id(scope.workspaceId())
+                .ownerId(scope.userId())
+                .name("Nexo")
+                .storageType(WorkspaceStorageType.MANAGED)
+                .accessMode(WorkspaceAccessMode.WRITE_WITH_APPROVAL)
+                .build();
+        when(access.accessibleWorkspace(scope.userId(), scope.workspaceId())).thenReturn(writeWorkspace);
+        when(access.lightStatus(writeWorkspace)).thenReturn(WorkspaceStatus.AVAILABLE);
+        Path root = temporaryDirectory
+                .resolve(scope.userId().toString())
+                .resolve(scope.workspaceId().toString());
+        Files.createDirectories(root);
+        WorkspaceProperties properties = new WorkspaceProperties(
+                temporaryDirectory.toString(), "", temporaryDirectory.resolve("artifacts").toString(),
+                1_048_576L, 500, 100, Duration.ofMinutes(15), Duration.ofMinutes(10));
+        WorkspaceReadToolFactory serverFactory = new WorkspaceReadToolFactory(
+                access,
+                inspection,
+                search,
+                git,
+                new WorkspacePathResolver(properties),
+                new WorkspaceContentPolicy(),
+                audit,
+                Clock.fixed(Instant.parse("2026-08-26T12:00:00Z"), ZoneOffset.UTC),
+                localGateway);
+        WorkspaceToolScope writeScope = new WorkspaceToolScope(
+                scope.userId(), scope.conversationId(), scope.assistantMessageId(), scope.correlationId(),
+                scope.workspaceId(), scope.workspaceName(), WorkspaceAccessMode.WRITE_WITH_APPROVAL,
+                true, null, null, null, true);
+
+        WorkspaceReadToolSession createSession = serverFactory.open(
+                writeScope, ToolExecutionObserver.NOOP, () -> false);
+        String created = createSession.callbacks().stream()
+                .filter(callback -> WorkspaceReadToolFactory.WRITE_FILE.equals(
+                        callback.getToolDefinition().name()))
+                .findFirst()
+                .orElseThrow()
+                .call("{\"path\":\"hello.html\",\"content\":\"<h1>Hello</h1>\"}");
+
+        assertThat(created).contains("COMPLETED", "hello.html");
+        assertThat(Files.readString(root.resolve("hello.html"))).isEqualTo("<h1>Hello</h1>");
+
+        WorkspaceReadToolSession overwriteSession = serverFactory.open(
+                writeScope, ToolExecutionObserver.NOOP, () -> false);
+        String denied = overwriteSession.callbacks().stream()
+                .filter(callback -> WorkspaceReadToolFactory.WRITE_FILE.equals(
+                        callback.getToolDefinition().name()))
+                .findFirst()
+                .orElseThrow()
+                .call("{\"path\":\"hello.html\",\"content\":\"changed\"}");
+
+        assertThat(denied).contains("DENIED", "SHA-256");
+        assertThat(Files.readString(root.resolve("hello.html"))).isEqualTo("<h1>Hello</h1>");
     }
 }

@@ -7,8 +7,9 @@ an explicitly requested personal memory, and call explicitly enabled tools from 
 user's MCP registry. With a server or online Nexo Desktop Workspace selected and `WORKSPACE_READ`
 allowed, it can also list
 and search project files, read safe text excerpts, inspect project metadata, and read Git status or a
-one-file diff. It cannot edit files, run arbitrary terminal commands, write Git state, or delegate to
-workers.
+one-file diff. For a direct and explicit Agent request, it can also create or replace one bounded
+Workspace file through `workspace_write_file`; this is not a shell and does not grant standing write
+access. It cannot run arbitrary terminal commands, write Git state, or delegate to workers.
 
 ## Source-backed framework choices
 
@@ -76,7 +77,8 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Tool loop | None | Spring AI direct or progressive advisor, selected by catalog size |
 | External MCP tools | None | Explicitly selected, governed callbacks |
 | Server/Desktop Workspace reads | None | Conditional bounded file/search/Git inspection callbacks |
-| Native write/system tools | None | None |
+| Governed Workspace file write | None | Explicit request only; bounded, audited, SHA-protected callback |
+| Native command/system tools | None | None |
 
 The composer remains writable in Agent mode and includes a compact **Agent context** inspector. The
 Chat/Agent selection persists across navigation, so visiting the MCP Hub cannot silently downgrade
@@ -147,6 +149,15 @@ evidence, and audit records. The model receives bounded real results without too
 produce the completed analysis rather than a future-tense plan. A short `continue`/`continua` resumes
 the preceding project-analysis intent and runs the same governed preflight.
 
+Explicit Workspace write requests have a separate mandatory evidence gate. Nexo resolves terse
+continuations such as **faça**, **execute**, or **continue** against the latest unresolved user
+objective before planning or authorizing tools. The selected Skill remains supporting context and
+cannot turn the objective into a different task. When authorized, the runtime discloses
+`workspace_write_file` and buffers any success answer until that callback returns completed evidence.
+Printing HTML, a shell command, or tool-call-shaped JSON is treated as prose, not execution. A model
+that ignores or cannot call the tool produces a controlled failed Agent run instead of a false
+completion. Existing files must first be read so their current SHA-256 can be supplied to the write.
+
 Knowledge-only requests have an additional output boundary because tool execution alone does not
 prove that the model attributed the result correctly. Nexo buffers the answer, accepts a URL only
 when the exact URL occurs in a returned Vault excerpt, and replaces unsupported links with a bounded
@@ -171,7 +182,8 @@ extraction, semantic selection, editing, expiration, and shared scopes remain de
 
 Workspace callbacks are attached from the conversation's persisted `workspaceId`, never from a
 browser-local active-folder value. Permission resolution must allow `WORKSPACE_READ`, and every call
-reauthorizes ownership and live availability. The six callbacks share a 12-call request cap,
+reauthorizes ownership and live availability. The read callbacks and optional governed write
+callback share a 12-call request cap,
 duplicate-argument denial, sanitized evidence and audit. Explicit project/repository inspection is
 evidence-gated in the same way as MCP, Vault, and memory work. See
 [Server workspaces](SERVER_WORKSPACES.md).
@@ -208,11 +220,12 @@ answer, and it does not repeat a completed tool effect merely to recover missing
 
 ## Deliberately deferred
 
-- Workspace/file writes and arbitrary command execution;
+- arbitrary command execution, Git mutation, and multi-file write transactions;
 - native terminal, Git, browser, email, and database tools;
 - MCP credentials/OAuth, configuration-dependent Docker entries, resources/prompts, and a Companion
   bridge for a containerized backend;
-- approval gates and reversible write transactions;
+- persistent/interactive approval records and reversible write transactions beyond the current
+  fresh-request plus SHA-256 write guard;
 - resumable intermediate tool/model state across backend restarts;
 - evaluator/optimizer loops and multi-agent orchestrator/worker execution;
 - authored Vault backlinks, wikilinks, and relationship-aware graph expansion.

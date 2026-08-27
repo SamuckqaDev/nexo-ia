@@ -71,4 +71,16 @@ class AgentTaskDecomposerTest {
                                 "Ler a documentação e o manifest principal", "workspace_read_file"),
                         tuple("Consolidar diagnóstico e prioridades", null));
     }
+
+    @Test
+    void expandsAFileCreationIntoAWriteAndVerificationPlan() {
+        assertThat(decomposer.decompose("Crie hello.html na raiz do projeto"))
+                .extracting(AgentTaskDraft::title, AgentTaskDraft::requiredToolPrefix)
+                .containsExactly(
+                        tuple("Confirmar a alteração solicitada", null),
+                        tuple("Verificar o destino no Workspace", "workspace_write_file"),
+                        tuple("Gravar o arquivo solicitado", "workspace_write_file"),
+                        tuple("Validar a alteração", "workspace_write_file"),
+                        tuple("Apresentar o resultado", null));
+    }
 }

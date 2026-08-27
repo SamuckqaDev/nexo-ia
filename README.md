@@ -60,7 +60,7 @@ Override `NEXO_SMOKE_OLLAMA_URL` and `NEXO_SMOKE_OLLAMA_MODEL` when your endpoin
 - [Local image generation](docs/IMAGE_GENERATION.md)
 - [Enterprise architecture and target product shape](docs/ENTERPRISE_ARCHITECTURE.md)
 - [Device management and execution audit](docs/DEVICE_MANAGEMENT.md)
-- [Server workspaces and read-only Agent tools](docs/SERVER_WORKSPACES.md)
+- [Server workspaces and governed Agent tools](docs/SERVER_WORKSPACES.md)
 - [Technology stack](docs/TECH_STACK.md)
 - [Accepted stack baseline](docs/STACK_BASELINE.md)
 - [Cross-platform build and distribution profiles](docs/DISTRIBUTION_BUILDS.md)
@@ -165,7 +165,7 @@ NEXO_RENDERER_URL=http://127.0.0.1:5173 npm run dev
 
 Open Projects inside Nexo Desktop, pair it from the authenticated session, and choose a local folder
 for an `UNBOUND` Workspace. The absolute path remains on the device; the server receives only an
-opaque binding and dispatches the existing read-only Spring AI Workspace tools over the authenticated
+opaque binding and dispatches bounded Spring AI Workspace reads and explicit-request file writes over the authenticated
 runtime channel. See [Device management](docs/DEVICE_MANAGEMENT.md).
 
 To use that Companion from a second computer on the same trusted network, opt the server into a

@@ -522,3 +522,23 @@ options considered, the selected approach, and its consequences.
   credential rotation remain separate governed increments. This mirrors the public agent pattern of
   a model-visible tool contract plus a local execution environment; it does not claim parity with
   proprietary Codex infrastructure.
+
+## D-034 — Require runtime evidence for a bounded Workspace file write
+
+- **Status:** accepted
+- **Context:** project analysis was executable, but implementation requests still let a model print
+  HTML, shell commands, or tool-call-shaped JSON and then claim completion. Terse confirmations such
+  as **faça** also lost the preceding concrete objective, while a selected Skill could become the
+  apparent task. A general shell would be too broad for the first write increment.
+- **Decision:** add `workspace_write_file` to both server-managed and paired-Desktop adapters. Attach
+  it only in Agent mode when the persisted Workspace allows writes, the resolved profile permits or
+  requires approval for `WORKSPACE_WRITE`, and the effective user objective explicitly requests a
+  file/project change. Resolve short continuations against the latest concrete user request and keep
+  selected Skills as auxiliary context. Treat that fresh direct request as authorization for this
+  request only. Limit each call to one relative UTF-8 file of at most 1 MiB, reject sensitive paths,
+  traversal and symlinks, write through a temporary file, and require the current SHA-256 before
+  replacing an existing file. Buffer the assistant answer until completed tool evidence exists.
+- **Consequence:** Nexo can create a requested file in the selected project instead of telling the
+  user to run a command. A model that only prints instructions or ignores the callback produces a
+  failed Agent run, never false completion. This does not authorize shell execution, Git mutation,
+  recursive edits, persistent approvals, rollback, or multi-file transactions.

@@ -50,4 +50,29 @@ class LocalWorkspaceToolGatewayTest {
         verify(sessions).request(eq(deviceId), eq(correlationId), eq(assistantId),
                 eq("workspace.readFile"), any(), any(Duration.class));
     }
+
+    @Test
+    void dispatchesAWriteWithoutExposingTheDevicePath() {
+        ObjectMapper objectMapper = JsonMapper.builder().build();
+        LocalWorkspaceToolGateway gateway = new LocalWorkspaceToolGateway(sessions, objectMapper);
+        UUID deviceId = UUID.randomUUID();
+        UUID correlationId = UUID.randomUUID();
+        UUID assistantId = UUID.randomUUID();
+        WorkspaceToolScope scope = new WorkspaceToolScope(
+                UUID.randomUUID(), UUID.randomUUID(), assistantId, correlationId,
+                UUID.randomUUID(), "nexo", WorkspaceAccessMode.WRITE_WITH_APPROVAL, true,
+                UUID.randomUUID(), deviceId, "local-1", true);
+        WorkspaceWriteFileResult expected = new WorkspaceWriteFileResult(
+                ToolExecutionStatus.COMPLETED, "hello.html", true, 15L, "hash", "created");
+        when(sessions.request(eq(deviceId), eq(correlationId), eq(assistantId),
+                eq("workspace.writeFile"), any(), any(Duration.class)))
+                .thenReturn(objectMapper.valueToTree(expected));
+
+        WorkspaceWriteFileResult result = gateway.writeFile(
+                scope, new WorkspaceWriteFileInput("hello.html", "<h1>Hello</h1>", null));
+
+        assertThat(result).isEqualTo(expected);
+        verify(sessions).request(eq(deviceId), eq(correlationId), eq(assistantId),
+                eq("workspace.writeFile"), any(), any(Duration.class));
+    }
 }

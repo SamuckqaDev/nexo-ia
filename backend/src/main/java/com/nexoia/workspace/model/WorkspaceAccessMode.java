@@ -11,10 +11,10 @@ public enum WorkspaceAccessMode {
     /** Files may be listed, searched and read. No write, no command. */
     READ_ONLY,
 
-    /** Read, plus proposed file changes that always pass through preview and approval. */
+    /** Read, plus bounded file changes authorized by a fresh explicit request and runtime guards. */
     WRITE_WITH_APPROVAL,
 
-    /** Read and approved writes, plus allowlisted commands that pass through approval. */
+    /** Read and governed writes, plus allowlisted commands that pass through a separate approval. */
     COMMANDS_WITH_APPROVAL;
 
     public boolean allowsWrite() {

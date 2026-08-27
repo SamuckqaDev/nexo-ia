@@ -25,7 +25,10 @@ export const listServerWorkspaces = (): Promise<ServerWorkspace[]> =>
     .then(({ data }) => (data.data ?? []).map((item: unknown) => serverWorkspaceSchema.parse(item)));
 
 export const createServerWorkspace = (input: CreateServerWorkspaceInput): Promise<ServerWorkspace> =>
-  apiClient.post<BaseResponse<unknown>>("/workspaces", { name: input.name.trim() })
+  apiClient.post<BaseResponse<unknown>>("/workspaces", {
+    name: input.name.trim(),
+    accessMode: input.accessMode
+  })
     .then(({ data }) => first(data, (value) => serverWorkspaceSchema.parse(value)))
     .then((created: ServerWorkspace) => input.storageType === "UNBOUND"
       ? created
