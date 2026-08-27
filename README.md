@@ -130,6 +130,12 @@ To start the complete local development stack and open the Electron Companion wi
 The launcher validates Node.js 24, starts the existing Compose development stack, waits for the Vite
 renderer, installs `desktop/` dependencies when missing, builds the Electron main/preload runtime,
 and opens the application. Closing Electron intentionally leaves the development containers running.
+Startup reuses healthy containers, retries the core stack without deleting named volumes, and makes
+three recovery attempts for each Docker MCP sidecar. If Docker's remote MCP catalog is temporarily
+unavailable, Chat, Vaults, and Electron still start in an explicitly reported degraded mode; rerun
+the launcher later to recover the optional MCP servers. When another application already owns a
+development port, startup chooses the next free port, records it in the private `.env`, and launches
+Electron against the effective frontend address instead of stopping or terminating the other app.
 Use `--skip-stack` when Compose is already running, `--dry-run` to validate without starting
 anything, or connect the desktop application to an existing trusted development server:
 

@@ -7,6 +7,7 @@ DESKTOP_ROOT="$PROJECT_ROOT/desktop"
 ENVIRONMENT_FILE="$PROJECT_ROOT/.env"
 
 renderer_url="${NEXO_RENDERER_URL:-}"
+renderer_url_explicit=false
 skip_stack=false
 force_install=false
 dry_run=false
@@ -94,6 +95,7 @@ while [[ $# -gt 0 ]]; do
     --renderer-url)
       [[ $# -ge 2 ]] || fail "--renderer-url requires a URL."
       renderer_url="$2"
+      renderer_url_explicit=true
       skip_stack=true
       shift 2
       ;;
@@ -121,7 +123,10 @@ done
 
 validate_node
 
-if [[ -z "$renderer_url" ]]; then
+if [[ -n "$renderer_url" ]]; then
+  renderer_url_explicit=true
+fi
+if [[ "$renderer_url_explicit" == false ]]; then
   frontend_port="$(read_environment_value NEXO_FRONTEND_DEV_PORT 5173)"
   renderer_url="http://127.0.0.1:$frontend_port"
 fi
@@ -139,6 +144,11 @@ fi
 if [[ "$skip_stack" == false ]]; then
   log "Starting the local Nexo stack"
   "$PROJECT_ROOT/scripts/dev-up.sh"
+  if [[ "$renderer_url_explicit" == false ]]; then
+    frontend_port="$(read_environment_value NEXO_FRONTEND_DEV_PORT 5173)"
+    renderer_url="http://127.0.0.1:$frontend_port"
+    validate_renderer_url
+  fi
 fi
 
 wait_for_renderer

@@ -84,6 +84,13 @@ Compose stack, waits for the Vite renderer, installs missing desktop dependencie
 Electron runtime, and keeps Electron in the foreground. `--skip-stack` reuses a running local stack;
 `--renderer-url http://<server-ip>:5173` loads a trusted remote development renderer without starting
 local containers; and `--dry-run` validates the launcher configuration without opening a window.
+The shared startup reuses healthy containers, retries failed core services without deleting named
+volumes, and retries each Docker MCP Gateway sidecar three times. MCP catalog availability is not a
+core startup dependency: when Docker's remote catalog cannot be downloaded, the application starts
+in a reported degraded mode and a later launcher run retries the optional sidecars. Conflicting
+backend, frontend, PostgreSQL, or Mailpit development ports are moved to the next free local port and
+persisted in the private `.env`; the launcher then reads the effective frontend port before opening
+Electron. It never stops a container or process that belongs to another project.
 Plain HTTP remains limited to a trusted development network.
 
 The packaged static renderer still requires a production server-origin/bootstrap contract before it
