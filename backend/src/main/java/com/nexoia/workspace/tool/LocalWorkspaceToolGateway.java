@@ -30,8 +30,18 @@ public class LocalWorkspaceToolGateway {
         return execute(scope, "workspace.readFile", input, WorkspaceReadFileResult.class);
     }
 
+    /** Internal raw read used to compute a server-owned preview; it is never registered as an AI tool. */
+    public WorkspaceRawFileResult readRawFile(WorkspaceToolScope scope, WorkspaceReadFileInput input) {
+        return execute(scope, "workspace.readFileRaw", input, WorkspaceRawFileResult.class);
+    }
+
     public WorkspaceWriteFileResult writeFile(WorkspaceToolScope scope, WorkspaceWriteFileInput input) {
         return execute(scope, "workspace.writeFile", input, WorkspaceWriteFileResult.class);
+    }
+
+    public WorkspaceDeleteFileResult deleteFile(
+            WorkspaceToolScope scope, WorkspaceDeleteFileRuntimeInput input) {
+        return execute(scope, "workspace.deleteFile", input, WorkspaceDeleteFileResult.class);
     }
 
     public WorkspaceSearchResult search(WorkspaceToolScope scope, WorkspaceSearchInput input) {

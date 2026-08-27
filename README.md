@@ -165,8 +165,10 @@ NEXO_RENDERER_URL=http://127.0.0.1:5173 npm run dev
 
 Open Projects inside Nexo Desktop, pair it from the authenticated session, and choose a local folder
 for an `UNBOUND` Workspace. The absolute path remains on the device; the server receives only an
-opaque binding and dispatches bounded Spring AI Workspace reads and explicit-request file writes over the authenticated
-runtime channel. See [Device management](docs/DEVICE_MANAGEMENT.md).
+opaque binding and dispatches bounded Spring AI Workspace reads plus final hash-protected file I/O
+over the authenticated runtime channel. The server constructs the exact diff, persists its private
+before/after artifact, and waits for Apply or Deny in the conversation Artifacts panel before
+changing the file. See [Server workspaces](docs/SERVER_WORKSPACES.md).
 
 To use that Companion from a second computer on the same trusted network, opt the server into a
 non-loopback bind in its private `.env`, then restart the stack:

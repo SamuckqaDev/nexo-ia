@@ -13,6 +13,8 @@ import com.nexoia.provider.dto.WorkspaceToolScope;
 import com.nexoia.workspace.dto.WorkspaceFileResponse;
 import com.nexoia.workspace.dto.WorkspaceGitSummary;
 import com.nexoia.workspace.dto.WorkspaceTreeResponse;
+import com.nexoia.workspace.change.exception.WorkspaceChangeStateException;
+import com.nexoia.workspace.change.service.WorkspaceChangeService;
 import com.nexoia.workspace.exception.WorkspaceAccessDeniedException;
 import com.nexoia.workspace.exception.WorkspaceFileNotTextException;
 import com.nexoia.workspace.exception.WorkspaceFileTooLargeException;
@@ -26,14 +28,7 @@ import com.nexoia.workspace.service.WorkspaceGitReadService;
 import com.nexoia.workspace.service.WorkspaceInspectionService;
 import com.nexoia.workspace.service.WorkspacePathResolver;
 import com.nexoia.workspace.service.WorkspaceSearchService;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -48,6 +43,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
@@ -62,7 +58,9 @@ public class WorkspaceReadToolFactory {
 
     public static final String LIST_FILES = "workspace_list_files";
     public static final String READ_FILE = "workspace_read_file";
-    public static final String WRITE_FILE = "workspace_write_file";
+    public static final String APPLY_PATCH = "workspace_apply_patch";
+    public static final String CREATE_FILE = "workspace_create_file";
+    public static final String DELETE_FILE = "workspace_delete_file";
     public static final String SEARCH = "workspace_search";
     public static final String GIT_STATUS = "workspace_git_status";
     public static final String GIT_DIFF = "workspace_git_diff";
@@ -71,7 +69,6 @@ public class WorkspaceReadToolFactory {
     private static final int DEFAULT_LIST_LIMIT = 100;
     private static final int DEFAULT_SEARCH_LIMIT = 20;
     private static final int MAX_QUERY_LENGTH = 1_000;
-    private static final int MAX_WRITE_BYTES = 1_048_576;
 
     private final WorkspaceAccessService access;
     private final WorkspaceInspectionService inspection;
@@ -82,6 +79,7 @@ public class WorkspaceReadToolFactory {
     private final AuditService audit;
     private final Clock clock;
     private final LocalWorkspaceToolGateway localGateway;
+    private final WorkspaceChangeService changeService;
 
     @Autowired
     public WorkspaceReadToolFactory(
@@ -93,7 +91,8 @@ public class WorkspaceReadToolFactory {
             WorkspaceContentPolicy contentPolicy,
             AuditService audit,
             Clock clock,
-            LocalWorkspaceToolGateway localGateway) {
+            LocalWorkspaceToolGateway localGateway,
+            WorkspaceChangeService changeService) {
         this.access = access;
         this.inspection = inspection;
         this.search = search;
@@ -103,6 +102,20 @@ public class WorkspaceReadToolFactory {
         this.audit = audit;
         this.clock = clock;
         this.localGateway = localGateway;
+        this.changeService = changeService;
+    }
+
+    public WorkspaceReadToolFactory(
+            WorkspaceAccessService access,
+            WorkspaceInspectionService inspection,
+            WorkspaceSearchService search,
+            WorkspaceGitReadService git,
+            WorkspacePathResolver pathResolver,
+            WorkspaceContentPolicy contentPolicy,
+            AuditService audit,
+            Clock clock,
+            LocalWorkspaceToolGateway localGateway) {
+        this(access, inspection, search, git, pathResolver, contentPolicy, audit, clock, localGateway, null);
     }
 
     public WorkspaceReadToolFactory(
@@ -114,7 +127,7 @@ public class WorkspaceReadToolFactory {
             WorkspaceContentPolicy contentPolicy,
             AuditService audit,
             Clock clock) {
-        this(access, inspection, search, git, pathResolver, contentPolicy, audit, clock, null);
+        this(access, inspection, search, git, pathResolver, contentPolicy, audit, clock, null, null);
     }
 
     public WorkspaceReadToolSession open(
@@ -168,103 +181,101 @@ public class WorkspaceReadToolFactory {
                         .description("Inspect the attached project stack, branch, and HEAD without changing it")
                         .inputType(WorkspaceProjectQueryInput.class)
                         .build()));
-        if (scope.writeAuthorized()) {
+        if (scope.writeAuthorized() && changeService != null) {
             callbacks.add(FunctionToolCallback.builder(
-                            WRITE_FILE,
-                            (WorkspaceWriteFileInput input, ToolContext ignored) -> writeFile(
+                            APPLY_PATCH,
+                            (WorkspaceApplyPatchInput input, ToolContext ignored) -> proposePatch(
                                     scope, observer, cancelled, evidence, calls, seenCalls, input))
-                    .description("Create one bounded UTF-8 Workspace file, or replace an existing file only "
-                            + "with the current SHA-256 returned by workspace_read_file")
-                    .inputType(WorkspaceWriteFileInput.class)
+                    .description("Propose a surgical server-side edit of one existing file. oldString must match "
+                            + "exactly once unless replaceAll is true. Nexo generates the preview and waits for "
+                            + "approval in Artifacts before changing bytes.")
+                    .inputType(WorkspaceApplyPatchInput.class)
+                    .build());
+            callbacks.add(FunctionToolCallback.builder(
+                            CREATE_FILE,
+                            (WorkspaceCreateFileInput input, ToolContext ignored) -> proposeCreate(
+                                    scope, observer, cancelled, evidence, calls, seenCalls, input))
+                    .description("Propose creation of one new bounded UTF-8 file. The server generates a preview "
+                            + "and waits for approval in Artifacts; it never overwrites an existing file.")
+                    .inputType(WorkspaceCreateFileInput.class)
+                    .build());
+            callbacks.add(FunctionToolCallback.builder(
+                            DELETE_FILE,
+                            (WorkspaceDeleteFileInput input, ToolContext ignored) -> proposeDelete(
+                                    scope, observer, cancelled, evidence, calls, seenCalls, input))
+                    .description("Propose deletion of one explicit regular file. The server captures the current "
+                            + "hash and recovery content and waits for approval in Artifacts.")
+                    .inputType(WorkspaceDeleteFileInput.class)
                     .build());
         }
         return new WorkspaceReadToolSession(callbacks, evidence);
     }
 
-    private WorkspaceWriteFileResult writeFile(
+    private WorkspaceChangeProposalResult proposePatch(
             WorkspaceToolScope scope,
             ToolExecutionObserver observer,
             BooleanSupplier cancelled,
             List<ToolExecutionEvidence> evidence,
             AtomicInteger calls,
             Set<String> seenCalls,
-            WorkspaceWriteFileInput input) {
-        Call call = begin(scope, observer, WRITE_FILE, input, cancelled, calls, seenCalls);
-        if (!call.allowed()
-                || !scope.writeAuthorized()
-                || input == null
-                || input.path() == null
-                || input.path().isBlank()
-                || input.content() == null) {
+            WorkspaceApplyPatchInput input) {
+        return proposeChange(
+                scope, observer, cancelled, evidence, calls, seenCalls, APPLY_PATCH, input,
+                () -> changeService.proposePatch(scope, input));
+    }
+
+    private WorkspaceChangeProposalResult proposeCreate(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceCreateFileInput input) {
+        return proposeChange(
+                scope, observer, cancelled, evidence, calls, seenCalls, CREATE_FILE, input,
+                () -> changeService.proposeCreate(scope, input));
+    }
+
+    private WorkspaceChangeProposalResult proposeDelete(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            WorkspaceDeleteFileInput input) {
+        return proposeChange(
+                scope, observer, cancelled, evidence, calls, seenCalls, DELETE_FILE, input,
+                () -> changeService.proposeDelete(scope, input));
+    }
+
+    private WorkspaceChangeProposalResult proposeChange(
+            WorkspaceToolScope scope,
+            ToolExecutionObserver observer,
+            BooleanSupplier cancelled,
+            List<ToolExecutionEvidence> evidence,
+            AtomicInteger calls,
+            Set<String> seenCalls,
+            String toolName,
+            Object input,
+            Supplier<WorkspaceChangeProposalResult> proposal) {
+        Call call = begin(scope, observer, toolName, input, cancelled, calls, seenCalls);
+        if (!call.allowed() || !scope.writeAuthorized()) {
             finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
-            return failedWrite(ToolExecutionStatus.DENIED,
-                    "Workspace write was not authorized by this explicit user request.");
-        }
-        byte[] content = input.content().getBytes(StandardCharsets.UTF_8);
-        if (content.length > MAX_WRITE_BYTES || input.content().indexOf('\0') >= 0) {
-            finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
-            return failedWrite(ToolExecutionStatus.DENIED,
-                    "Workspace writes are limited to bounded UTF-8 text.");
+            return failedProposal("Workspace change preview was not authorized by this request.");
         }
         try {
-            if (scope.localDevice()) {
-                WorkspaceWriteFileResult result = localGateway.writeFile(scope, input);
-                finish(scope, observer, evidence, call, result.status());
-                return result;
-            }
-            Workspace workspace = writableWorkspace(scope);
-            String relativePath = input.path().trim();
-            contentPolicy.requireReadable(relativePath);
-            Path candidate = pathResolver.resolveForCreate(workspace, relativePath);
-            Path target = Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)
-                    ? pathResolver.resolveExisting(workspace, relativePath)
-                    : candidate;
-            Path parent = target.getParent();
-            if (parent == null || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)) {
-                throw new WorkspaceInvalidPathException();
-            }
-            boolean created = !Files.exists(target, LinkOption.NOFOLLOW_LINKS);
-            if (!created) {
-                if (Files.isSymbolicLink(target) || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
-                    throw new WorkspaceAccessDeniedException();
-                }
-                if (Files.size(target) > MAX_WRITE_BYTES) {
-                    throw new WorkspaceFileTooLargeException();
-                }
-                String currentSha256 = digestBytes(Files.readAllBytes(target));
-                if (input.expectedSha256() == null
-                        || !currentSha256.equalsIgnoreCase(input.expectedSha256().trim())) {
-                    finish(scope, observer, evidence, call, ToolExecutionStatus.DENIED);
-                    return failedWrite(ToolExecutionStatus.DENIED,
-                            "Existing files require the current SHA-256 from workspace_read_file.");
-                }
-            }
-            Path temporary = Files.createTempFile(parent, ".nexo-write-", ".tmp");
-            try {
-                Files.write(temporary, content, StandardOpenOption.TRUNCATE_EXISTING);
-                moveAtomically(temporary, target);
-            } finally {
-                Files.deleteIfExists(temporary);
-            }
-            String sha256 = digestBytes(content);
-            finish(scope, observer, evidence, call, ToolExecutionStatus.COMPLETED);
-            return new WorkspaceWriteFileResult(
-                    ToolExecutionStatus.COMPLETED,
-                    relativePath,
-                    created,
-                    content.length,
-                    sha256,
-                    created ? "Workspace file created successfully." : "Workspace file replaced successfully.");
+            WorkspaceChangeProposalResult result = proposal.get();
+            finish(scope, observer, evidence, call, result.status());
+            return result;
         } catch (RuntimeException exception) {
             ToolExecutionStatus status = finishException(scope, observer, evidence, call, exception);
-            return failedWrite(status, status == ToolExecutionStatus.DENIED
-                    ? "Workspace write was denied by the path or content policy."
-                    : "Workspace file could not be written.");
-        } catch (IOException exception) {
-            log.warn("[NEXO-BACK][WORKSPACE] Write tool failed workspaceId={} reason={}",
-                    scope.workspaceId(), exception.getClass().getSimpleName());
-            finish(scope, observer, evidence, call, ToolExecutionStatus.UNAVAILABLE);
-            return failedWrite(ToolExecutionStatus.UNAVAILABLE, "Workspace file could not be written.");
+            return new WorkspaceChangeProposalResult(
+                    status, null, null, null, null, null, null, true,
+                    status == ToolExecutionStatus.DENIED
+                            ? "Workspace change preview was denied by path, content, or exact-match policy."
+                            : "Workspace change preview could not be created.");
         }
     }
 
@@ -545,24 +556,9 @@ public class WorkspaceReadToolFactory {
         return workspace;
     }
 
-    private WorkspaceWriteFileResult failedWrite(ToolExecutionStatus status, String message) {
-        return new WorkspaceWriteFileResult(status, null, false, 0L, null, message);
-    }
-
-    private void moveAtomically(Path source, Path target) throws IOException {
-        try {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
-    private String digestBytes(byte[] value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+    private WorkspaceChangeProposalResult failedProposal(String message) {
+        return new WorkspaceChangeProposalResult(
+                ToolExecutionStatus.DENIED, null, null, null, null, null, null, true, message);
     }
 
     private WorkspaceListFilesResult failedList(
@@ -593,6 +589,7 @@ public class WorkspaceReadToolFactory {
                         || exception instanceof WorkspaceInvalidPathException
                         || exception instanceof WorkspaceFileNotTextException
                         || exception instanceof WorkspaceFileTooLargeException
+                        || exception instanceof WorkspaceChangeStateException
                 ? ToolExecutionStatus.DENIED
                 : ToolExecutionStatus.UNAVAILABLE;
         if (status == ToolExecutionStatus.UNAVAILABLE) {

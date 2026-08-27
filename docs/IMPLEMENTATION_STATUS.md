@@ -3,7 +3,7 @@
 ## Current increment
 
 **Current verified foundation — multi-user Agent runtime with optional local Desktop workspace
-inspection and governed file writes.**
+inspection and server-governed, reviewable file changes.**
 
 The first implementation branch is `feat/project-scaffold`. It establishes the source layout and a
 minimal vertical connection plus the first release `0.1` identity slice.
@@ -20,8 +20,8 @@ minimal vertical connection plus the first release `0.1` identity slice.
   selected binding; Projects and Chat list its online, changed, missing, or error state and lazily
   browse the local tree through the authenticated runtime.
 - The Spring AI Workspace callbacks now route transparently to either server storage or Nexo
-  Desktop. The local implementation provides bounded reads and explicit-request file writes and
-  enforces relative-path
+  Desktop. The local implementation provides bounded reads plus hash-protected final file I/O while
+  the server owns exact change proposals, diffs, approval state, and rollback. Both paths enforce relative-path
   containment, sensitive/binary/oversize denial, ignored dependency/build trees, fixed Git argument
   arrays, task evidence, and server audit. Project files are not copied to the server. See D-033.
 - Workspace execution intent is now authoritative on the server instead of depending on the visual
@@ -31,6 +31,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
   the actual model, and keeps the user's preferred conversation model unchanged. The composer no
   longer blocks this safe fallback; a provider with no tool-capable model fails before spending
   inference tokens. See D-035.
+- Model-visible whole-file writes have been replaced by `workspace_apply_patch`,
+  `workspace_create_file`, and `workspace_delete_file`. They persist a private server-side
+  before/after artifact in `PENDING_APPROVAL`; the conversation Artifacts panel shows the diff and
+  exposes compact Apply, Deny, and conflict-aware Revert actions. Approval reauthorizes the user,
+  Workspace, binding, and SHA baseline before any byte changes. See D-036.
 
 - Java 25 Spring Boot backend definition with the accepted Spring Boot and Spring AI BOM lines.
 - Public, minimal `GET /api/v1/system` identity endpoint.
@@ -485,7 +490,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   navigation, and thinking-only provider completions retry once without reasoning rather than being
   stored as empty successful answers. Plans and sanitized tool evidence persist on
   the assistant message, stream live, and
-  restore after navigation or reload. Bounded server Workspace reads, single-file governed writes,
+  restore after navigation or reload. Bounded server Workspace reads, reviewable single-file changes,
   and fixed read-only Git inspection are now available conditionally; terminal, browser, the complete
   approval Permission Engine, MCP secrets/configuration, resumable backend-restart
   execution, and multi-agent workers remain intentionally unavailable. Image cancellation,
@@ -504,9 +509,11 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Agent mode conditionally attaches bounded Spring AI Workspace callbacks for the persisted
   conversation Workspace: file listing/read/search, Git status/diff, and project inspection. They
   reuse permission resolution, bounded calls, duplicate denial, cancellation, sanitized evidence,
-  Tasks, and audit. Direct explicit write requests can additionally attach an atomic, SHA-protected
-  `workspace_write_file` callback. Arbitrary commands, Git mutation, persistent approvals,
-  multi-file transactions, artifacts, and worker delegation remain deferred. See D-032 and
+  Tasks, and audit. Direct explicit mutation requests can additionally attach server-side exact
+  patch/create/delete proposal callbacks. The complete diff is persisted privately, approval and
+  denial are durable, application is SHA-protected, and applied changes can be reverted while their
+  result remains unchanged. Arbitrary commands, Git mutation, multi-file transactions, and worker
+  delegation remain deferred. See D-032, D-036, and
   [Server workspaces](SERVER_WORKSPACES.md).
 - No retry-without-reupload endpoint exists; retrying a failed source means re-selecting and
   re-uploading the same file.

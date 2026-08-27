@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
+import { isUtf8 } from "node:buffer";
 import {
   lstat,
   readdir,
@@ -48,7 +49,9 @@ export class WorkspaceTools {
     const input = this.object(payload.input);
     if (method === "workspace.listFiles") return this.listFiles(workspace, input);
     if (method === "workspace.readFile") return this.readTextFile(workspace, input);
+    if (method === "workspace.readFileRaw") return this.readRawTextFile(workspace, input);
     if (method === "workspace.writeFile") return this.writeTextFile(workspace, input);
+    if (method === "workspace.deleteFile") return this.deleteTextFile(workspace, input);
     if (method === "workspace.search") return this.search(workspace, input);
     if (method === "workspace.inspect") return this.inspect(workspace);
     if (method === "git.status") return this.gitStatus(workspace);
@@ -116,7 +119,7 @@ export class WorkspaceTools {
       throw new RuntimeToolError("SENSITIVE_FILE_DENIED", "The requested file cannot be read safely");
     }
     const buffer = await readFile(fullPath);
-    if (buffer.includes(0)) {
+    if (buffer.includes(0) || !isUtf8(buffer)) {
       throw new RuntimeToolError("SENSITIVE_FILE_DENIED", "Binary workspace files are not exposed to the model");
     }
     const content = buffer.toString("utf8");
@@ -136,6 +139,27 @@ export class WorkspaceTools {
       sha256: createHash("sha256").update(buffer).digest("hex"),
       truncated: endLine < lines.length,
       message: "Workspace file read successfully."
+    };
+  }
+
+  private async readRawTextFile(workspace: LocalWorkspaceBinding, input: ToolInput): Promise<unknown> {
+    const path = this.requiredPath(input);
+    this.assertReadableName(path);
+    const fullPath = await this.safeExistingPath(workspace.rootPath, path, true);
+    const info = await stat(fullPath);
+    if (!info.isFile() || info.size > MAX_FILE_BYTES) {
+      throw new RuntimeToolError("SENSITIVE_FILE_DENIED", "The requested file cannot be read safely");
+    }
+    const buffer = await readFile(fullPath);
+    if (buffer.includes(0) || !isUtf8(buffer)) {
+      throw new RuntimeToolError("SENSITIVE_FILE_DENIED", "Binary workspace files are not exposed to the server");
+    }
+    return {
+      status: "COMPLETED",
+      path,
+      content: buffer.toString("utf8"),
+      sha256: createHash("sha256").update(buffer).digest("hex"),
+      message: "Workspace file loaded for a server-generated change preview."
     };
   }
 
@@ -180,6 +204,31 @@ export class WorkspaceTools {
       sizeBytes: bytes.byteLength,
       sha256: createHash("sha256").update(bytes).digest("hex"),
       message: created ? "Workspace file created successfully." : "Workspace file replaced successfully."
+    };
+  }
+
+  private async deleteTextFile(workspace: LocalWorkspaceBinding, input: ToolInput): Promise<unknown> {
+    const path = this.requiredPath(input);
+    this.assertReadableName(path);
+    const target = await this.safeExistingPath(workspace.rootPath, path, true);
+    const info = await stat(target);
+    if (!info.isFile() || info.size > MAX_FILE_BYTES) {
+      throw new RuntimeToolError("COMMAND_DENIED", "Only one bounded regular file can be deleted");
+    }
+    const current = await readFile(target);
+    const currentSha256 = createHash("sha256").update(current).digest("hex");
+    const expectedSha256 = typeof input.expectedSha256 === "string"
+      ? input.expectedSha256.toLowerCase()
+      : "";
+    if (!expectedSha256 || expectedSha256 !== currentSha256) {
+      throw new RuntimeToolError("WRITE_CONFLICT", "The file changed after the approved preview");
+    }
+    await unlink(target);
+    return {
+      status: "COMPLETED",
+      path,
+      previousSha256: currentSha256,
+      message: "Workspace file deleted after server approval."
     };
   }
 

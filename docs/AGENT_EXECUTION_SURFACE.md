@@ -40,6 +40,7 @@ Each Agent run produces reviewable artifacts, streamed into the panel as they ma
 | **Task list / Plan** | `update_plan` revisions (≤12 steps, one `IN_PROGRESS`), with title and observable description | published at run start, revised live |
 | **Tasks** | persisted tool calls and media jobs, each with a safe summary, status, timestamp, duration, and evidence | during execution |
 | **Evidence** | sanitized tool evidence — citations from `search_knowledge`, saved entries from `save_to_vault`, `mcp_*` results | as each tool completes |
+| **Workspace diff** | private server-generated before/after artifact from an exact patch, create, or delete proposal | pending until Apply or Deny; reversible after Apply while hashes still match |
 | **Approvals** | `permission_required` requests with the family, target, and reason; Approve / Deny inline | when a `REQUIRES_APPROVAL` capability is reached |
 | **Walkthrough** | a closing summary: what was done, evidence produced, and how to verify | at terminal state |
 

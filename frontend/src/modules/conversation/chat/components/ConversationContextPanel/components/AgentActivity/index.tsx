@@ -37,6 +37,9 @@ const toolLabel = (toolName: string): string => {
   if (toolName === "workspace_git_status") return "Inspected workspace Git status";
   if (toolName === "workspace_git_diff") return "Read a workspace Git diff";
   if (toolName === "workspace_inspect_project") return "Inspected project stack";
+  if (toolName === "workspace_apply_patch") return "Prepared a server-side edit preview";
+  if (toolName === "workspace_create_file") return "Prepared a server-side file preview";
+  if (toolName === "workspace_delete_file") return "Prepared a server-side deletion preview";
   if (toolName.startsWith("mcp_")) {
     return `Called MCP · ${toolName.replace(/^mcp_[a-f0-9]{8}_/, "").replaceAll("_", " ")}`;
   }
@@ -87,6 +90,13 @@ const executionCopy = (execution: ToolExecution): string => {
     return `Knowledge search completed with ${execution.citations.length} cited source${execution.citations.length === 1 ? "" : "s"}.`;
   }
   if (execution.status === "NO_RESULTS") return "The tool completed and returned no matching result.";
+  if (execution.status === "COMPLETED" && [
+    "workspace_apply_patch",
+    "workspace_create_file",
+    "workspace_delete_file"
+  ].includes(execution.toolName)) {
+    return "The server generated an exact preview. The file remains unchanged until approval in Artifacts.";
+  }
   if (execution.status === "COMPLETED") return "The runtime confirmed that this action completed.";
   if (execution.status === "DENIED") return "The action was denied by the request policy.";
   if (execution.status === "UNAVAILABLE") return "The required runtime or connection was unavailable.";

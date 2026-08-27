@@ -114,10 +114,14 @@ sequenceDiagram
   C->>S: Open outbound authenticated WebSocket
   C->>S: Publish capabilities, heartbeat, binding fingerprint and Git metadata
   U->>S: Select Workspace and opaque device binding for the conversation
-  S->>C: Send typed governed workspace request
+  S->>C: Read exact bounded file bytes through typed request
   C->>P: Validate root, path, size, file type and sensitive-name policy
-  C->>P: On explicit Agent request, perform one bounded atomic file write
-  P-->>C: Bounded read/Git result or verified write evidence
+  P-->>C: Current content and SHA-256
+  C-->>S: Exact bounded content for server-side diff generation
+  S-->>U: Persist and display pending before/after artifact
+  U->>S: Apply or deny the exact proposal
+  S->>C: On Apply, send hash-protected write/delete
+  C->>P: Revalidate SHA-256 and perform the bounded effect
   C-->>S: Structured response or controlled error
   S-->>U: Task evidence and model answer
 ```
@@ -125,9 +129,10 @@ sequenceDiagram
 The project does **not** need to be copied to the server. The server stores the Workspace record,
 device identifier, opaque local binding identifier, status, structure fingerprint, and Git metadata.
 Only the Companion stores the absolute local path. It can list files, read a text file, perform a
-literal search, inspect the project, read Git status/diff, and execute one bounded atomic file write
-when the server has attached that callback for an explicit authorized Agent request. It cannot run a
-model-authored shell command or mutate Git.
+literal search, inspect the project, read Git status/diff, and act as a constrained final I/O adapter
+for a server-approved single-file write or deletion. The server owns the model, exact diff,
+authorization, approval record, artifacts, evidence, and conflict-aware revert. The Companion cannot
+run a model-authored shell command or mutate Git.
 
 Loopback remains the safe default. `NEXO_BIND_ADDRESS=0.0.0.0` is an explicit trusted-LAN opt-in.
 Untrusted or internet exposure additionally requires HTTPS/WSS, secure cookies, a trusted reverse
@@ -160,7 +165,7 @@ introducing premature services or network calls.
 | `knowledge` | Vaults, source ingestion, embeddings, chunks, retrieval, citations, semantic graph |
 | `memory` | Explicit personal memory CRUD and governed `remember` tool |
 | `mcp` | Catalog, user-owned connections, discovery, allow-list, request-owned clients, governed calls |
-| `workspace` | Server workspaces, bindings, tree/file inspection, Spring AI workspace callbacks |
+| `workspace` | Server workspaces, bindings, inspection, Spring AI callbacks, diff artifacts, approval and revert |
 | `device` | Pairing, credentials, inventory, WebSocket runtime protocol, pending request correlation |
 | `media` | Asynchronous ComfyUI image jobs and persisted artifacts |
 | `usage` | Authenticated aggregate token and latency reporting |
@@ -420,8 +425,9 @@ The Permission Engine is pure deterministic code. It combines:
 - an independent content stance.
 
 It returns a decision per capability family. Hard-prohibited families stay denied. A target-dependent
-capability remains denied when its Vault, Workspace, or MCP target is absent. Full interactive
-approval records and reversible write/command transactions are not implemented yet.
+capability remains denied when its Vault, Workspace, or MCP target is absent. Workspace file changes
+have a persisted, reversible single-file approval record; the generalized Permission Engine approval
+workflow for commands, MCP effects, and multi-file transactions is not implemented yet.
 
 ## 8. Knowledge Vault and RAG architecture
 
@@ -519,13 +525,16 @@ One `Workspace` is server-owned metadata and may resolve in two ways:
 | Device binding | Folder on the paired user's computer | Electron Companion |
 | `UNBOUND` | No content path | No Workspace tool |
 
-Both execution paths implement the same read contracts plus an optional governed
-`workspace_write_file` contract. The server path resolver and
+Both execution paths implement the same read contracts plus optional server-owned
+`workspace_apply_patch`, `workspace_create_file`, and `workspace_delete_file` proposal contracts. The
+server path resolver and
 the Companion both reject absolute paths, traversal, symlink escape, secrets, keys, binary files,
-oversized content, and ignored dependency/build directories. A write is attached only to a direct
-Agent request with the resolved write permission and access mode; replacement requires the SHA-256
-of the current file. Git access uses fixed read-only argument arrays rather than a model-authored
-shell command.
+oversized content, and ignored dependency/build directories. A proposal is attached only to a direct
+Agent request with the resolved write permission and access mode. The server stores the complete
+before/after artifact without applying it. Apply reauthorizes the owner and binding and requires the
+current file SHA-256 to match the preview baseline; revert likewise refuses to overwrite later
+external changes. Git access uses fixed read-only argument arrays rather than a model-authored shell
+command.
 
 Fingerprint and Git metadata let the frontend warn when a selected project changed after binding.
 Refreshing accepts the new baseline; it never edits the project.
@@ -607,7 +616,7 @@ Current recovery boundaries:
 | Knowledge ingestion, RAG, citations and semantic graph | Implemented first slice | Only text formats; authored graph relationships deferred |
 | Team-shared Vault access | Implemented | Full organization root and budget enforcement deferred |
 | Docker and personal HTTP MCP | Implemented first slice | OAuth/secrets and destructive approval gate deferred |
-| Server and remote-device Workspace tools | Implemented bounded read + single-file write slice | Shell, Git mutation, multi-file transactions and arbitrary computer control deferred |
+| Server and remote-device Workspace tools | Implemented bounded reads + server diff/approval/revert for one file | Shell, Git mutation, multi-file transactions and arbitrary computer control deferred |
 | ComfyUI image jobs | Implemented optional adapter | Durable distributed job queue and richer progress deferred |
 | Skills catalog and slash selection | Frontend/session preview | No authoritative backend publication or dependency grant |
 | Cowork | Frontend product surface | No durable Cowork orchestration backend |

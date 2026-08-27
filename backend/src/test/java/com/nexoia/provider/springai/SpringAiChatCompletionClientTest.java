@@ -39,12 +39,14 @@ import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
 import com.nexoia.workspace.model.WorkspaceAccessMode;
+import com.nexoia.workspace.change.model.WorkspaceChangeOperation;
+import com.nexoia.workspace.tool.WorkspaceChangeProposalResult;
+import com.nexoia.workspace.tool.WorkspaceCreateFileInput;
 import com.nexoia.workspace.tool.WorkspaceListFilesInput;
 import com.nexoia.workspace.tool.WorkspaceProjectQueryInput;
 import com.nexoia.workspace.tool.WorkspaceReadFileInput;
 import com.nexoia.workspace.tool.WorkspaceReadToolFactory;
 import com.nexoia.workspace.tool.WorkspaceReadToolSession;
-import com.nexoia.workspace.tool.WorkspaceWriteFileInput;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
@@ -826,24 +828,29 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
-    void executesARealWorkspaceWriteForAConfirmedContinuationInsteadOfPrintingInstructions() {
+    void createsAServerPreviewForAConfirmedWorkspaceChangeInsteadOfPrintingInstructions() {
         List<ToolExecutionEvidence> evidence = new ArrayList<>();
-        ToolCallback write = FunctionToolCallback.builder(
-                        "workspace_write_file", (WorkspaceWriteFileInput input) -> {
-                            recordCompletedEvidence(evidence, "workspace_write_file");
-                            return Map.of(
-                                    "status", "COMPLETED",
-                                    "path", input.path(),
-                                    "created", true,
-                                    "sizeBytes", input.content().length(),
-                                    "sha256", "abc123");
+        UUID changeId = UUID.randomUUID();
+        ToolCallback create = FunctionToolCallback.builder(
+                        WorkspaceReadToolFactory.CREATE_FILE, (WorkspaceCreateFileInput input) -> {
+                            recordCompletedEvidence(evidence, WorkspaceReadToolFactory.CREATE_FILE);
+                            return new WorkspaceChangeProposalResult(
+                                    ToolExecutionStatus.COMPLETED,
+                                    changeId,
+                                    WorkspaceChangeOperation.CREATE,
+                                    input.path(),
+                                    null,
+                                    "abc123",
+                                    null,
+                                    true,
+                                    "Preview created; approval required in Artifacts.");
                         })
-                .description("Write one Workspace file")
-                .inputType(WorkspaceWriteFileInput.class)
+                .description("Create a server-side preview for one new Workspace file")
+                .inputType(WorkspaceCreateFileInput.class)
                 .build();
         WorkspaceReadToolFactory workspaceFactory = mock(WorkspaceReadToolFactory.class);
         when(workspaceFactory.open(any(), any(), any()))
-                .thenReturn(new WorkspaceReadToolSession(List.of(write), evidence));
+                .thenReturn(new WorkspaceReadToolSession(List.of(create), evidence));
         SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
         AtomicInteger requests = new AtomicInteger();
         List<String> requestBodies = new ArrayList<>();
@@ -852,15 +859,15 @@ class SpringAiChatCompletionClientTest {
             String body = requests.incrementAndGet() == 1
                     ? """
                       {"model":"granite4.1:8b","message":{"role":"assistant","content":"",\
-                      "tool_calls":[{"id":"call-write","function":{\
-                      "name":"workspace_write_file","arguments":{\
+                      "tool_calls":[{"id":"call-create","function":{\
+                      "name":"workspace_create_file","arguments":{\
                       "path":"hello-mais-prevencao.html",\
                       "content":"<h1>Hello Mais Prevenção</h1>"}}}]},\
                       "done":true,"done_reason":"stop","prompt_eval_count":20,"eval_count":4}
                       """
                     : """
                       {"model":"granite4.1:8b","message":{"role":"assistant",\
-                      "content":"Criei hello-mais-prevencao.html na raiz do projeto."},\
+                      "content":"Preparei o preview de hello-mais-prevencao.html; aguarda aprovação em Artifacts."},\
                       "done":true,"done_reason":"stop","prompt_eval_count":35,"eval_count":8}
                       """;
             byte[] payload = body.getBytes(StandardCharsets.UTF_8);
@@ -900,17 +907,17 @@ class SpringAiChatCompletionClientTest {
         ChatCompletionOutcome outcome = agentClient.stream(
                 command, delta -> { }, delta -> { }, () -> false);
 
-        assertThat(outcome.content()).contains("Criei hello-mais-prevencao.html");
+        assertThat(outcome.content()).contains("aguarda aprovação em Artifacts");
         assertThat(outcome.toolExecutions()).singleElement()
                 .satisfies(execution -> {
-                    assertThat(execution.toolName()).isEqualTo("workspace_write_file");
+                    assertThat(execution.toolName()).isEqualTo(WorkspaceReadToolFactory.CREATE_FILE);
                     assertThat(execution.status()).isEqualTo(ToolExecutionStatus.COMPLETED);
                 });
         assertThat(requestBodies).hasSize(2);
         assertThat(requestBodies.getFirst())
-                .contains("MANDATORY WORKSPACE WRITE GATE")
+                .contains("MANDATORY SERVER-SIDE WORKSPACE CHANGE GATE")
                 .contains("Coloque o arquivo HTML na raiz do projeto")
-                .contains("workspace_write_file")
+                .contains(WorkspaceReadToolFactory.CREATE_FILE)
                 .doesNotContain("Research brief")
                 .doesNotContain("Execute cat");
     }

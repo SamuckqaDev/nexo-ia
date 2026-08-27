@@ -9,6 +9,7 @@ import {
   ImageSquare,
   ListChecks,
   Paperclip,
+  SpinnerGap,
   Trash,
   Vault,
   type Icon
@@ -33,11 +34,14 @@ import type {
   ServerWorkspace,
   WorkspaceBinding
 } from "../../../../project/workspace/types/serverWorkspaceTypes";
+import { useWorkspaceChanges } from "../../../../project/workspace/hooks/useWorkspaceChanges";
+import type { WorkspaceChange } from "../../../../project/workspace/types/workspaceChangeTypes";
 import type {
   ConversationContextPanelProps,
   ConversationContextSection
 } from "../../types/chatViewTypes";
 import { ConversationTasks } from "./components/ConversationTasks";
+import { WorkspaceArtifacts } from "./components/WorkspaceArtifacts";
 import {
   CloseButton,
   EmptyCopy,
@@ -154,6 +158,7 @@ export function ConversationContextPanel({
     (binding: WorkspaceBinding): boolean => binding.id === workspaceBindingId
   );
   const personalMemories = usePersonalMemories(Boolean(conversationId));
+  const workspaceChanges = useWorkspaceChanges(conversationId, section === "artifacts");
   const imageJobs: ImageGenerationJob[] = Object.values(useImageGenerationStore(
     (state: ImageGenerationState) => state.jobs))
     .filter((job: ImageGenerationJob): boolean => job.conversationId === conversationId)
@@ -292,6 +297,27 @@ export function ConversationContextPanel({
     }
 
     if (section === "artifacts") {
+      if (workspaceChanges.query.isLoading) {
+        return <StatusCopy><SpinnerGap size={14} className="spin" />Loading server-generated diffs…</StatusCopy>;
+      }
+      if (workspaceChanges.query.isError) {
+        return <StatusCopy role="alert">Nexo could not load the Workspace change artifacts.</StatusCopy>;
+      }
+      const changes: WorkspaceChange[] = workspaceChanges.query.data ?? [];
+      if (changes.length > 0) {
+        const busy: boolean = workspaceChanges.approve.isPending
+          || workspaceChanges.deny.isPending
+          || workspaceChanges.revert.isPending;
+        return (
+          <WorkspaceArtifacts
+            changes={changes}
+            busy={busy}
+            onApprove={(id: string): void => { workspaceChanges.approve.mutate(id); }}
+            onDeny={(id: string): void => { workspaceChanges.deny.mutate(id); }}
+            onRevert={(id: string): void => { workspaceChanges.revert.mutate(id); }}
+          />
+        );
+      }
       return (
         <EmptyState>
           <EmptyIcon><FileText size={22} weight="duotone" /></EmptyIcon>

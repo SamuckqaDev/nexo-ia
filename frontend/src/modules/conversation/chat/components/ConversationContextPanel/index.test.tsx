@@ -9,6 +9,10 @@ import { ConversationContextPanel } from "./index";
 const listBackendSources = vi.fn();
 const listPersonalMemories = vi.fn();
 const removePersonalMemory = vi.fn();
+const listWorkspaceChanges = vi.fn();
+const approveWorkspaceChange = vi.fn();
+const denyWorkspaceChange = vi.fn();
+const revertWorkspaceChange = vi.fn();
 
 vi.mock("../../../../knowledge/vault/api/sourceApi", () => ({
   listBackendSources: (vaultId: string): Promise<unknown> => listBackendSources(vaultId),
@@ -19,6 +23,13 @@ vi.mock("../../../../knowledge/vault/api/sourceApi", () => ({
 vi.mock("../../../../memory/personal/api/personalMemoryApi", () => ({
   listPersonalMemories: (): Promise<unknown> => listPersonalMemories(),
   removePersonalMemory: (memoryId: string): Promise<unknown> => removePersonalMemory(memoryId)
+}));
+
+vi.mock("../../../../project/workspace/api/workspaceChangeApi", () => ({
+  listWorkspaceChanges: (conversationId: string): Promise<unknown> => listWorkspaceChanges(conversationId),
+  approveWorkspaceChange: (changeId: string): Promise<unknown> => approveWorkspaceChange(changeId),
+  denyWorkspaceChange: (changeId: string): Promise<unknown> => denyWorkspaceChange(changeId),
+  revertWorkspaceChange: (changeId: string): Promise<unknown> => revertWorkspaceChange(changeId)
 }));
 
 const vault = {
@@ -74,6 +85,10 @@ describe("ConversationContextPanel", () => {
     useImageGenerationStore.getState().reset();
     listPersonalMemories.mockResolvedValue([]);
     removePersonalMemory.mockResolvedValue(undefined);
+    listWorkspaceChanges.mockResolvedValue([]);
+    approveWorkspaceChange.mockResolvedValue(undefined);
+    denyWorkspaceChange.mockResolvedValue(undefined);
+    revertWorkspaceChange.mockResolvedValue(undefined);
   });
 
   it("keeps the chat plan honest until Agent mode is selected", () => {
@@ -124,17 +139,48 @@ describe("ConversationContextPanel", () => {
     expect(screen.getByText(/latest persisted revision/i)).toBeVisible();
   });
 
-  it("exposes tasks, artifacts and media as separate conversation resources", () => {
+  it("exposes tasks, artifacts and media as separate conversation resources", async () => {
     renderPanel("chat");
 
     fireEvent.click(screen.getByRole("tab", { name: /tasks/i }));
     expect(screen.getByText("No tasks yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /artifacts/i }));
-    expect(screen.getByText("No artifacts yet")).toBeInTheDocument();
+    expect(await screen.findByText("No artifacts yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /media/i }));
     expect(screen.getByText("No media yet")).toBeInTheDocument();
+  });
+
+  it("shows a server-generated diff and applies it only after approval", async () => {
+    listWorkspaceChanges.mockResolvedValue([{
+      id: "44444444-4444-4444-8444-444444444444",
+      workspaceId: "55555555-5555-4555-8555-555555555555",
+      operation: "EDIT",
+      status: "PENDING_APPROVAL",
+      path: "src/App.tsx",
+      beforeSha256: "a".repeat(64),
+      afterSha256: "b".repeat(64),
+      replacementCount: 1,
+      beforeContent: "const title = 'old';",
+      afterContent: "const title = 'new';",
+      previewTruncated: false,
+      failureCode: null,
+      createdAt: "2026-08-27T12:00:00Z",
+      appliedAt: null,
+      revertedAt: null
+    }]);
+    approveWorkspaceChange.mockResolvedValue({});
+    renderPanel("agent");
+
+    fireEvent.click(screen.getByRole("tab", { name: /artifacts/i }));
+
+    expect(await screen.findByLabelText("Server diff for src/App.tsx")).toBeVisible();
+    expect(screen.getByText("const title = 'old';")).toBeVisible();
+    expect(screen.getByText("const title = 'new';")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(approveWorkspaceChange)
+      .toHaveBeenCalledWith("44444444-4444-4444-8444-444444444444"));
   });
 
   it("shows only runtime-confirmed actions in Agent tasks", () => {

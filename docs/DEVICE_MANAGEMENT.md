@@ -35,10 +35,11 @@ Public or untrusted-network deployment requires HTTPS/WSS, secure cookies, a tru
 firewall policy; setting a non-loopback bind by itself is not a production security configuration.
 
 This foundation does not execute arbitrary shell commands, mutate Git, delegate to worker models,
-elevate operating-system privileges, or present standing local approvals. Multi-file transactions,
-commands, rollback, and artifact capture still require the policy, sandbox, and approval layers
-described below. The current single-file write is authorized only by a fresh explicit Agent request
-and is independently constrained by the Workspace access mode and permission profile.
+elevate operating-system privileges, or present standing local approvals. Multi-file transactions
+and commands still require the policy and sandbox layers described below. A fresh explicit Agent
+request may create one server-side file-change proposal; the Desktop only returns exact bounded
+content and performs the final hash-protected I/O after the authenticated user applies the persisted
+diff. Recovery is server-owned and refuses to overwrite later local changes.
 
 ## Nexo Companion
 

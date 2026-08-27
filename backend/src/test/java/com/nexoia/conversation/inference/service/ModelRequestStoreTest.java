@@ -322,7 +322,11 @@ class ModelRequestStoreTest {
         verify(contextAssembler).assemble(
                 eq(conversationId), eq("owner"), eq(List.of()), envelope.capture(), eq(List.of()));
         assertThat(envelope.getValue().manifest().tools().exposedToolNames())
-                .contains(WorkspaceReadToolFactory.WRITE_FILE);
+                .contains(
+                        WorkspaceReadToolFactory.APPLY_PATCH,
+                        WorkspaceReadToolFactory.CREATE_FILE,
+                        WorkspaceReadToolFactory.DELETE_FILE)
+                .doesNotContain("workspace_write_file");
     }
 
     @Test

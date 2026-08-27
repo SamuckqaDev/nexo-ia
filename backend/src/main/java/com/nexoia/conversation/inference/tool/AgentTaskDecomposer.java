@@ -106,23 +106,24 @@ public class AgentTaskDecomposer {
     }
 
     private List<AgentTaskDraft> workspaceWriteSteps(String request) {
+        String mutationTool = workspaceMutationTool(request);
         return List.of(
                 new AgentTaskDraft(
                         "Confirmar a alteração solicitada",
                         normalize(request),
                         null),
                 new AgentTaskDraft(
-                        "Verificar o destino no Workspace",
-                        "Validar o caminho relativo e exigir o hash atual antes de qualquer substituição.",
-                        WorkspaceReadToolFactory.WRITE_FILE),
+                        "Preparar a alteração no servidor",
+                        "Ler o estado atual, validar o caminho e gerar um preview exato sem alterar bytes.",
+                        mutationTool),
                 new AgentTaskDraft(
-                        "Gravar o arquivo solicitado",
-                        "Executar a escrita real e registrar caminho, tamanho e SHA-256 confirmados.",
-                        WorkspaceReadToolFactory.WRITE_FILE),
+                        "Solicitar aprovação do diff",
+                        "Publicar o before/after em Artifacts e aguardar uma decisão explícita do usuário.",
+                        mutationTool),
                 new AgentTaskDraft(
-                        "Validar a alteração",
-                        "Confirmar caminho, tamanho e SHA-256 retornados pela gravação concluída.",
-                        WorkspaceReadToolFactory.WRITE_FILE),
+                        "Aplicar com revalidação",
+                        "Após aprovação, conferir o SHA-256 atual e aplicar somente o preview apresentado.",
+                        mutationTool),
                 new AgentTaskDraft(
                         "Apresentar o resultado",
                         "Informar objetivamente o arquivo criado ou alterado e qualquer conflito pendente.",
@@ -149,7 +150,7 @@ public class AgentTaskDecomposer {
     private String requiredToolPrefix(String step) {
         String normalized = step.toLowerCase(Locale.ROOT);
         if (UserRequestIntentResolver.requestsWorkspaceWrite(step)) {
-            return WorkspaceReadToolFactory.WRITE_FILE;
+            return workspaceMutationTool(step);
         }
         if (normalized.contains("memória") || normalized.contains("memoria")
                 || normalized.contains("lembre") || normalized.contains("guarde")) {
@@ -165,6 +166,17 @@ public class AgentTaskDecomposer {
             return "mcp_";
         }
         return null;
+    }
+
+    private String workspaceMutationTool(String request) {
+        String normalized = UserRequestIntentResolver.normalize(request);
+        if (normalized.matches(".*\\b(?:remova|remover|delete|exclua|excluir|apague|apagar)\\b.*")) {
+            return WorkspaceReadToolFactory.DELETE_FILE;
+        }
+        if (normalized.matches(".*\\b(?:crie|criar|create|novo arquivo|nova arquivo)\\b.*")) {
+            return WorkspaceReadToolFactory.CREATE_FILE;
+        }
+        return WorkspaceReadToolFactory.APPLY_PATCH;
     }
 
     private String userRequest(String objective) {

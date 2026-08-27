@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -931,9 +932,12 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                     "gravação na memória pessoal"));
         }
         if (requiresWorkspaceWriteEvidence(command)) {
-            requirements.add(new ToolEvidenceRequirement(
-                    WorkspaceReadToolFactory.WRITE_FILE,
-                    "gravação efetiva do arquivo no Workspace"));
+            requirements.add(ToolEvidenceRequirement.named(
+                    Set.of(
+                            WorkspaceReadToolFactory.APPLY_PATCH,
+                            WorkspaceReadToolFactory.CREATE_FILE,
+                            WorkspaceReadToolFactory.DELETE_FILE),
+                    "preview server-side da alteração no Workspace"));
         } else if (requiresProjectAnalysisEvidence(command)) {
             requirements.add(new ToolEvidenceRequirement(
                     WorkspaceReadToolFactory.LIST_FILES,
@@ -1074,8 +1078,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             }
             matches.forEach(callback -> selected.put(callback.getToolDefinition().name(), callback));
         }
-        if (requirements.stream().anyMatch(requirement ->
-                WorkspaceReadToolFactory.WRITE_FILE.equals(requirement.toolPrefix()))) {
+        if (requirements.stream().anyMatch(ToolEvidenceRequirement::requiresWorkspaceMutation)) {
             callbacks.stream()
                     .filter(callback -> WorkspaceReadToolFactory.READ_FILE.equals(
                             callback.getToolDefinition().name())
@@ -1106,8 +1109,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 .collect(Collectors.joining(", "));
         boolean mcpOnly = requirements.size() == 1
                 && "mcp_".equals(requirements.getFirst().toolPrefix());
-        boolean workspaceWrite = requirements.stream().anyMatch(requirement ->
-                WorkspaceReadToolFactory.WRITE_FILE.equals(requirement.toolPrefix()));
+        boolean workspaceWrite = requirements.stream()
+                .anyMatch(ToolEvidenceRequirement::requiresWorkspaceMutation);
         if (mcpOnly) {
             return """
                     MANDATORY MCP EXECUTION GATE
@@ -1120,14 +1123,16 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         }
         if (workspaceWrite) {
             return """
-                    MANDATORY WORKSPACE WRITE GATE
-                    The user explicitly authorized a concrete Workspace change in this request.
-                    Your next response MUST call workspace_write_file; prose, shell instructions, and
-                    tool-call JSON printed as text do not perform the action. Use workspace_read_file
-                    first when replacing an existing file, then pass its exact SHA-256 as
-                    expectedSha256. When no filename was specified, choose a descriptive new filename
-                    rather than overwriting the project's existing entry point. After the tool returns,
-                    report only the path and result confirmed by its evidence.
+                    MANDATORY SERVER-SIDE WORKSPACE CHANGE GATE
+                    The user requested a concrete Workspace change. Your next response MUST call exactly
+                    one fitting mutation tool from the list below. Use workspace_apply_patch for a
+                    specific edit to an existing file, workspace_create_file only for a new file, and
+                    workspace_delete_file only for an explicit deletion. Never reconstruct an existing
+                    file with a whole-file write. For apply_patch, oldString must be copied exactly from a
+                    real workspace_read_file result and include enough surrounding text to be unique.
+                    The tool creates a server-generated before/after preview and DOES NOT modify the file.
+                    After it returns, state that the preview is waiting for approval in Artifacts; never
+                    claim the change was already applied and never print tool-call JSON as prose.
                     Callable tools for this action: %s.
                     """.formatted(names).strip();
         }
@@ -1197,9 +1202,25 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 .collect(Collectors.joining("\n"));
     }
 
-    private record ToolEvidenceRequirement(String toolPrefix, String label) {
+    private record ToolEvidenceRequirement(Set<String> toolNames, String toolPrefix, String label) {
+
+        private ToolEvidenceRequirement(String toolPrefix, String label) {
+            this(Set.of(), toolPrefix, label);
+        }
+
+        private static ToolEvidenceRequirement named(Set<String> toolNames, String label) {
+            return new ToolEvidenceRequirement(Set.copyOf(toolNames), null, label);
+        }
+
         private boolean matches(String toolName) {
-            return toolName != null && toolName.startsWith(toolPrefix);
+            return toolName != null
+                    && (toolNames.contains(toolName) || (toolPrefix != null && toolName.startsWith(toolPrefix)));
+        }
+
+        private boolean requiresWorkspaceMutation() {
+            return toolNames.contains(WorkspaceReadToolFactory.APPLY_PATCH)
+                    || toolNames.contains(WorkspaceReadToolFactory.CREATE_FILE)
+                    || toolNames.contains(WorkspaceReadToolFactory.DELETE_FILE);
         }
     }
 }

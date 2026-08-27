@@ -93,6 +93,43 @@ describe("WorkspaceTools", (): void => {
     await expect(readFile(join(rootPath, "hello.html"), "utf8")).resolves.toBe("new");
   });
 
+  it("returns exact raw text to the server for preview generation", async (): Promise<void> => {
+    await writeFile(join(rootPath, "README.md"), "old value\n", "utf8");
+
+    const result = await tools.execute("workspace.readFileRaw", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "README.md" }
+    }) as { status: string; path: string; content: string; sha256: string };
+
+    expect(result).toMatchObject({
+      status: "COMPLETED",
+      path: "README.md",
+      content: "old value\n"
+    });
+    expect(result.sha256).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("deletes only the exact file version approved by the server", async (): Promise<void> => {
+    await writeFile(join(rootPath, "obsolete.txt"), "remove me", "utf8");
+    const current = await tools.execute("workspace.readFileRaw", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "obsolete.txt" }
+    }) as { sha256: string };
+
+    await expect(tools.execute("workspace.deleteFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "obsolete.txt", expectedSha256: "0".repeat(64) }
+    })).rejects.toMatchObject({ code: "WRITE_CONFLICT" });
+    await expect(readFile(join(rootPath, "obsolete.txt"), "utf8")).resolves.toBe("remove me");
+
+    await expect(tools.execute("workspace.deleteFile", {
+      localBindingId: workspace.localBindingId,
+      input: { path: "obsolete.txt", expectedSha256: current.sha256 }
+    })).resolves.toMatchObject({ status: "COMPLETED", path: "obsolete.txt" });
+    await expect(readFile(join(rootPath, "obsolete.txt"), "utf8"))
+      .rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("rejects traversal outside the selected workspace", async (): Promise<void> => {
     await expect(tools.execute("workspace.readFile", {
       localBindingId: workspace.localBindingId,

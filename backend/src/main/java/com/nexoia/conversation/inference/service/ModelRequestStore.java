@@ -422,7 +422,10 @@ public class ModelRequestStore {
                         WorkspaceReadToolFactory.INSPECT_PROJECT));
             }
             if (workspaceWriteAuthorized) {
-                exposedTools.add(WorkspaceReadToolFactory.WRITE_FILE);
+                exposedTools.addAll(List.of(
+                        WorkspaceReadToolFactory.APPLY_PATCH,
+                        WorkspaceReadToolFactory.CREATE_FILE,
+                        WorkspaceReadToolFactory.DELETE_FILE));
             }
             enabledMcpConnections.stream()
                     .flatMap(connection -> connection.enabledTools().stream())

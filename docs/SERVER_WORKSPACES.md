@@ -121,7 +121,9 @@ plans, Vault retrieval, memory, and MCP:
 - `workspace_git_status`
 - `workspace_git_diff`
 - `workspace_inspect_project`
-- `workspace_write_file` for a direct, explicit write request in Agent mode
+- `workspace_apply_patch` for an exact edit proposal against an existing file
+- `workspace_create_file` for a new-file proposal
+- `workspace_delete_file` for an explicit single-file deletion proposal
 
 The runtime caps the group at 12 calls per request and denies identical repeats. Server bindings run
 inside the backend; local bindings are dispatched to the exact authenticated device and opaque
@@ -130,19 +132,26 @@ ownership and availability again, honors cancellation, produces sanitized task e
 started/completed/denied/failed audit outcomes. Capability questions are answered from the actual
 callback snapshot, so a model cannot truthfully claim a Workspace tool that was not attached.
 
-`workspace_write_file` is not attached merely because a Workspace is writable. Nexo first resolves
+Mutation tools are not attached merely because a Workspace is writable. Nexo first resolves
 the effective user objective, including short continuations such as **faça** or **continue**, then
 requires Agent mode, `WORKSPACE_WRITE`, `WRITE_WITH_APPROVAL` (or the stronger command access mode),
 and an explicit request to create or change a Workspace file. The direct request is the fresh,
 single-request authorization; it is not retained for later messages. A selected Skill is auxiliary
 context and cannot replace the unresolved user objective.
 
-Writes accept one Workspace-relative path and bounded UTF-8 content (maximum 1 MiB). They reject
-absolute paths, traversal, symlink escapes, sensitive names, binary/NUL content, and non-regular
-targets. Creating a new file is atomic. Replacing an existing file additionally requires the exact
-SHA-256 returned by a preceding read, providing optimistic concurrency protection against silent
-overwrites. Successful task evidence contains the relative path, byte count, creation/replacement
-state, and resulting SHA-256; model prose, JSON, or shell instructions never count as execution.
+Each mutation creates a server-owned proposal and does not change the file. Exact edits require an
+`oldString` copied from a real read and reject zero matches or ambiguous matches unless the user
+explicitly requested replacement of every occurrence. The backend stores complete private before
+and after artifacts and exposes a bounded side-by-side preview in the conversation **Artifacts**
+panel. **Apply** is the approval boundary; **Deny** records the decision without touching the
+Workspace. Approval reauthorizes ownership and live binding state, compares SHA-256 with the preview
+baseline, and performs one atomic bounded UTF-8 write or one bounded regular-file deletion. **Revert**
+uses the stored recovery artifact and refuses to overwrite changes made after application.
+
+For a paired local Workspace, the Desktop adapter reads exact bytes and performs only the final
+hash-protected write/delete requested by the server. The model, planning, diff construction,
+approval record, artifact content, and recovery decision remain server-side; the project is not
+copied wholesale to Nexo.
 
 Explicit requests to inspect project files, repository state, or Git diffs are evidence-gated. Model
 prose is buffered until a matching successful `workspace_*` execution exists; an invented claim is
@@ -174,7 +183,7 @@ last accepted scan. Refresh records the new baseline; it does not modify project
 ## Deliberately deferred
 
 This delivery does not run arbitrary commands, mutate Git, copy a device project to the server,
-delegate to workers, or grant a standing write approval. Command execution, multi-file transactions,
-interactive approval records, rollback/recovery, and artifact capture remain separate future
-capabilities. The implemented write slice is intentionally one bounded file per tool call under a
-fresh explicit request and optimistic concurrency check.
+delegate to workers, or grant a standing write approval. Command execution and atomic multi-file
+transactions remain separate future capabilities. The implemented mutation slice is intentionally
+one bounded file per server-generated proposal with explicit approval, optimistic concurrency, and
+conflict-aware revert.

@@ -78,9 +78,9 @@ class AgentTaskDecomposerTest {
                 .extracting(AgentTaskDraft::title, AgentTaskDraft::requiredToolPrefix)
                 .containsExactly(
                         tuple("Confirmar a alteração solicitada", null),
-                        tuple("Verificar o destino no Workspace", "workspace_write_file"),
-                        tuple("Gravar o arquivo solicitado", "workspace_write_file"),
-                        tuple("Validar a alteração", "workspace_write_file"),
+                        tuple("Preparar a alteração no servidor", "workspace_create_file"),
+                        tuple("Solicitar aprovação do diff", "workspace_create_file"),
+                        tuple("Aplicar com revalidação", "workspace_create_file"),
                         tuple("Apresentar o resultado", null));
     }
 }

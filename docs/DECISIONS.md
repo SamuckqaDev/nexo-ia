@@ -564,3 +564,25 @@ options considered, the selected approach, and its consequences.
   model would previously have produced a tutorial. The UI remains usable and explains the compatible
   executor fallback. Ordinary Chat is unaffected, authorization still comes only from server-owned
   Workspace and permission state, and no model prose is interpreted as proof of execution.
+
+## D-036 — Generate Workspace diffs on the server before applying file changes
+
+- **Status:** accepted; supersedes the direct-application portion of D-034
+- **Context:** a whole-file model callback could apply bytes immediately after a broad confirmation,
+  offered no reviewable before/after artifact, and made rollback a manual recovery problem. It also
+  encouraged small models to reconstruct entire files instead of making exact edits.
+- **Decision:** replace the model-visible `workspace_write_file` callback with three typed proposal
+  tools: `workspace_apply_patch`, `workspace_create_file`, and `workspace_delete_file`. The server
+  reads the authoritative current file, requires an exact unique `oldString` for edits, computes the
+  before/after result, stores private recovery artifacts, and persists a `PENDING_APPROVAL` change.
+  The model cannot apply it. The authenticated user reviews the server-generated diff in the
+  conversation **Artifacts** panel and explicitly applies or denies it. Approval reauthorizes the
+  Workspace and compares the current SHA-256 with the preview baseline before an atomic write or
+  bounded deletion. Applied changes may be reverted only while the current file still matches the
+  recorded result. Local projects use the paired Desktop only as a constrained byte I/O adapter;
+  orchestration, diff construction, state, authorization, approval, and recovery remain on the
+  server.
+- **Consequence:** model prose and tool-shaped JSON cannot modify a project, a stale preview cannot
+  overwrite external edits, and every supported mutation has visible evidence and a conflict-aware
+  recovery path. This increment is intentionally one file per proposal; shell commands, Git
+  mutation, directory deletion, and atomic multi-file transactions remain unavailable.

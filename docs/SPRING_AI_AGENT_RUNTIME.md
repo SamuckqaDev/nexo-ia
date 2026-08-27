@@ -7,9 +7,11 @@ an explicitly requested personal memory, and call explicitly enabled tools from 
 user's MCP registry. With a server or online Nexo Desktop Workspace selected and `WORKSPACE_READ`
 allowed, it can also list
 and search project files, read safe text excerpts, inspect project metadata, and read Git status or a
-one-file diff. For a direct and explicit Agent request, it can also create or replace one bounded
-Workspace file through `workspace_write_file`; this is not a shell and does not grant standing write
-access. It cannot run arbitrary terminal commands, write Git state, or delegate to workers.
+one-file diff. For a direct and explicit Agent request, it can also propose one exact edit, new file,
+or file deletion through `workspace_apply_patch`, `workspace_create_file`, or
+`workspace_delete_file`. The server generates the diff and waits for approval in **Artifacts**; the
+model cannot apply it. This is not a shell and does not grant standing write access. It cannot run
+arbitrary terminal commands, write Git state, or delegate to workers.
 
 ## Source-backed framework choices
 
@@ -80,7 +82,7 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Tool loop | None | Spring AI direct or progressive advisor, selected by catalog size |
 | External MCP tools | None | Explicitly selected, governed callbacks |
 | Server/Desktop Workspace reads | None | Conditional bounded file/search/Git inspection callbacks |
-| Governed Workspace file write | None | Explicit request only; bounded, audited, SHA-protected callback |
+| Governed Workspace change | None | Explicit request creates a server diff; user approval applies a SHA-protected single-file effect |
 | Native command/system tools | None | None |
 
 The composer remains writable in Agent mode and includes a compact **Agent context** inspector. The
@@ -167,11 +169,13 @@ Explicit Workspace write requests have a separate mandatory evidence gate. Nexo 
 continuations such as **faça**, **execute**, **continue**, or **“faça isso pra mim, pode criar”**
 against the latest unresolved user
 objective before planning or authorizing tools. The selected Skill remains supporting context and
-cannot turn the objective into a different task. When authorized, the runtime discloses
-`workspace_write_file` and buffers any success answer until that callback returns completed evidence.
-Printing HTML, a shell command, or tool-call-shaped JSON is treated as prose, not execution. A model
-that ignores or cannot call the tool produces a controlled failed Agent run instead of a false
-completion. Existing files must first be read so their current SHA-256 can be supplied to the write.
+cannot turn the objective into a different task. When authorized, the runtime discloses the fitting
+proposal callbacks and buffers any success answer until the server has persisted a completed
+preview. Printing HTML, a shell command, or tool-call-shaped JSON is treated as prose, not execution.
+A model that ignores or cannot call a proposal tool produces a controlled failed Agent run instead
+of a false completion. Existing-file edits require an exact unique `oldString` copied from a real
+`workspace_read_file` result. The model must report that the preview is awaiting approval; only the
+authenticated Artifacts endpoint may apply it after hash revalidation.
 
 Knowledge-only requests have an additional output boundary because tool execution alone does not
 prove that the model attributed the result correctly. Nexo buffers the answer, accepts a URL only
@@ -197,8 +201,8 @@ extraction, semantic selection, editing, expiration, and shared scopes remain de
 
 Workspace callbacks are attached from the conversation's persisted `workspaceId`, never from a
 browser-local active-folder value. Permission resolution must allow `WORKSPACE_READ`, and every call
-reauthorizes ownership and live availability. The read callbacks and optional governed write
-callback share a 12-call request cap,
+reauthorizes ownership and live availability. The read callbacks and optional governed mutation
+callbacks share a 12-call request cap,
 duplicate-argument denial, sanitized evidence and audit. Explicit project/repository inspection is
 evidence-gated in the same way as MCP, Vault, and memory work. See
 [Server workspaces](SERVER_WORKSPACES.md).
@@ -239,8 +243,8 @@ answer, and it does not repeat a completed tool effect merely to recover missing
 - native terminal, Git, browser, email, and database tools;
 - MCP credentials/OAuth, configuration-dependent Docker entries, resources/prompts, and a Companion
   bridge for a containerized backend;
-- persistent/interactive approval records and reversible write transactions beyond the current
-  fresh-request plus SHA-256 write guard;
+- multi-file approval transactions and directory-level recovery beyond the current persisted,
+  reversible single-file change artifacts;
 - resumable intermediate tool/model state across backend restarts;
 - evaluator/optimizer loops and multi-agent orchestrator/worker execution;
 - authored Vault backlinks, wikilinks, and relationship-aware graph expansion.
