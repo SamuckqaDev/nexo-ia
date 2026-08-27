@@ -8,13 +8,13 @@ import { Select } from "../../../../../shared/components/Select";
 import { skillEditorSchema } from "../../schemas/skillEditorSchema";
 import type { SkillEditorProps, SkillEditorValues } from "../../types/skillTypes";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
-import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
-import type { ProjectWorkspace, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
+import { useServerWorkspaces } from "../../../../project/workspace/hooks/useServerWorkspaces";
+import type { ServerWorkspace } from "../../../../project/workspace/types/serverWorkspaceTypes";
 import { EditorForm, Field, FormActions, Notice, Textarea, TwoColumns } from "./styles";
 
 export function SkillEditor({ initialSkill, onSave }: SkillEditorProps): ReactElement {
   const activeWorkspace = useActiveWorkspace();
-  const workspaces: ProjectWorkspace[] = useWorkspaceStore((state: WorkspaceState) => state.workspaces);
+  const workspaces: ServerWorkspace[] = useServerWorkspaces().data ?? [];
   const { register, handleSubmit, watch, formState: { errors } } = useForm<SkillEditorValues>({
     resolver: zodResolver(skillEditorSchema),
     defaultValues: {
@@ -55,7 +55,7 @@ export function SkillEditor({ initialSkill, onSave }: SkillEditorProps): ReactEl
             id="skill-scope-target"
             label="Project"
             helperText="Choose the project/workspace that owns this Skill."
-            options={[{ label: "Select a project", value: "" }, ...workspaces.map((workspace: ProjectWorkspace) => ({ label: `${workspace.name} · ${workspace.directoryName}`, value: workspace.id }))]}
+            options={[{ label: "Select a project", value: "" }, ...workspaces.map((workspace: ServerWorkspace) => ({ label: workspace.name, value: workspace.id }))]}
             error={errors.scopeTarget?.message}
             {...register("scopeTarget")}
           />

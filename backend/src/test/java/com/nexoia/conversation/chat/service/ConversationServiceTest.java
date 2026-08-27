@@ -72,7 +72,7 @@ class ConversationServiceTest {
 
     @Test
     void createsAConversationOwnedByTheAuthenticatedUser() {
-        when(conversations.save(any(Conversation.class))).thenAnswer(call -> call.getArgument(0));
+        when(conversations.saveAndFlush(any(Conversation.class))).thenAnswer(call -> call.getArgument(0));
 
         var response = service.create(userId, new CreateConversationRequest("  Planning  "));
 
@@ -83,7 +83,7 @@ class ConversationServiceTest {
     @Test
     void createsTheConversationAlreadyBoundToTheSelectedWorkspace() {
         UUID workspaceId = UUID.randomUUID();
-        when(conversations.save(any(Conversation.class))).thenAnswer(call -> call.getArgument(0));
+        when(conversations.saveAndFlush(any(Conversation.class))).thenAnswer(call -> call.getArgument(0));
 
         var response = service.create(
                 userId, new CreateConversationRequest("Workspace chat", workspaceId));

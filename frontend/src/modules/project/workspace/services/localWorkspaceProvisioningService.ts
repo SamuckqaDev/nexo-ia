@@ -1,5 +1,9 @@
 import type { DesktopRuntimeHook } from "../../../device/runtime/hooks/useDesktopRuntime";
-import { createServerWorkspace, deleteServerWorkspace } from "../api/serverWorkspaceApi";
+import {
+  createServerWorkspace,
+  deleteServerWorkspace,
+  listServerWorkspaces
+} from "../api/serverWorkspaceApi";
 import type { ServerWorkspace } from "../types/serverWorkspaceTypes";
 
 type ProvisioningRuntime = Pick<
@@ -10,11 +14,13 @@ type ProvisioningRuntime = Pick<
 type ProvisioningDependencies = {
   createWorkspace: typeof createServerWorkspace;
   deleteWorkspace: typeof deleteServerWorkspace;
+  listWorkspaces: typeof listServerWorkspaces;
 };
 
 const defaultDependencies: ProvisioningDependencies = {
   createWorkspace: createServerWorkspace,
-  deleteWorkspace: deleteServerWorkspace
+  deleteWorkspace: deleteServerWorkspace,
+  listWorkspaces: listServerWorkspaces
 };
 
 /** Creates the server registration only after the native folder chooser has been confirmed. */
@@ -24,6 +30,12 @@ export async function provisionLocalWorkspace(
 ): Promise<ServerWorkspace | null> {
   const selection = await runtime.selectWorkspaceDirectory();
   if (!selection) return null;
+
+  if (selection.existingWorkspaceId) {
+    const existing = (await dependencies.listWorkspaces())
+      .find((workspace: ServerWorkspace): boolean => workspace.id === selection.existingWorkspaceId);
+    if (existing) return existing;
+  }
 
   const workspace = await dependencies.createWorkspace({
     name: selection.displayName,

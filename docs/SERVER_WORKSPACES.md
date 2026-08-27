@@ -71,7 +71,15 @@ optional selected `workspaceId`; the backend authorizes it, resolves the preferr
 binding, and persists both with the new conversation in one transaction. The first model request can
 therefore never run between conversation creation and Workspace attachment. Existing conversations
 change or clear the selection through `PUT /api/v1/conversations/{conversationId}/workspace` in the
-Chat header. The sidebar does not maintain a competing browser-local active project.
+Chat header.
+
+The frontend additionally keeps one user-scoped **active project id** for navigation continuity.
+Home, Projects, a new Chat, Cowork, Skills, and the shell switcher all resolve that id against the
+authenticated server catalog; no path or Workspace object is duplicated in browser storage. This
+selection is a convenience default, never authorization. Once a conversation exists, its persisted
+Workspace and binding remain authoritative for every Agent request. **Open Chat** from Projects
+starts a new conversation with the selected project already filled instead of silently reopening an
+unrelated older chat.
 
 In Nexo Desktop, the folder-plus action beside the Chat workspace selector is the primary local
 project entry point. One click opens the operating system's native directory chooser: Finder on
@@ -82,6 +90,10 @@ when required, and asks Electron to consume the one-time selection while registe
 binding. The conversation then persists that Workspace and the backend resolves its preferred
 available binding. Cancellation creates no registration; a binding failure removes the empty
 registration. The native absolute path remains only in Electron's encrypted runtime store.
+
+Before provisioning, Electron compares the selected native root with its encrypted local bindings.
+Selecting the same folder again returns the existing Workspace id, so the frontend reuses the
+server registration and does not create another duplicate project card.
 
 The Projects page exposes that native chooser as its primary **Open project folder** action. It does
 not ask for a path or name: the confirmed directory supplies the display name and the one-time native
@@ -118,7 +130,11 @@ callback snapshot, so a model cannot truthfully claim a Workspace tool that was 
 
 Explicit requests to inspect project files, repository state, or Git diffs are evidence-gated. Model
 prose is buffered until a matching successful `workspace_*` execution exists; an invented claim is
-not persisted as successful work.
+not persisted as successful work. Capability routing evaluates only the actual `[USER_REQUEST]`
+portion of a contextual Chat message: Skill/Vault safety metadata in the explicit context envelope
+cannot accidentally require a Knowledge search for a Workspace request. For directory listings,
+the common model aliases `/` and `.` are normalized to the authorized Workspace root; every other
+path still passes the normal relative-path containment policy.
 
 ## Read policy and change detection
 

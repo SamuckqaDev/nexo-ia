@@ -1,6 +1,6 @@
 import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
-import { useNavigate, type NavigateFunction } from "react-router-dom";
+import { useNavigate, useSearchParams, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
 import { Loading } from "../../../../../shared/components/Loading";
 import { ApiError } from "../../../../../shared/api/ApiError";
@@ -25,6 +25,8 @@ import {
 import type { ServerWorkspace, WorkspaceBinding } from "../../../../project/workspace/types/serverWorkspaceTypes";
 import { useLocalWorkspacePicker } from "../../../../project/workspace/hooks/useLocalWorkspacePicker";
 import { WorkspacePickerControl } from "../../../../project/workspace/components/WorkspacePickerControl";
+import { useServerWorkspaceSelectionStore } from "../../../../project/workspace/stores/useServerWorkspaceSelectionStore";
+import type { ServerWorkspaceSelectionState } from "../../../../project/workspace/stores/useServerWorkspaceSelectionStore";
 import { ChatComposer } from "../../components/ChatComposer";
 import { ConversationContextPanel } from "../../components/ConversationContextPanel";
 import { ConversationSidebar } from "../../components/ConversationSidebar";
@@ -75,6 +77,8 @@ import {
 
 export function ChatPage(): ReactElement {
   const navigate: NavigateFunction = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedNewConversation: boolean = searchParams.get("new") === "1";
   const conversations = useConversations();
   const create = useCreateConversation();
   const rename = useRenameConversation();
@@ -85,8 +89,12 @@ export function ChatPage(): ReactElement {
   const serverWorkspaces = useServerWorkspaces();
   const localWorkspacePicker = useLocalWorkspacePicker();
 
+  const selectedProjectId: string | null = useServerWorkspaceSelectionStore(
+    (state: ServerWorkspaceSelectionState) => state.selectedWorkspaceId);
+  const selectProject: ServerWorkspaceSelectionState["selectWorkspace"] =
+    useServerWorkspaceSelectionStore((state: ServerWorkspaceSelectionState) => state.selectWorkspace);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isStartingNewConversation, setIsStartingNewConversation] = useState<boolean>(false);
+  const [isStartingNewConversation, setIsStartingNewConversation] = useState<boolean>(requestedNewConversation);
   const mode: ConversationMode = useConversationModeStore((state) => state.mode);
   const setMode = useConversationModeStore((state) => state.setMode);
   const [isConversationMenuOpen, setIsConversationMenuOpen] = useState<boolean>((): boolean =>
@@ -97,7 +105,8 @@ export function ChatPage(): ReactElement {
   const [isContextOpen, setIsContextOpen] = useState<boolean>(false);
   const [draftModel, setDraftModel] = useState<{ providerConfigurationId: string; selectedModel: string } | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
-  const [draftWorkspaceId, setDraftWorkspaceId] = useState<string | null>(null);
+  const [draftWorkspaceId, setDraftWorkspaceId] = useState<string | null>(
+    requestedNewConversation ? selectedProjectId : null);
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [renameTitle, setRenameTitle] = useState<string>("");
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
@@ -138,6 +147,23 @@ export function ChatPage(): ReactElement {
   }, [conversations.data, isStartingNewConversation, selectedId]);
 
   useEffect((): void => {
+    if (!requestedNewConversation) return;
+    setIsStartingNewConversation(true);
+    setSelectedId(null);
+  }, [requestedNewConversation]);
+
+  useEffect((): void => {
+    if (!isStartingNewConversation || draftWorkspaceId || !selectedProjectId) return;
+    setDraftWorkspaceId(selectedProjectId);
+  }, [draftWorkspaceId, isStartingNewConversation, selectedProjectId]);
+
+  useEffect((): void => {
+    if (selected?.workspaceId && selected.workspaceId !== selectedProjectId) {
+      selectProject(selected.workspaceId);
+    }
+  }, [selectProject, selected?.workspaceId, selectedProjectId]);
+
+  useEffect((): void => {
     if (messages.error instanceof ApiError && messages.error.status === 404) {
       setIsStartingNewConversation(true);
       setSelectedId(null);
@@ -150,7 +176,13 @@ export function ChatPage(): ReactElement {
   const configuredProviders: ProviderConfiguration[] = providers.registry.data
     ?.filter((provider: ProviderConfiguration) => provider.enabled) ?? [];
   const modelCatalogs = useProviderModelCatalogs(configuredProviders);
-  const firstAvailableModel = modelCatalogs
+  const configuredDefaultModel = modelCatalogs
+    .map((catalog) => catalog.selectedModel && catalog.models.some(
+      (model: ProviderModel): boolean => model.name === catalog.selectedModel)
+      ? { providerConfigurationId: catalog.providerConfigurationId, selectedModel: catalog.selectedModel }
+      : null)
+    .find((model): model is { providerConfigurationId: string; selectedModel: string } => model !== null);
+  const firstAvailableModel = configuredDefaultModel ?? modelCatalogs
     .flatMap((catalog) => catalog.models.map((model) => ({ providerConfigurationId: catalog.providerConfigurationId, selectedModel: model.name })))[0];
   const effectiveModel = selected?.selectedModel
     ? { providerConfigurationId: selected.providerConfigurationId ?? "", selectedModel: selected.selectedModel }
@@ -225,7 +257,9 @@ export function ChatPage(): ReactElement {
       onSuccess: (conversation: Conversation): void => {
         setIsStartingNewConversation(false);
         setSelectedId(conversation.id);
+        if (conversation.workspaceId) selectProject(conversation.workspaceId);
         setDraftWorkspaceId(null);
+        if (requestedNewConversation) setSearchParams({}, { replace: true });
         if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) {
           setIsConversationMenuOpen(false);
         }
@@ -233,7 +267,9 @@ export function ChatPage(): ReactElement {
     });
   };
 
-  const titleFromMessage = (content: string): string => content.trim().split("\\n")[0]?.slice(0, 160) || "New conversation";
+  const titleFromMessage = (content: string): string =>
+    parseContextualChatMessage(content).content.trim().split("\\n")[0]?.slice(0, 160)
+    || "New conversation";
 
   const sendMessage = (content: string): void => {
     if (mode === "agent") setIsContextOpen(true);
@@ -276,6 +312,7 @@ export function ChatPage(): ReactElement {
     localWorkspacePicker.chooseLocalWorkspace()
       .then((workspace: ServerWorkspace | null): Promise<unknown> | void => {
         if (!workspace) return;
+        selectProject(workspace.id);
         if (!selectedId) {
           setDraftWorkspaceId(workspace.id);
           return;
@@ -331,15 +368,17 @@ export function ChatPage(): ReactElement {
           selectedId={selectedId}
           isCreating={create.isPending}
           onSelect={(conversationId: string): void => {
+            if (requestedNewConversation) setSearchParams({}, { replace: true });
             setIsStartingNewConversation(false);
             setDraftWorkspaceId(null);
             setSelectedId(conversationId);
           }}
           onNew={(): void => {
+            if (requestedNewConversation) setSearchParams({}, { replace: true });
             setIsStartingNewConversation(true);
             setSelectedId(null);
             setDraftModel(null);
-            setDraftWorkspaceId(null);
+            setDraftWorkspaceId(selectedProjectId);
             setPendingMessage(null);
             if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) setIsConversationMenuOpen(false);
           }}
@@ -386,6 +425,7 @@ export function ChatPage(): ReactElement {
                     localPending={localWorkspacePicker.pending}
                     onSelect={(workspaceId: string | null): void => {
                       setDraftWorkspaceId(null);
+                      if (workspaceId) selectProject(workspaceId);
                       selectWorkspace.mutate(workspaceId);
                     }}
                     onChooseLocal={chooseLocalFolder}
@@ -481,7 +521,10 @@ export function ChatPage(): ReactElement {
                       localDisabled={create.isPending}
                       localAvailable={localWorkspacePicker.available}
                       localPending={localWorkspacePicker.pending}
-                      onSelect={setDraftWorkspaceId}
+                      onSelect={(workspaceId: string | null): void => {
+                        setDraftWorkspaceId(workspaceId);
+                        if (workspaceId) selectProject(workspaceId);
+                      }}
                       onChooseLocal={chooseLocalFolder}
                     />
                   </NewConversationWorkspace>

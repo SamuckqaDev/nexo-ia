@@ -34,7 +34,11 @@ export class WorkspaceSelectionStore {
     this.prune();
     const selectionId = this.idFactory();
     this.pending.set(selectionId, { rootPath: normalized, expiresAt: this.clock() + this.ttlMs });
-    return { selectionId, displayName: basename(normalized) || "Local workspace" };
+    return {
+      selectionId,
+      displayName: basename(normalized) || "Local workspace",
+      existingWorkspaceId: null
+    };
   }
 
   consume(selectionId: string): string {

@@ -106,7 +106,7 @@ export function HomePage({ user, onNavigate, onOpenSettings }: HomePageProps): R
               onChange={(event): void => setRequest(event.target.value)}
             />
             <CommandFooter>
-              <CommandHint type="button" title={activeWorkspace?.directoryName ?? "Choose a project folder"} onClick={(): void => onNavigate("projects")}>
+              <CommandHint type="button" title={activeWorkspace?.name ?? "Choose a project folder"} onClick={(): void => onNavigate("projects")}>
                 <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
                 {activeWorkspace?.name ?? "Choose workspace"}
               </CommandHint>

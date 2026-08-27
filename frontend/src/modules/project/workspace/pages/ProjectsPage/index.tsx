@@ -30,6 +30,8 @@ import {
   useWorkspaceBindings
 } from "../../hooks/useServerWorkspaces";
 import { useLocalWorkspacePicker } from "../../hooks/useLocalWorkspacePicker";
+import { useServerWorkspaceSelectionStore } from "../../stores/useServerWorkspaceSelectionStore";
+import type { ServerWorkspaceSelectionState } from "../../stores/useServerWorkspaceSelectionStore";
 import type {
   ServerWorkspace,
   ServerWorkspaceAccessMode,
@@ -56,13 +58,45 @@ import {
   WorkspaceList
 } from "./styles";
 
+type WorkspaceLibraryItemProps = {
+  workspace: ServerWorkspace;
+  active: boolean;
+  onSelect: () => void;
+};
+
+function WorkspaceLibraryItem({ workspace, active, onSelect }: WorkspaceLibraryItemProps): ReactElement {
+  const bindings = useWorkspaceBindings(workspace.id);
+  const binding: WorkspaceBinding | undefined = bindings.data?.find(
+    (candidate: WorkspaceBinding): boolean =>
+      candidate.status === "AVAILABLE" || candidate.status === "CHANGED"
+  ) ?? bindings.data?.[0];
+  const effectiveStatus: string = binding?.status ?? workspace.status;
+
+  return (
+    <WorkspaceButton type="button" $active={active} onClick={onSelect}>
+      <FolderOpen size={21} weight={active ? "fill" : "duotone"} />
+      <WorkspaceCopy>
+        <strong>{workspace.name}</strong>
+        <span>{binding
+          ? `${binding.deviceName} · local device`
+          : `${workspace.storageType.toLowerCase()}${workspace.relativePath ? ` · ${workspace.relativePath}` : ""}`}</span>
+        <small>{effectiveStatus.toLowerCase()}</small>
+      </WorkspaceCopy>
+      {active ? <CheckCircle size={18} weight="fill" /> : <ArrowRight size={16} />}
+    </WorkspaceButton>
+  );
+}
+
 export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
   const workspaces = useServerWorkspaces();
   const create = useCreateServerWorkspace();
   const remove = useDeleteServerWorkspace();
   const refresh = useRefreshServerWorkspace();
   const localWorkspacePicker = useLocalWorkspacePicker();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedId: string | null = useServerWorkspaceSelectionStore(
+    (state: ServerWorkspaceSelectionState) => state.selectedWorkspaceId);
+  const setSelectedId: ServerWorkspaceSelectionState["selectWorkspace"] =
+    useServerWorkspaceSelectionStore((state: ServerWorkspaceSelectionState) => state.selectWorkspace);
   const [adding, setAdding] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
   const [name, setName] = useState<string>("");
@@ -188,20 +222,12 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
             {visibleWorkspaces.length > 0 ? (
               <WorkspaceList>
                 {visibleWorkspaces.map((workspace: ServerWorkspace) => (
-                  <WorkspaceButton
+                  <WorkspaceLibraryItem
                     key={workspace.id}
-                    type="button"
-                    $active={selected?.id === workspace.id}
-                    onClick={(): void => { setSelectedId(workspace.id); setAdding(false); }}
-                  >
-                    <FolderOpen size={21} weight={selected?.id === workspace.id ? "fill" : "duotone"} />
-                    <WorkspaceCopy>
-                      <strong>{workspace.name}</strong>
-                      <span>{workspace.storageType.toLowerCase()}{workspace.relativePath ? ` · ${workspace.relativePath}` : ""}</span>
-                      <small>{workspace.status.toLowerCase()}</small>
-                    </WorkspaceCopy>
-                    {selected?.id === workspace.id ? <CheckCircle size={18} weight="fill" /> : <ArrowRight size={16} />}
-                  </WorkspaceButton>
+                    workspace={workspace}
+                    active={selected?.id === workspace.id}
+                    onSelect={(): void => { setSelectedId(workspace.id); setAdding(false); }}
+                  />
                 ))}
               </WorkspaceList>
             ) : (

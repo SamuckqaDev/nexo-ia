@@ -37,6 +37,7 @@ export type LocalWorkspaceBinding = {
 export type DesktopWorkspaceSelection = {
   selectionId: string;
   displayName: string;
+  existingWorkspaceId: string | null;
 };
 
 export type DesktopState = {

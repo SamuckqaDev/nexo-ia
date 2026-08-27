@@ -6,8 +6,8 @@ import { useImageGenerationStore } from "../../../modules/conversation/media/sto
 import type { ImageGenerationState } from "../../../modules/conversation/media/types/imageGenerationTypes";
 import { useVaultCatalogStore } from "../../../modules/knowledge/vault/stores/useVaultCatalogStore";
 import type { VaultCatalogState } from "../../../modules/knowledge/vault/types/vaultTypes";
-import { useWorkspaceStore } from "../../../modules/project/workspace/stores/useWorkspaceStore";
-import type { WorkspaceState } from "../../../modules/project/workspace/types/workspaceTypes";
+import { useServerWorkspaceSelectionStore } from "../../../modules/project/workspace/stores/useServerWorkspaceSelectionStore";
+import type { ServerWorkspaceSelectionState } from "../../../modules/project/workspace/stores/useServerWorkspaceSelectionStore";
 import type { SettingsSection } from "../../../modules/settings/types/settingsTypes";
 import { useSkillCatalogStore } from "../../../modules/skill/catalog/stores/useSkillCatalogStore";
 import type { SkillCatalogState } from "../../../modules/skill/catalog/types/skillTypes";
@@ -85,7 +85,8 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
   const section: AppSection = sectionFromPath(location.pathname);
   const settingsSection: SettingsSection = settingsFromPath(location.pathname);
   const sidebarCollapsed: boolean = collapsed && !mobileMenuOpen;
-  const initializeWorkspaces: WorkspaceState["initialize"] = useWorkspaceStore((state: WorkspaceState) => state.initialize);
+  const initializeWorkspaceSelection: ServerWorkspaceSelectionState["initialize"] =
+    useServerWorkspaceSelectionStore((state: ServerWorkspaceSelectionState) => state.initialize);
   const initializeVaults: VaultCatalogState["initialize"] = useVaultCatalogStore((state: VaultCatalogState) => state.initialize);
   const resetVaults: VaultCatalogState["reset"] = useVaultCatalogStore((state: VaultCatalogState) => state.reset);
   const initializeSkills: SkillCatalogState["initialize"] = useSkillCatalogStore((state: SkillCatalogState) => state.initialize);
@@ -94,7 +95,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
     (state: ImageGenerationState) => state.reset);
 
   useEffect((): (() => void) => {
-    initializeWorkspaces(user.id);
+    initializeWorkspaceSelection(user.id);
     initializeVaults(user.id);
     initializeSkills(user.id);
     return (): void => {
@@ -103,7 +104,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
       resetVaults();
       resetSkills();
     };
-  }, [initializeSkills, initializeVaults, initializeWorkspaces, resetImageGeneration, resetSkills, resetVaults, user.id]);
+  }, [initializeSkills, initializeVaults, initializeWorkspaceSelection, resetImageGeneration, resetSkills, resetVaults, user.id]);
 
   const navigate = (targetSection: AppSection): void => {
     routerNavigate(sectionPaths[targetSection]);
@@ -173,7 +174,7 @@ export function AppShell({ user, onLogout, isLoggingOut }: AppShellProps): React
             <Routes>
               <Route path="/" element={<HomePage user={user} onNavigate={navigate} onOpenSettings={openSettings} />} />
               <Route path="/chat" element={<ChatPage />} />
-              <Route path="/projects" element={<ProjectsPage onOpenChat={(): void => navigate("chat")} />} />
+              <Route path="/projects" element={<ProjectsPage onOpenChat={(): void => { routerNavigate("/chat?new=1"); }} />} />
               <Route path="/cowork" element={<CoworkPage />} />
               <Route path="/tasks" element={<CalendarPage />} />
               <Route path="/teams" element={<TeamsPage user={user} />} />

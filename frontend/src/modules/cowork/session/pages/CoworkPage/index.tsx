@@ -5,15 +5,18 @@ import { Input } from "../../../../../shared/components/Input";
 import { Select } from "../../../../../shared/components/Select";
 import { WorkspaceBadge, WorkspacePage, WorkspacePanel } from "../../../../../shared/components/WorkspacePage";
 import { useActiveWorkspace } from "../../../../project/workspace/hooks/useActiveWorkspace";
-import { useWorkspaceStore } from "../../../../project/workspace/stores/useWorkspaceStore";
-import type { ProjectWorkspace, WorkspaceState } from "../../../../project/workspace/types/workspaceTypes";
+import { useServerWorkspaces } from "../../../../project/workspace/hooks/useServerWorkspaces";
+import { useServerWorkspaceSelectionStore } from "../../../../project/workspace/stores/useServerWorkspaceSelectionStore";
+import type { ServerWorkspaceSelectionState } from "../../../../project/workspace/stores/useServerWorkspaceSelectionStore";
+import type { ServerWorkspace } from "../../../../project/workspace/types/serverWorkspaceTypes";
 import { Activity, ActivityItem, Board, Composer, Milestone, Objective, ObjectiveCard, Plan, Progress } from "./styles";
 
 export function CoworkPage(): ReactElement {
   const [creating, setCreating] = useState<boolean>(false);
   const activeWorkspace = useActiveWorkspace();
-  const workspaces: ProjectWorkspace[] = useWorkspaceStore((state: WorkspaceState) => state.workspaces);
-  const selectWorkspace: WorkspaceState["selectWorkspace"] = useWorkspaceStore((state: WorkspaceState) => state.selectWorkspace);
+  const workspaces: ServerWorkspace[] = useServerWorkspaces().data ?? [];
+  const selectWorkspace: ServerWorkspaceSelectionState["selectWorkspace"] =
+    useServerWorkspaceSelectionStore((state: ServerWorkspaceSelectionState) => state.selectWorkspace);
 
   return (
     <WorkspacePage
@@ -31,7 +34,7 @@ export function CoworkPage(): ReactElement {
               id="cowork-project"
               label="Project context"
               value={activeWorkspace?.id ?? "none"}
-              options={[{ label: "No workspace selected", value: "none" }, ...workspaces.map((workspace: ProjectWorkspace) => ({ label: workspace.name, value: workspace.id }))]}
+              options={[{ label: "No workspace selected", value: "none" }, ...workspaces.map((workspace: ServerWorkspace) => ({ label: workspace.name, value: workspace.id }))]}
               onChange={(event: ChangeEvent<HTMLSelectElement>): void => selectWorkspace(event.target.value === "none" ? null : event.target.value)}
             />
             <Input id="cowork-done" label="Completion evidence" placeholder="Build passes, report delivered, decision recorded…" />

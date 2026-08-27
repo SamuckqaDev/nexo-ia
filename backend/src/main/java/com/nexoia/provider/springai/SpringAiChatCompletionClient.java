@@ -85,6 +85,9 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 @Service
 public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
+    private static final String USER_REQUEST_MARKER =
+            "\n[/NEXO_EXPLICIT_CONTEXT]\n\n[USER_REQUEST]\n";
+
     private static final String THINKING_KEY = "thinking";
     private static final String CANCELLED_REASON = "cancelled";
     private static final String CAPABILITY_LISTING_REASON = "capability_listing";
@@ -743,6 +746,15 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 || request.contains(" tool")
                 || request.startsWith("tool")
                 || request.contains("mcp");
+        boolean namesWorkspaceContent = request.contains("arquivo")
+                || request.contains("file")
+                || request.contains("pasta")
+                || request.contains("diretorio")
+                || request.contains("estrutura")
+                || request.contains("conteudo")
+                || request.contains("raiz")
+                || request.contains("git status")
+                || request.contains("diff");
         boolean asksForList = request.contains("quais")
                 || request.contains("qual")
                 || request.contains("lista")
@@ -753,7 +765,10 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 || request.contains("what")
                 || request.contains("available")
                 || request.contains("have");
-        return command.mode() == ConversationMode.AGENT && mentionsTools && asksForList;
+        return command.mode() == ConversationMode.AGENT
+                && mentionsTools
+                && asksForList
+                && !namesWorkspaceContent;
     }
 
     private boolean requiresExternalToolEvidence(ChatCompletionCommand command) {
@@ -879,7 +894,11 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse("");
-        return Normalizer.normalize(request, Normalizer.Form.NFD)
+        int marker = request.indexOf(USER_REQUEST_MARKER);
+        String userRequest = marker < 0
+                ? request
+                : request.substring(marker + USER_REQUEST_MARKER.length());
+        return Normalizer.normalize(userRequest, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
                 .toLowerCase(Locale.ROOT)
                 .trim();

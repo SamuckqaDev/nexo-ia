@@ -18,6 +18,7 @@ export type DesktopRuntimeState = {
 export type DesktopWorkspaceSelection = {
   selectionId: string;
   displayName: string;
+  existingWorkspaceId: string | null;
 };
 
 export type DesktopPairingInput = {

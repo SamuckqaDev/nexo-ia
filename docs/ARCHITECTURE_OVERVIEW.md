@@ -185,7 +185,9 @@ Settings, and Administration inside one responsive `100dvh` shell.
 Frontend state follows three rules:
 
 1. TanStack Query owns authenticated server state and invalidation.
-2. Zustand owns client-only UI preferences, transient drafts, current streams, and preview catalogs.
+2. Zustand owns client-only UI preferences, transient drafts, current streams, preview catalogs, and
+   the user-scoped active server Workspace id used to keep Home, Projects, new Chat, Cowork, Skills,
+   and the shell switcher aligned. The catalog and authorization remain server-owned.
 3. Zod validates untrusted API and persisted-browser boundaries before components consume them.
 
 Axios handles ordinary authenticated REST. A dedicated streaming client handles SSE, access-token
@@ -496,6 +498,12 @@ arrays rather than a model-authored shell command.
 
 Fingerprint and Git metadata let the frontend warn when a selected project changed after binding.
 Refreshing accepts the new baseline; it never edits the project.
+
+Selecting a native root that Electron already knows reuses its existing server Workspace instead of
+creating a duplicate registration. The active project id is shared across navigation surfaces, while
+each created conversation persists its own authoritative Workspace and preferred binding. Contextual
+message metadata is stripped before request-intent classification so Vault/Skill safety text cannot
+be mistaken for the user's requested Workspace action.
 
 ## 11. Media architecture
 

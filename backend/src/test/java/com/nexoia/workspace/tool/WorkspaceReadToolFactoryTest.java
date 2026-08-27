@@ -120,6 +120,23 @@ class WorkspaceReadToolFactoryTest {
     }
 
     @Test
+    void treatsCommonModelRootAliasesAsTheWorkspaceRoot() {
+        when(inspection.tree(eq(workspace), eq(""), eq(100), any())).thenReturn(new WorkspaceTreeResponse(
+                "",
+                List.of(new WorkspaceTreeEntryResponse(
+                        "README.md", "README.md", WorkspaceEntryType.FILE, 12L, Instant.now())),
+                List.of(),
+                false,
+                null));
+        WorkspaceReadToolSession session = factory.open(scope, ToolExecutionObserver.NOOP, () -> false);
+
+        String result = session.callbacks().getFirst().call("{\"path\":\"/\"}");
+
+        assertThat(result).contains("COMPLETED").contains("README.md");
+        verify(inspection).tree(workspace, "", 100, null);
+    }
+
+    @Test
     void returnsLineNumberedFileContent() {
         when(inspection.file(workspace, "README.md", 2, 3)).thenReturn(new WorkspaceFileResponse(
                 "README.md", "second\nthird", 2, 3, 4, 20, "abc", true));

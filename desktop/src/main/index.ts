@@ -74,7 +74,12 @@ const openWorkspaceDirectory = async (title: string): Promise<string | null> => 
 
 const selectWorkspaceDirectory = async (): Promise<DesktopWorkspaceSelection | null> => {
   const rootPath = await openWorkspaceDirectory("Choose a project or workspace folder");
-  return rootPath ? workspaceSelections.create(rootPath) : null;
+  if (!rootPath) return null;
+  const selection = workspaceSelections.create(rootPath);
+  const existingWorkspaceId = store.workspaces()
+    .find((binding: LocalWorkspaceBinding): boolean => binding.rootPath === rootPath)
+    ?.workspaceId ?? null;
+  return { ...selection, existingWorkspaceId };
 };
 
 const chooseWorkspace = async (input: ChooseWorkspaceInput): Promise<DesktopState> => {

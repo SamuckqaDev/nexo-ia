@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ThemeProvider } from "styled-components";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { darkTheme } from "../../../../../app/styles/theme";
 import { useSkillCatalogStore } from "../../stores/useSkillCatalogStore";
 import { SkillsPage } from "./index";
+
+vi.mock("../../../../project/workspace/hooks/useServerWorkspaces", () => ({
+  useServerWorkspaces: () => ({ data: [], isLoading: false, isError: false })
+}));
 
 describe("SkillsPage", () => {
   beforeEach(() => {

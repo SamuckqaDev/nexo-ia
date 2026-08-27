@@ -7,7 +7,8 @@ describe("WorkspaceSelectionStore", () => {
 
     expect(store.create("/Users/samuel/projects/nexo-ia")).toEqual({
       selectionId: "selection-1",
-      displayName: "nexo-ia"
+      displayName: "nexo-ia",
+      existingWorkspaceId: null
     });
     expect(store.consume("selection-1")).toBe("/Users/samuel/projects/nexo-ia");
     expect(() => store.consume("selection-1")).toThrow("expired");

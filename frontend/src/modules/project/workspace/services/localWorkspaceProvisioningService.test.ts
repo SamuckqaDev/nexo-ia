@@ -21,7 +21,11 @@ const runtime = (overrides: Partial<DesktopRuntimeHook> = {}): DesktopRuntimeHoo
   pending: false,
   error: null,
   pair: vi.fn(),
-  selectWorkspaceDirectory: vi.fn().mockResolvedValue({ selectionId: "selection-1", displayName: "nexo-ia" }),
+  selectWorkspaceDirectory: vi.fn().mockResolvedValue({
+    selectionId: "selection-1",
+    displayName: "nexo-ia",
+    existingWorkspaceId: null
+  }),
   chooseWorkspace: vi.fn().mockResolvedValue({ paired: true, connected: true, deviceId: "device", serverUrl: "http://nexo", workspaces: [] }),
   ...overrides
 });
@@ -31,8 +35,9 @@ describe("provisionLocalWorkspace", () => {
     const desktop = runtime();
     const createWorkspace = vi.fn().mockResolvedValue(workspace);
     const deleteWorkspace = vi.fn();
+    const listWorkspaces = vi.fn().mockResolvedValue([]);
 
-    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace }))
+    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace, listWorkspaces }))
       .resolves.toEqual(workspace);
     expect(createWorkspace).toHaveBeenCalledWith({
       name: "nexo-ia",
@@ -47,17 +52,37 @@ describe("provisionLocalWorkspace", () => {
     const desktop = runtime({ selectWorkspaceDirectory: vi.fn().mockResolvedValue(null) });
     const createWorkspace = vi.fn();
     const deleteWorkspace = vi.fn();
+    const listWorkspaces = vi.fn();
 
-    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace })).resolves.toBeNull();
+    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace, listWorkspaces })).resolves.toBeNull();
     expect(createWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("reuses the existing registration when the same native folder is selected again", async () => {
+    const desktop = runtime({
+      selectWorkspaceDirectory: vi.fn().mockResolvedValue({
+        selectionId: "selection-2",
+        displayName: "nexo-ia",
+        existingWorkspaceId: workspace.id
+      })
+    });
+    const createWorkspace = vi.fn();
+    const deleteWorkspace = vi.fn();
+    const listWorkspaces = vi.fn().mockResolvedValue([workspace]);
+
+    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace, listWorkspaces }))
+      .resolves.toEqual(workspace);
+    expect(createWorkspace).not.toHaveBeenCalled();
+    expect(desktop.chooseWorkspace).not.toHaveBeenCalled();
   });
 
   it("removes an empty registration when the desktop binding fails", async () => {
     const desktop = runtime({ chooseWorkspace: vi.fn().mockRejectedValue(new Error("binding failed")) });
     const createWorkspace = vi.fn().mockResolvedValue(workspace);
     const deleteWorkspace = vi.fn().mockResolvedValue(undefined);
+    const listWorkspaces = vi.fn().mockResolvedValue([]);
 
-    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace }))
+    await expect(provisionLocalWorkspace(desktop, { createWorkspace, deleteWorkspace, listWorkspaces }))
       .rejects.toThrow("binding failed");
     expect(deleteWorkspace).toHaveBeenCalledWith(workspace.id);
   });

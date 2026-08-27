@@ -93,7 +93,10 @@ public class ConversationService {
         if (request.workspaceId() != null) {
             attachOwnedWorkspace(userId, conversation, request.workspaceId(), null);
         }
-        conversation = conversations.save(conversation);
+        // Flush before mapping the response so Hibernate has populated the creation/update timestamps.
+        // Returning the still-unflushed entity leaves both values null even though the row is committed,
+        // which makes the frontend reject an otherwise successful conversation creation.
+        conversation = conversations.saveAndFlush(conversation);
         audit.record(RecordAuditCommand.success(
                 AuditAction.CONVERSATION_CREATED, userId, null,
                 AuditTargetType.CONVERSATION, conversation.getId()));
