@@ -1,5 +1,12 @@
 import styled from "styled-components";
 
+export const PageActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
 export const ActiveContext = styled.section`
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;

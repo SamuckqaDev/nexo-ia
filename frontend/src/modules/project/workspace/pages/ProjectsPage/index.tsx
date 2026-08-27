@@ -29,6 +29,7 @@ import {
   useServerWorkspaceStatus,
   useWorkspaceBindings
 } from "../../hooks/useServerWorkspaces";
+import { useLocalWorkspacePicker } from "../../hooks/useLocalWorkspacePicker";
 import type {
   ServerWorkspace,
   ServerWorkspaceAccessMode,
@@ -45,6 +46,7 @@ import {
   LocalBindings,
   Library,
   Path,
+  PageActions,
   ProjectsGrid,
   StorageWarning,
   Structure,
@@ -60,6 +62,7 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
   const create = useCreateServerWorkspace();
   const remove = useDeleteServerWorkspace();
   const refresh = useRefreshServerWorkspace();
+  const localWorkspacePicker = useLocalWorkspacePicker();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState<boolean>(false);
   const [query, setQuery] = useState<string>("");
@@ -109,13 +112,36 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
     });
   };
 
+  const chooseLocalWorkspace = (): void => {
+    localWorkspacePicker.chooseLocalWorkspace()
+      .then((workspace: ServerWorkspace | null): void => {
+        if (workspace) setSelectedId(workspace.id);
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <WorkspacePage
       eyebrow="Local and server project context"
       title="Projects & workspaces"
       description="Keep a project on your computer through Nexo Desktop, or use an explicitly configured server workspace. Spring AI receives only the governed tools attached to the selected conversation."
       icon={FolderOpen}
-      actions={<Button type="button" icon={Plus} onClick={(): void => setAdding(true)}>Add workspace</Button>}
+      actions={(
+        <PageActions>
+          {localWorkspacePicker.available && (
+            <Button
+              type="button"
+              variant="outline"
+              icon={FolderSimplePlus}
+              disabled={localWorkspacePicker.pending}
+              onClick={chooseLocalWorkspace}
+            >
+              {localWorkspacePicker.pending ? "Opening…" : "Choose project folder"}
+            </Button>
+          )}
+          <Button type="button" icon={Plus} onClick={(): void => setAdding(true)}>Add workspace</Button>
+        </PageActions>
+      )}
     >
       {selected && (
         <ActiveContext>
@@ -138,9 +164,12 @@ export function ProjectsPage({ onOpenChat }: ProjectsPageProps): ReactElement {
         onWorkspaceBound={(): void => { void bindings.refetch(); }}
       />
 
-      {(workspaces.isError || create.isError || remove.isError) && (
+      {(workspaces.isError || create.isError || remove.isError || localWorkspacePicker.error) && (
         <StorageWarning role="alert">
-          {create.error?.message ?? remove.error?.message ?? "Nexo could not load the server workspace catalog."}
+          {localWorkspacePicker.error
+            ?? create.error?.message
+            ?? remove.error?.message
+            ?? "Nexo could not load the server workspace catalog."}
         </StorageWarning>
       )}
 

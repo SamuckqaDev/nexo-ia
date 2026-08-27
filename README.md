@@ -130,6 +130,10 @@ To start the complete local development stack and open the Electron Companion wi
 The launcher validates Node.js 24, starts the existing Compose development stack, waits for the Vite
 renderer, installs `desktop/` dependencies when missing, builds the Electron main/preload runtime,
 and opens the application. Closing Electron intentionally leaves the development containers running.
+Inside Electron, the folder-plus action beside the Chat workspace selector opens Finder, Windows
+Explorer, or the platform's native directory chooser. After confirmation, Nexo automatically creates
+the owner-scoped Workspace registration, pairs the desktop when necessary, binds the selected folder,
+and selects it for the current conversation. The absolute path never enters React or the server.
 Startup reuses healthy containers, retries the core stack without deleting named volumes, and makes
 three recovery attempts for each Docker MCP sidecar. If Docker's remote MCP catalog is temporarily
 unavailable, Chat, Vaults, and Electron still start in an explicitly reported degraded mode; rerun

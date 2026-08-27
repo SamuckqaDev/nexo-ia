@@ -43,6 +43,15 @@ vi.mock("../../hooks/useServerWorkspaces", () => ({
   useWorkspaceBindings: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() })
 }));
 
+vi.mock("../../hooks/useLocalWorkspacePicker", () => ({
+  useLocalWorkspacePicker: () => ({
+    available: false,
+    pending: false,
+    error: null,
+    chooseLocalWorkspace: vi.fn()
+  })
+}));
+
 vi.mock("../../../../device/runtime/components/DesktopRuntimeCard", () => ({
   DesktopRuntimeCard: () => <div>desktop runtime</div>
 }));

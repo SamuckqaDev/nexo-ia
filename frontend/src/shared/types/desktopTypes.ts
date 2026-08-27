@@ -15,6 +15,11 @@ export type DesktopRuntimeState = {
   workspaces: DesktopWorkspace[];
 };
 
+export type DesktopWorkspaceSelection = {
+  selectionId: string;
+  displayName: string;
+};
+
 export type DesktopPairingInput = {
   serverUrl: string;
   pairingCode: string;
@@ -24,7 +29,12 @@ export type DesktopPairingInput = {
 export type DesktopBridge = {
   state: () => Promise<DesktopRuntimeState>;
   pair: (input: DesktopPairingInput) => Promise<DesktopRuntimeState>;
-  chooseWorkspace: (input: { workspaceId: string; workspaceName: string }) => Promise<DesktopRuntimeState>;
+  selectWorkspaceDirectory: () => Promise<DesktopWorkspaceSelection | null>;
+  chooseWorkspace: (input: {
+    workspaceId: string;
+    workspaceName: string;
+    selectionId?: string;
+  }) => Promise<DesktopRuntimeState>;
   onStatus: (listener: (state: DesktopRuntimeState) => void) => () => void;
 };
 

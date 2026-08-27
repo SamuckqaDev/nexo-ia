@@ -40,7 +40,13 @@ export function DesktopRuntimeCard({
       </Copy>
       <Actions>
         {runtime.available && !runtime.state.paired && (
-          <Button type="button" variant="outline" icon={Link} disabled={runtime.pending} onClick={runtime.pair}>
+          <Button
+            type="button"
+            variant="outline"
+            icon={Link}
+            disabled={runtime.pending}
+            onClick={(): void => { void runtime.pair().catch(() => undefined); }}
+          >
             {runtime.pending ? "Pairing…" : "Pair Desktop"}
           </Button>
         )}

@@ -34,6 +34,11 @@ export type LocalWorkspaceBinding = {
   gitBranch: string | null;
 };
 
+export type DesktopWorkspaceSelection = {
+  selectionId: string;
+  displayName: string;
+};
+
 export type DesktopState = {
   paired: boolean;
   connected: boolean;
@@ -51,4 +56,5 @@ export type PairDesktopInput = {
 export type ChooseWorkspaceInput = {
   workspaceId: string;
   workspaceName: string;
+  selectionId?: string;
 };

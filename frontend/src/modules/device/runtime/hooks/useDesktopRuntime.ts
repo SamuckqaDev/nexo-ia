@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
-import type { DesktopRuntimeState } from "../../../../shared/types/desktopTypes";
+import type {
+  DesktopRuntimeState,
+  DesktopWorkspaceSelection
+} from "../../../../shared/types/desktopTypes";
 import { createDevicePairing, listDevices, revokeDevice } from "../api/deviceApi";
 import type { Device } from "../types/deviceTypes";
 
@@ -30,8 +33,13 @@ export type DesktopRuntimeHook = {
   state: DesktopRuntimeState;
   pending: boolean;
   error: string | null;
-  pair: () => void;
-  chooseWorkspace: (workspaceId: string, workspaceName: string) => Promise<DesktopRuntimeState>;
+  pair: () => Promise<DesktopRuntimeState>;
+  selectWorkspaceDirectory: () => Promise<DesktopWorkspaceSelection | null>;
+  chooseWorkspace: (
+    workspaceId: string,
+    workspaceName: string,
+    selectionId?: string
+  ) => Promise<DesktopRuntimeState>;
 };
 
 export const useDesktopRuntime = (): DesktopRuntimeHook => {
@@ -49,31 +57,53 @@ export const useDesktopRuntime = (): DesktopRuntimeHook => {
     return bridge.onStatus(setState);
   }, [bridge]);
 
-  const pair = (): void => {
-    if (!bridge || pending) return;
+  const pair = (): Promise<DesktopRuntimeState> => {
+    if (!bridge) return Promise.reject(new Error("Open Nexo in the Desktop application to pair this computer"));
     setPending(true);
     setError(null);
-    createDevicePairing()
-      .then((pairing) => bridge.pair({
-        serverUrl: window.location.protocol === "file:" ? "http://127.0.0.1:8080" : window.location.origin,
-        pairingCode: pairing.pairingCode,
-        displayName: `Nexo Desktop · ${navigator.platform || "Computer"}`
-      }))
-      .then((next: DesktopRuntimeState): Promise<void> => {
+    return bridge.state()
+      .then((current: DesktopRuntimeState): Promise<DesktopRuntimeState> => current.paired
+        ? Promise.resolve(current)
+        : createDevicePairing().then((pairing) => bridge.pair({
+          serverUrl: window.location.protocol === "file:" ? "http://127.0.0.1:8080" : window.location.origin,
+          pairingCode: pairing.pairingCode,
+          displayName: `Nexo Desktop · ${navigator.platform || "Computer"}`
+        })))
+      .then((next: DesktopRuntimeState): Promise<DesktopRuntimeState> => {
         setState(next);
-        return queryClient.invalidateQueries({ queryKey: devicesKey });
+        return queryClient.invalidateQueries({ queryKey: devicesKey }).then(() => next);
       })
-      .catch((reason: unknown): void => {
-        setError(reason instanceof Error ? reason.message : "Nexo Desktop could not be paired");
+      .catch((reason: unknown): Promise<never> => {
+        const message = reason instanceof Error ? reason.message : "Nexo Desktop could not be paired";
+        setError(message);
+        return Promise.reject(new Error(message));
       })
       .finally((): void => setPending(false));
   };
 
-  const chooseWorkspace = (workspaceId: string, workspaceName: string): Promise<DesktopRuntimeState> => {
+  const selectWorkspaceDirectory = (): Promise<DesktopWorkspaceSelection | null> => {
     if (!bridge) return Promise.reject(new Error("Open Nexo in the Desktop application to choose a local folder"));
     setPending(true);
     setError(null);
-    return bridge.chooseWorkspace({ workspaceId, workspaceName })
+    return bridge.selectWorkspaceDirectory()
+      .catch((reason: unknown): Promise<never> => {
+        const message = reason instanceof Error ? reason.message : "Nexo could not open the folder chooser";
+        setError(message);
+        return Promise.reject(new Error(message));
+      })
+      .finally((): void => setPending(false));
+  };
+
+  const chooseWorkspace = (
+    workspaceId: string,
+    workspaceName: string,
+    selectionId?: string
+  ): Promise<DesktopRuntimeState> => {
+    if (!bridge) return Promise.reject(new Error("Open Nexo in the Desktop application to choose a local folder"));
+    setPending(true);
+    setError(null);
+    return pair()
+      .then(() => bridge.chooseWorkspace({ workspaceId, workspaceName, selectionId }))
       .then((next: DesktopRuntimeState): DesktopRuntimeState => {
         setState(next);
         return next;
@@ -86,5 +116,13 @@ export const useDesktopRuntime = (): DesktopRuntimeHook => {
       .finally((): void => setPending(false));
   };
 
-  return { available: Boolean(bridge), state, pending, error, pair, chooseWorkspace };
+  return {
+    available: Boolean(bridge),
+    state,
+    pending,
+    error,
+    pair,
+    selectWorkspaceDirectory,
+    chooseWorkspace
+  };
 };

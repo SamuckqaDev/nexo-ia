@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type {
   ChooseWorkspaceInput,
   DesktopState,
+  DesktopWorkspaceSelection,
   DeviceConfiguration,
   LocalWorkspaceBinding,
   PairDesktopInput
@@ -12,12 +13,14 @@ import type {
 import { RuntimeClient } from "../runtime/runtimeClient.js";
 import { SecureRuntimeStore } from "../runtime/secureStore.js";
 import { WorkspaceTools } from "../runtime/workspaceTools.js";
+import { WorkspaceSelectionStore } from "../runtime/workspaceSelectionStore.js";
 
 let mainWindow: BrowserWindow | null = null;
 let connected = false;
 let store: SecureRuntimeStore;
 let tools: WorkspaceTools;
 let runtime: RuntimeClient;
+const workspaceSelections = new WorkspaceSelectionStore();
 
 const safeState = (): DesktopState => ({
   paired: store.device() !== null,
@@ -57,18 +60,30 @@ const pair = async (input: PairDesktopInput): Promise<DesktopState> => {
   return safeState();
 };
 
-const chooseWorkspace = async (input: ChooseWorkspaceInput): Promise<DesktopState> => {
-  const device = store.device();
-  if (!device) throw new Error("Pair Nexo Desktop before selecting a local workspace");
+const openWorkspaceDirectory = async (title: string): Promise<string | null> => {
   const dialogOptions = {
-    title: `Choose the local folder for ${input.workspaceName}`,
+    title,
     properties: ["openDirectory", "createDirectory"] as Array<"openDirectory" | "createDirectory">
   };
   const selection = mainWindow
     ? await dialog.showOpenDialog(mainWindow, dialogOptions)
     : await dialog.showOpenDialog(dialogOptions);
   const rootPath = selection.filePaths[0];
-  if (selection.canceled || !rootPath) return safeState();
+  return selection.canceled || !rootPath ? null : rootPath;
+};
+
+const selectWorkspaceDirectory = async (): Promise<DesktopWorkspaceSelection | null> => {
+  const rootPath = await openWorkspaceDirectory("Choose a project or workspace folder");
+  return rootPath ? workspaceSelections.create(rootPath) : null;
+};
+
+const chooseWorkspace = async (input: ChooseWorkspaceInput): Promise<DesktopState> => {
+  const device = store.device();
+  if (!device) throw new Error("Pair Nexo Desktop before selecting a local workspace");
+  const rootPath = input.selectionId
+    ? workspaceSelections.consume(input.selectionId)
+    : await openWorkspaceDirectory(`Choose the local folder for ${input.workspaceName}`);
+  if (!rootPath) return safeState();
   const inspection = await tools.inspectBinding(rootPath);
   const binding: LocalWorkspaceBinding = {
     localBindingId: randomUUID(),
@@ -144,6 +159,10 @@ app.whenReady().then(async (): Promise<void> => {
   );
   ipcMain.handle("nexo-desktop:state", (): DesktopState => safeState());
   ipcMain.handle("nexo-desktop:pair", (_event, input: PairDesktopInput): Promise<DesktopState> => pair(input));
+  ipcMain.handle(
+    "nexo-desktop:select-workspace-directory",
+    (): Promise<DesktopWorkspaceSelection | null> => selectWorkspaceDirectory()
+  );
   ipcMain.handle(
     "nexo-desktop:choose-workspace",
     (_event, input: ChooseWorkspaceInput): Promise<DesktopState> => chooseWorkspace(input)

@@ -1,4 +1,4 @@
-import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, FolderOpen, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
+import { BookOpen, Buildings, Check, ChatCircleDots, Cpu, LockKey, SpinnerGap, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Button } from "../../../../../shared/components/Button";
@@ -23,6 +23,8 @@ import {
   useWorkspaceBindings
 } from "../../../../project/workspace/hooks/useServerWorkspaces";
 import type { ServerWorkspace, WorkspaceBinding } from "../../../../project/workspace/types/serverWorkspaceTypes";
+import { useLocalWorkspacePicker } from "../../../../project/workspace/hooks/useLocalWorkspacePicker";
+import { WorkspacePickerControl } from "../../../../project/workspace/components/WorkspacePickerControl";
 import { ChatComposer } from "../../components/ChatComposer";
 import { ConversationContextPanel } from "../../components/ConversationContextPanel";
 import { ConversationSidebar } from "../../components/ConversationSidebar";
@@ -67,8 +69,6 @@ import {
   VaultBar,
   VaultBarLabel,
   VaultChip,
-  WorkspaceContext,
-  WorkspaceSelect,
   WorkspaceServerNotice
 } from "./styles";
 
@@ -82,6 +82,7 @@ export function ChatPage(): ReactElement {
   const backendVaults = useBackendVaultCatalog();
   const accountUsage = useUsage("ALL_TIME");
   const serverWorkspaces = useServerWorkspaces();
+  const localWorkspacePicker = useLocalWorkspacePicker();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isStartingNewConversation, setIsStartingNewConversation] = useState<boolean>(false);
@@ -95,6 +96,7 @@ export function ChatPage(): ReactElement {
   const [isContextOpen, setIsContextOpen] = useState<boolean>(false);
   const [draftModel, setDraftModel] = useState<{ providerConfigurationId: string; selectedModel: string } | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [draftWorkspaceId, setDraftWorkspaceId] = useState<string | null>(null);
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [renameTitle, setRenameTitle] = useState<string>("");
   const initialDraft: string = useChatDraftStore((state: ChatDraftState) => state.content);
@@ -108,12 +110,15 @@ export function ChatPage(): ReactElement {
   const selectedVaultIds: string[] = selected?.knowledgeVaultIds ?? [];
   const selectKnowledge = useSelectConversationKnowledge(selectedId);
   const selectWorkspace = useSelectConversationWorkspace(selectedId);
+  const effectiveWorkspaceId: string | null = selected?.workspaceId ?? draftWorkspaceId;
   const activeWorkspace: ServerWorkspace | null = serverWorkspaces.data
-    ?.find((workspace: ServerWorkspace) => workspace.id === selected?.workspaceId) ?? null;
+    ?.find((workspace: ServerWorkspace) => workspace.id === effectiveWorkspaceId) ?? null;
   const workspaceStatus = useServerWorkspaceStatus(activeWorkspace?.id ?? null);
   const workspaceBindings = useWorkspaceBindings(activeWorkspace?.id ?? null);
   const activeBinding: WorkspaceBinding | undefined = workspaceBindings.data?.find(
     (binding: WorkspaceBinding): boolean => binding.id === selected?.workspaceBindingId
+  ) ?? workspaceBindings.data?.find(
+    (binding: WorkspaceBinding): boolean => binding.status === "AVAILABLE" || binding.status === "CHANGED"
   );
   const activeWorkspaceStatus: string | undefined = activeBinding?.status ?? workspaceStatus.data?.status;
   const refreshWorkspace = useRefreshServerWorkspace();
@@ -249,6 +254,13 @@ export function ChatPage(): ReactElement {
     stream.send(content);
   }, [selected?.selectedModel, pendingMessage, selectedId, selectModel.isPending, stream]);
 
+  useEffect((): void => {
+    if (!selectedId || !draftWorkspaceId || selected?.workspaceId || selectWorkspace.isPending) return;
+    selectWorkspace.mutate(draftWorkspaceId, {
+      onSuccess: (): void => setDraftWorkspaceId(null)
+    });
+  }, [draftWorkspaceId, selected?.workspaceId, selectedId, selectWorkspace.isPending]);
+
   const chooseModel = (providerConfigurationId: string, selectedModel: string): void => {
     if (!selectedId) {
       setDraftModel({ providerConfigurationId, selectedModel });
@@ -263,6 +275,24 @@ export function ChatPage(): ReactElement {
       ? selectedVaultIds.filter((id: string): boolean => id !== vaultId)
       : [...selectedVaultIds, vaultId];
     selectKnowledge.mutate(nextSelection);
+  };
+
+  const chooseLocalFolder = (): void => {
+    if (!localWorkspacePicker.available) {
+      void navigate("/projects");
+      return;
+    }
+    localWorkspacePicker.chooseLocalWorkspace()
+      .then((workspace: ServerWorkspace | null): Promise<unknown> | void => {
+        if (!workspace) return;
+        if (!selectedId) {
+          setDraftWorkspaceId(workspace.id);
+          return;
+        }
+        setDraftWorkspaceId(null);
+        return selectWorkspace.mutateAsync(workspace.id);
+      })
+      .catch(() => undefined);
   };
 
   const saveRename = (): void => {
@@ -311,12 +341,14 @@ export function ChatPage(): ReactElement {
           isCreating={create.isPending}
           onSelect={(conversationId: string): void => {
             setIsStartingNewConversation(false);
+            setDraftWorkspaceId(null);
             setSelectedId(conversationId);
           }}
           onNew={(): void => {
             setIsStartingNewConversation(true);
             setSelectedId(null);
             setDraftModel(null);
+            setDraftWorkspaceId(null);
             setPendingMessage(null);
             if (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 48rem)").matches) setIsConversationMenuOpen(false);
           }}
@@ -353,23 +385,23 @@ export function ChatPage(): ReactElement {
               ) : <HeaderTitle>{selected?.title ?? "Start a conversation"}</HeaderTitle>}
               <HeaderMeta>
                 <PrivacyBadge title="Private to your account"><LockKey size={12} weight="bold" /> Private</PrivacyBadge>
-                <WorkspaceContext
-                  $active={Boolean(activeWorkspace)}
-                  title="Workspace persisted for this conversation"
-                >
-                  <FolderOpen size={15} weight={activeWorkspace ? "fill" : "duotone"} />
-                  <WorkspaceSelect
-                    aria-label="Conversation workspace"
-                    value={selected?.workspaceId ?? ""}
-                    disabled={!selectedId || selectWorkspace.isPending || stream.isBusy}
-                    onChange={(event): void => selectWorkspace.mutate(event.target.value || null)}
-                  >
-                    <option value="">No workspace</option>
-                    {(serverWorkspaces.data ?? []).map((workspace: ServerWorkspace) => (
-                      <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
-                    ))}
-                  </WorkspaceSelect>
-                </WorkspaceContext>
+                <WorkspacePickerControl
+                  workspaceId={effectiveWorkspaceId}
+                  workspaces={serverWorkspaces.data ?? []}
+                  selectDisabled={!selectedId || selectWorkspace.isPending || stream.isBusy}
+                  localDisabled={stream.isBusy}
+                  localAvailable={localWorkspacePicker.available}
+                  localPending={localWorkspacePicker.pending}
+                  onSelect={(workspaceId: string | null): void => {
+                    if (!selectedId) {
+                      setDraftWorkspaceId(workspaceId);
+                      return;
+                    }
+                    setDraftWorkspaceId(null);
+                    selectWorkspace.mutate(workspaceId);
+                  }}
+                  onChooseLocal={chooseLocalFolder}
+                />
                 {selected?.selectedModel && <span><Cpu size={12} /> Local</span>}
               </HeaderMeta>
             </HeaderCopy>
@@ -394,6 +426,15 @@ export function ChatPage(): ReactElement {
         </Header>
 
         <ChatContent>
+          {(localWorkspacePicker.error || selectWorkspace.isError) && (
+            <WorkspaceServerNotice role="alert">
+              <span>
+                <strong>Workspace selection needs attention</strong>
+                {localWorkspacePicker.error ?? selectWorkspace.error?.message ?? "Nexo could not select this workspace."}
+              </span>
+              <Button type="button" variant="outline" onClick={(): void => { void navigate("/projects"); }}>Manage</Button>
+            </WorkspaceServerNotice>
+          )}
           {activeWorkspace && activeWorkspaceStatus && activeWorkspaceStatus !== "AVAILABLE" && (
             <WorkspaceServerNotice role="status">
               <span>

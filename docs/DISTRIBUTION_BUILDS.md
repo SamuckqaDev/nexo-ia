@@ -67,6 +67,10 @@ authorized local-filesystem capability without placing Node APIs in React. Its p
 pairing, state, and folder-selection methods; the renderer remains sandboxed with context isolation
 and no Node integration. Current packages are development/unsigned artifacts, not trusted public
 installers. A browser alone never receives host privileges.
+The Chat workspace control includes a native folder action in Electron. It opens Finder, Explorer,
+or the Linux directory chooser, then completes authenticated Workspace creation and device binding
+without exposing the absolute path to React or the server. A regular browser redirects this action
+to Workspace management because it has no host filesystem authority.
 
 Development verification:
 

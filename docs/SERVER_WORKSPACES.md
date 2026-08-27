@@ -68,6 +68,16 @@ Conversation workspace selection is authoritative server state. The Chat header 
 selection through the conversation API; the sidebar only links to Workspace management and does not
 maintain a competing browser-local active project.
 
+In Nexo Desktop, the folder-plus action beside the Chat workspace selector is the primary local
+project entry point. One click opens the operating system's native directory chooser: Finder on
+macOS, Explorer on Windows, and the configured desktop chooser on Linux. Electron returns only an
+opaque, five-minute selection id and the folder's display name to React. After the user confirms a
+folder, the authenticated frontend creates an `UNBOUND` Workspace, pairs the Desktop automatically
+when required, and asks Electron to consume the one-time selection while registering the device
+binding. The conversation then persists that Workspace and the backend resolves its preferred
+available binding. Cancellation creates no registration; a binding failure removes the empty
+registration. The native absolute path remains only in Electron's encrypted runtime store.
+
 ## Spring AI Agent tools
 
 For an Agent request, Nexo resolves the conversation's persisted Workspace, optional local binding,

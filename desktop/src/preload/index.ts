@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   ChooseWorkspaceInput,
   DesktopState,
+  DesktopWorkspaceSelection,
   PairDesktopInput
 } from "../protocol/types.js";
 
@@ -9,6 +10,8 @@ const desktopApi = {
   state: (): Promise<DesktopState> => ipcRenderer.invoke("nexo-desktop:state") as Promise<DesktopState>,
   pair: (input: PairDesktopInput): Promise<DesktopState> =>
     ipcRenderer.invoke("nexo-desktop:pair", input) as Promise<DesktopState>,
+  selectWorkspaceDirectory: (): Promise<DesktopWorkspaceSelection | null> =>
+    ipcRenderer.invoke("nexo-desktop:select-workspace-directory") as Promise<DesktopWorkspaceSelection | null>,
   chooseWorkspace: (input: ChooseWorkspaceInput): Promise<DesktopState> =>
     ipcRenderer.invoke("nexo-desktop:choose-workspace", input) as Promise<DesktopState>,
   onStatus: (listener: (state: DesktopState) => void): (() => void) => {
