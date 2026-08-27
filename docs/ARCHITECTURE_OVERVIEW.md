@@ -264,7 +264,9 @@ sequenceDiagram
   UI->>API: POST conversation (title, optional workspaceId)
   API->>DB: authorize Workspace and persist conversation + preferred binding atomically
   UI->>API: POST message stream (mode, content, thinking preference)
-  API->>Store: reserve request
+  API->>DB: resolve effective objective from bounded conversation history
+  API->>API: promote Workspace action and select tool-capable executor when required
+  API->>Store: reserve effective request
   Store->>DB: lock owned conversation and persist USER + QUEUED ASSISTANT
   Store->>Store: resolve provider, Knowledge, memory, Workspace, MCP and permissions
   Store-->>API: request reservation and capability envelope
@@ -282,12 +284,21 @@ sequenceDiagram
 
 ### 5.1 Reservation transaction
 
-Before streaming begins, the server:
+Before streaming begins, the server first plans execution outside the reservation transaction:
+
+1. loads the owned conversation and bounded completed/cancelled user history;
+2. resolves short confirmations against the latest concrete objective;
+3. promotes a Workspace inspection or mutation from Chat to Agent;
+4. for Ollama Agent work, verifies provider capabilities and selects a request-local tool-capable
+   executor when the preferred model has no tools.
+
+The short reservation transaction then:
 
 1. resolves the authenticated conversation with a write lock;
 2. requires a persisted provider configuration and selected model;
 3. verifies the provider endpoint and processing location;
-4. persists the user message and an empty assistant message in `QUEUED` state;
+4. persists the user message and an empty assistant message with the effective mode and actual
+   executor model in `QUEUED` state;
 5. relies on a database partial unique index to prevent two active requests in one conversation;
 6. resolves the user's permission profile, selected Vaults, memories, Workspace binding, and enabled
    MCP snapshot;
@@ -338,7 +349,9 @@ boundaries for policy and state.
 
 Nexo still owns endpoint authorization, model selection, prompt resources, history budget, tool
 catalog construction, cancellation, evidence requirements, output limits, persistence, and audit.
-No provider fallback occurs silently.
+The only automatic executor change stays inside the selected provider, requires advertised tool
+support for Agent work, and is exposed through the persisted assistant model and `started` event;
+there is no silent cross-provider fallback.
 
 The Agent runtime is currently **one model execution with a bounded Spring AI tool loop**. It can
 publish and revise a visible plan, but it does not yet dispatch plan steps to parallel worker models

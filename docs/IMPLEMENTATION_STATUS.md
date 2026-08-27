@@ -24,6 +24,13 @@ minimal vertical connection plus the first release `0.1` identity slice.
   enforces relative-path
   containment, sensitive/binary/oversize denial, ignored dependency/build trees, fixed Git argument
   arrays, task evidence, and server audit. Project files are not copied to the server. See D-033.
+- Workspace execution intent is now authoritative on the server instead of depending on the visual
+  Chat/Agent toggle. Project inspection and change requests, including terse confirmations resolved
+  against the previous concrete objective, are promoted to Agent before reservation. If the selected
+  Ollama model has no `tools` capability, Nexo chooses a request-local compatible executor, records
+  the actual model, and keeps the user's preferred conversation model unchanged. The composer no
+  longer blocks this safe fallback; a provider with no tool-capable model fails before spending
+  inference tokens. See D-035.
 
 - Java 25 Spring Boot backend definition with the accepted Spring Boot and Spring AI BOM lines.
 - Public, minimal `GET /api/v1/system` identity endpoint.

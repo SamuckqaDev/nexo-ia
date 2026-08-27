@@ -7,6 +7,7 @@ import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
+import com.nexoia.conversation.inference.dto.ModelRequestExecutionPlan;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
 import com.nexoia.conversation.inference.dto.event.AgentPlanStepEvent;
@@ -64,6 +65,7 @@ public class ModelRequestService {
     private static final String SHUTDOWN_FAILURE = "SERVER_SHUTDOWN";
 
     private final ModelRequestStore store;
+    private final ModelRequestExecutionPlanner executionPlanner;
     private final ModelRequestRegistry registry;
     private final AuditService audit;
     private final List<ChatCompletionClient> completionClients;
@@ -117,9 +119,16 @@ public class ModelRequestService {
             boolean thinkingEnabled,
             List<UUID> knowledgeVaultIds,
             ConversationMode mode) {
-        ModelRequestReservation reservation =
-                store.reserve(
-                        userId, conversationId, content, thinkingEnabled, knowledgeVaultIds, mode);
+        ModelRequestExecutionPlan execution = executionPlanner.plan(
+                userId, conversationId, content, mode, thinkingEnabled);
+        ModelRequestReservation reservation = store.reserve(
+                userId,
+                conversationId,
+                content,
+                thinkingEnabled,
+                knowledgeVaultIds,
+                execution.mode(),
+                execution.model());
         clientFor(reservation.command());
 
         return reservation;

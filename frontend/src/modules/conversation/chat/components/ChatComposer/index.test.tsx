@@ -103,15 +103,17 @@ describe("ChatComposer", () => {
     expect(onSend).toHaveBeenCalledOnce();
   });
 
-  it("blocks an Agent run when Ollama reports that the selected model cannot call tools", () => {
-    renderComposer("agent", vi.fn(), "Use Fetch", vi.fn(), false, "idle", [], {
+  it("allows Agent work through a compatible executor when the selected model has no tools", () => {
+    const onSend = vi.fn();
+    renderComposer("agent", vi.fn(), "Use Fetch", onSend, false, "idle", [], {
       ...defaultAgentContext,
       modelToolCallingSupported: false
     });
 
-    expect(screen.getByText(/selected model has no tool calling/i)).toBeVisible();
+    expect(screen.getByText(/agent will use a compatible executor/i)).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(onSend).toHaveBeenCalledOnce();
   });
 
   it("switches to local image mode and queues the prompt instead of sending chat", () => {

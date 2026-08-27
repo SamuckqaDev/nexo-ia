@@ -542,3 +542,25 @@ options considered, the selected approach, and its consequences.
   user to run a command. A model that only prints instructions or ignores the callback produces a
   failed Agent run, never false completion. This does not authorize shell execution, Git mutation,
   recursive edits, persistent approvals, rollback, or multi-file transactions.
+
+## D-035 — Promote Workspace actions and separate the preferred model from the Agent executor
+
+- **Status:** accepted
+- **Context:** a Workspace-bound request sent while the composer was in Chat reached a model with no
+  tool calling and returned shell instructions as if that were execution. Manually entering Agent
+  could also be blocked by the selected conversational model even when another installed model was
+  Agent-ready. The mode label and model preference were incorrectly deciding whether the user's
+  explicit action could run.
+- **Decision:** resolve the effective objective before message reservation. If a selected Workspace
+  is asked to be analyzed, inspected, searched, read, created, or changed, promote that request from
+  Chat to Agent deterministically. Resolve deictic confirmations against the last concrete objective.
+  For Ollama Agent work, require advertised `tools`; when the preferred model lacks it, select a
+  request-local tool-capable model from the same provider, preferring its configured default, then
+  Thinking compatibility and the nearest installed model size. Persist and stream the actual
+  executor while leaving the conversation's preferred model unchanged. Perform provider discovery
+  outside the reservation
+  transaction and fail before inference if no compatible executor exists.
+- **Consequence:** execution intent reaches governed callbacks even when the visual toggle or chosen
+  model would previously have produced a tutorial. The UI remains usable and explains the compatible
+  executor fallback. Ordinary Chat is unaffected, authorization still comes only from server-owned
+  Workspace and permission state, and no model prose is interpreted as proof of execution.

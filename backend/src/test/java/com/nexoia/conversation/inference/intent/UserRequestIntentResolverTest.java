@@ -52,4 +52,23 @@ class UserRequestIntentResolverTest {
                 "Descreva a estrutura do projeto e os arquivos importantes"))
                 .isFalse();
     }
+
+    @Test
+    void resolvesAPoliteCreateConfirmationToThePreviousConcreteWrite() {
+        List<ChatCompletionMessage> messages = List.of(
+                new ChatCompletionMessage("user", "Coloque o arquivo HTML na raiz do projeto"),
+                new ChatCompletionMessage("assistant", "Execute este comando no terminal"),
+                new ChatCompletionMessage("user", "eu quero que voce faca isso pra mim, pode criar"));
+
+        String objective = UserRequestIntentResolver.effectiveRequest(messages);
+
+        assertThat(objective).contains("arquivo HTML").contains("pode criar");
+        assertThat(UserRequestIntentResolver.requestsWorkspaceWrite(objective)).isTrue();
+    }
+
+    @Test
+    void recognizesProjectAnalysisAsAWorkspaceAction() {
+        assertThat(UserRequestIntentResolver.requestsWorkspaceAction("analisa esse projeto pra mim"))
+                .isTrue();
+    }
 }

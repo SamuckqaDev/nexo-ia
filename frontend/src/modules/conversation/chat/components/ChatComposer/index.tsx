@@ -103,8 +103,7 @@ export function ChatComposer({
   };
 
   const send = (): void => {
-    if (!content.trim() || isBusy || imageSubmitting
-      || (!imageMode && mode === "agent" && agentContext.modelToolCallingSupported === false)) return;
+    if (!content.trim() || isBusy || imageSubmitting) return;
     if (imageMode) {
       if (!imageRuntimeAvailable || !selectedImageModel) return;
       onGenerateImage(content.trim(), selectedImageModel);
@@ -308,8 +307,7 @@ export function ChatComposer({
                   type="submit"
                   aria-label="Send message"
                   disabled={disabled || (!imageMode && !hasModel) || !content.trim() || imageSubmitting
-                    || (imageMode && (!imageRuntimeAvailable || !selectedImageModel))
-                    || (!imageMode && mode === "agent" && agentContext.modelToolCallingSupported === false)}
+                    || (imageMode && (!imageRuntimeAvailable || !selectedImageModel))}
                 >
                   <PaperPlaneRight size={19} weight="fill" />
                 </SendButton>

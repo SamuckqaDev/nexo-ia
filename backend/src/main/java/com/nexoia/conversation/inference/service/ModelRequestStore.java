@@ -190,6 +190,25 @@ public class ModelRequestStore {
             boolean thinkingEnabled,
             List<UUID> ignoredKnowledgeVaultIds,
             ConversationMode mode) {
+        return reserve(
+                userId,
+                conversationId,
+                content,
+                thinkingEnabled,
+                ignoredKnowledgeVaultIds,
+                mode,
+                null);
+    }
+
+    @Transactional
+    public ModelRequestReservation reserve(
+            UUID userId,
+            UUID conversationId,
+            String content,
+            boolean thinkingEnabled,
+            List<UUID> ignoredKnowledgeVaultIds,
+            ConversationMode mode,
+            String executionModel) {
         Conversation conversation = conversations.findOwnedForUpdate(conversationId, userId)
                 .orElseThrow(ConversationNotFoundException::new);
 
@@ -202,6 +221,9 @@ public class ModelRequestStore {
                 .orElseThrow(ProviderConfigurationNotFoundException::new);
         ProcessingLocation processingLocation =
                 endpointGuard.verify(provider.getProviderType(), provider.getEndpoint());
+        String requestModel = executionModel == null || executionModel.isBlank()
+                ? conversation.getSelectedModel()
+                : executionModel;
 
         UUID correlationId = UUID.randomUUID();
         int sequenceNumber = messages.findHighestSequenceNumber(conversationId);
@@ -225,7 +247,7 @@ public class ModelRequestStore {
                 .status(MessageStatus.QUEUED)
                 .content("")
                 .providerConfigurationId(provider.getId())
-                .model(conversation.getSelectedModel())
+                .model(requestModel)
                 .processingLocation(processingLocation)
                 .correlationId(correlationId)
                 .mode(mode)
@@ -292,10 +314,10 @@ public class ModelRequestStore {
                 new ChatCompletionCommand(
                         provider.getProviderType(),
                         provider.getEndpoint(),
-                        conversation.getSelectedModel(),
+                        requestModel,
                         contextAssembler.assemble(
                                 conversationId, username, citations,
-                                capabilityEnvelope(username, conversation.getSelectedModel(),
+                                capabilityEnvelope(username, requestModel,
                                         processingLocation, selectedVaults, resolvedKnowledge,
                                         enabledMcpConnections, selectedWorkspace,
                                         workspaceReadAllowed, workspaceWriteAuthorized,

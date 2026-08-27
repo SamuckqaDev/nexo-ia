@@ -163,6 +163,24 @@ class ModelRequestStoreTest {
     }
 
     @Test
+    void persistsAndRunsTheActualRequestLocalExecutorModel() {
+        ModelRequestReservation reservation = store.reserve(
+                userId,
+                conversationId,
+                "question",
+                false,
+                List.of(),
+                ConversationMode.CHAT,
+                "granite4.1:8b");
+
+        ArgumentCaptor<ConversationMessage> assistant =
+                ArgumentCaptor.forClass(ConversationMessage.class);
+        verify(messages).saveAndFlush(assistant.capture());
+        assertThat(assistant.getValue().getModel()).isEqualTo("granite4.1:8b");
+        assertThat(reservation.command().model()).isEqualTo("granite4.1:8b");
+    }
+
+    @Test
     void agentModeExposesAuthorizedKnowledgePlanAndOwnedMcpToolsWithoutPreRetrieval() {
         KnowledgeVault vault = KnowledgeVault.builder()
                 .id(UUID.randomUUID())

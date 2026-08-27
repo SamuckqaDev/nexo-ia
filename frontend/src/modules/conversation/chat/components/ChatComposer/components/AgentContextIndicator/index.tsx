@@ -30,7 +30,7 @@ export function AgentContextIndicator({
 }: AgentContextIndicatorProps): ReactElement {
   const knowledgeReady: boolean = context.selectedVaultNames.length > 0;
   const mcpReady: boolean = context.enabledMcpToolCount > 0;
-  const modelBlocked: boolean = context.modelToolCallingSupported === false;
+  const modelFallback: boolean = context.modelToolCallingSupported === false;
   const workspaceReady: boolean = context.workspaceStatus === "AVAILABLE" || context.workspaceStatus === "CHANGED";
   const knowledgeDetail: string = context.knowledgeLoading
     ? "Loading Vaults…"
@@ -48,14 +48,14 @@ export function AgentContextIndicator({
         : "No MCP enabled — open Hub";
 
   return (
-    <ContextPanel aria-label="Agent context" $blocked={modelBlocked}>
+    <ContextPanel aria-label="Agent context" $blocked={false}>
       <ContextHeading>
         <Robot size={15} weight="duotone" />
         <strong>Agent context</strong>
-        <ContextStatus $ready={!modelBlocked}>
-          {modelBlocked ? <WarningCircle size={12} /> : <CheckCircle size={12} weight="fill" />}
-          {modelBlocked
-            ? "Selected model has no tool calling"
+        <ContextStatus $ready={!modelFallback}>
+          {modelFallback ? <WarningCircle size={12} /> : <CheckCircle size={12} weight="fill" />}
+          {modelFallback
+            ? "Agent will use a compatible executor"
             : context.modelToolCallingSupported === null
               ? "Tool support unknown"
               : context.thinkingEnabled && context.modelThinkingSupported === false

@@ -44,8 +44,11 @@ older names, so the production API follows the official 2.0.1 reference when con
 
 ```text
 authenticated message
-  -> lock and reserve user/assistant messages
-  -> resolve user Provider, model, conversation, and selected Vaults
+  -> resolve the effective objective, including terse confirmations
+  -> promote Workspace operations from Chat to Agent when execution is required
+  -> select a request-local tool-capable executor when the chosen model has no tools
+  -> lock and reserve user/assistant messages with the effective mode and actual executor
+  -> resolve user Provider, conversation, and selected Vaults
   -> assemble Markdown identity + rules + truthful capability envelope
   -> build request-local OllamaChatModel and ChatClient
   -> SpringAiContextAdvisor injects the authorized system context
@@ -85,9 +88,20 @@ Chat/Agent selection persists across navigation, so visiting the MCP Hub cannot 
 the next request to Chat mode. It
 shows the real conversation Vault selection, enabled MCP server/tool count, loading or failure
 states, and the selected model's tool compatibility before a request is sent. The Knowledge bar and
-composer share the same bounded width. A model explicitly reporting no tool calling keeps the
-textarea editable but blocks the invalid Agent submission and points the user back to the model
-picker; unknown capability metadata remains usable with an explicit warning.
+composer share the same bounded width. A model explicitly reporting no tool calling no longer turns
+an execution request into a tutorial and no longer blocks the composer. The server selects a
+request-local Agent-ready model from the same provider, prefers Thinking support when the preference
+requires it, and persists/emits that actual executor without changing the conversation's preferred
+model. If the provider has no tool-capable model, Nexo rejects the request before inference and does
+not spend tokens on fabricated commands. Unknown capability metadata remains usable with an explicit
+warning.
+
+A message does not have to begin in the visual Agent toggle to receive execution semantics. When an
+authorized conversation has a selected Workspace and the effective objective asks to inspect,
+search, analyze, read, create, or change that project, deterministic server code promotes the request
+from Chat to Agent before reservation. Ordinary conversation remains Chat. This closes the gap where
+the model previously promised to act, printed `cat`/JSON instructions, and completed without any
+tool evidence.
 
 The model picker does not equate Agent support with Thinking support. For example, a model may
 advertise tool calling and therefore be Agent-ready while explicitly lacking provider reasoning.
@@ -150,7 +164,8 @@ produce the completed analysis rather than a future-tense plan. A short `continu
 the preceding project-analysis intent and runs the same governed preflight.
 
 Explicit Workspace write requests have a separate mandatory evidence gate. Nexo resolves terse
-continuations such as **faça**, **execute**, or **continue** against the latest unresolved user
+continuations such as **faça**, **execute**, **continue**, or **“faça isso pra mim, pode criar”**
+against the latest unresolved user
 objective before planning or authorizing tools. The selected Skill remains supporting context and
 cannot turn the objective into a different task. When authorized, the runtime discloses
 `workspace_write_file` and buffers any success answer until that callback returns completed evidence.

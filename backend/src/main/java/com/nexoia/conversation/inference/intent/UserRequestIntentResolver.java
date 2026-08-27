@@ -17,6 +17,10 @@ public final class UserRequestIntentResolver {
             "(?:(?:eu\\s+quero\\s+que\\s+(?:voce|vc)\\s+)?|(?:pode\\s+)?)?"
                     + "(?:faca|faz|execute|executa|aplique|aplica|continue|continuar?|continua|"
                     + "prossiga|segue|siga)(?:\\s+(?:isso|agora|aqui|dai|daqui))?");
+    private static final Pattern CONTINUATION_REFERENCE = Pattern.compile("\\b(?:isso|isto|aquilo)\\b");
+    private static final Pattern CONTINUATION_ACTION = Pattern.compile(
+            "\\b(?:faca|faz|execute|executa|aplique|aplica|continue|continuar?|continua|"
+                    + "prossiga|segue|siga|crie|cria|criar|pode\\s+criar)\\b");
     private static final Pattern WORKSPACE_WRITE_ACTION = Pattern.compile(
             "\\b(?:crie|cria|criar|adicione|adicionar|coloque|colocar|salve|salvar|"
                     + "escreva|escrever|write|create|add|altere|alterar|edite|editar|"
@@ -27,6 +31,11 @@ public final class UserRequestIntentResolver {
             "(?:\\b(?:arquivo|file|projeto|workspace|repositorio|codigo|code|pasta|"
                     + "diretorio|raiz)\\b|\\.(?:html|css|js|ts|tsx|jsx|java|kt|py|md|"
                     + "json|ya?ml|xml|sql|sh|ps1|properties)\\b)");
+    private static final Pattern WORKSPACE_READ_ACTION = Pattern.compile(
+            "\\b(?:analise|analisa|analisar|inspecione|inspeciona|inspecionar|liste|lista|listar|"
+                    + "leia|ler|busque|buscar|procure|procurar|revise|revisar|explique|explicar|"
+                    + "verifique|verificar|investigue|investigar|inspect|analyze|analyse|list|read|"
+                    + "search|review)\\b");
 
     private UserRequestIntentResolver() {}
 
@@ -99,11 +108,25 @@ public final class UserRequestIntentResolver {
                 && WORKSPACE_WRITE_TARGET.matcher(normalized).find();
     }
 
+    /** Returns whether the objective needs a governed Workspace callback rather than prose. */
+    public static boolean requestsWorkspaceAction(String request) {
+        String normalized = normalize(request);
+        return requestsWorkspaceWrite(normalized)
+                || (WORKSPACE_READ_ACTION.matcher(normalized).find()
+                && WORKSPACE_WRITE_TARGET.matcher(normalized).find());
+    }
+
     public static boolean isContinuation(String request) {
         String compact = normalize(explicitRequest(request))
                 .replaceAll("[.!?,;:'\"`“”‘’]+$", "")
                 .trim();
-        return CONTINUATION.matcher(compact).matches();
+        if (CONTINUATION.matcher(compact).matches()) {
+            return true;
+        }
+        return compact.length() <= 160
+                && CONTINUATION_REFERENCE.matcher(compact).find()
+                && CONTINUATION_ACTION.matcher(compact).find()
+                && !WORKSPACE_WRITE_TARGET.matcher(compact).find();
     }
 
     public static String explicitRequest(String request) {

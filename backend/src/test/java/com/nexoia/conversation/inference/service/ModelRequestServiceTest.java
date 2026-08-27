@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.nexoia.audit.service.AuditService;
 import com.nexoia.conversation.inference.config.ConversationContextProperties;
 import com.nexoia.conversation.chat.model.ConversationMode;
+import com.nexoia.conversation.inference.dto.ModelRequestExecutionPlan;
 import com.nexoia.conversation.inference.dto.ModelRequestReservation;
 import com.nexoia.conversation.inference.dto.event.CancelledEvent;
 import com.nexoia.conversation.inference.dto.event.AgentStateEvent;
@@ -54,6 +55,8 @@ class ModelRequestServiceTest {
     @Mock
     private ModelRequestStore store;
     @Mock
+    private ModelRequestExecutionPlanner executionPlanner;
+    @Mock
     private ChatCompletionClient client;
     @Mock
     private AuditService audit;
@@ -72,7 +75,7 @@ class ModelRequestServiceTest {
     @BeforeEach
     void setUp() {
         service = new ModelRequestService(
-                store, registry, audit, List.of(client), clock,
+                store, executionPlanner, registry, audit, List.of(client), clock,
                 new ConversationContextProperties(8000, 4));
     }
 
@@ -238,8 +241,18 @@ class ModelRequestServiceTest {
     }
 
     private void reservationIsAvailable(boolean thinkingEnabled) {
+        when(executionPlanner.plan(
+                userId, conversationId, "hi", ConversationMode.CHAT, thinkingEnabled))
+                .thenReturn(new ModelRequestExecutionPlan(
+                        ConversationMode.CHAT, "qwen3:8b", "hi", false, false));
         when(store.reserve(
-                userId, conversationId, "hi", thinkingEnabled, List.of(), ConversationMode.CHAT))
+                userId,
+                conversationId,
+                "hi",
+                thinkingEnabled,
+                List.of(),
+                ConversationMode.CHAT,
+                "qwen3:8b"))
                 .thenReturn(new ModelRequestReservation(
                 userId,
                 userMessageId,
