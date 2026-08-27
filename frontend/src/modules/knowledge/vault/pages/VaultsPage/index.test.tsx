@@ -97,6 +97,8 @@ describe("VaultsPage", () => {
 
     expect(await screen.findByText("Nexo Principles")).toBeInTheDocument();
     expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByText("Nexo Principles").closest("button")).toBeNull();
+    expect(screen.getByRole("button", { name: "Remove Nexo Principles" })).toBeVisible();
   });
 
   it("opens the create-Vault form", async () => {

@@ -90,6 +90,7 @@ create_environment() {
     printf 'NEXO_CONTAINER_OLLAMA_BASE_URL=http://host.containers.internal:11434\n'
     printf 'NEXO_CONTAINER_COMFYUI_BASE_URL=http://host.containers.internal:8188\n'
     printf 'NEXO_SERVER_PORT=8080\n'
+    printf 'NEXO_BIND_ADDRESS=127.0.0.1\n'
     printf 'NEXO_FRONTEND_DEV_PORT=5173\n'
     printf 'NEXO_SECURE_COOKIE=false\n'
     printf 'NEXO_CONTAINER_SMTP_HOST=mailpit\n'
@@ -132,6 +133,7 @@ wait_for_backend() {
 
 main() {
   local backend_port
+  local bind_address
   local frontend_port
 
   cd "$PROJECT_ROOT"
@@ -149,11 +151,17 @@ main() {
   wait_for_backend
 
   backend_port="$(awk -F= '$1 == "NEXO_SERVER_PORT" { print $2 }' "$PROJECT_ROOT/.env" | tail -1)"
+  bind_address="$(awk -F= '$1 == "NEXO_BIND_ADDRESS" { print $2 }' "$PROJECT_ROOT/.env" | tail -1)"
   frontend_port="$(awk -F= '$1 == "NEXO_FRONTEND_DEV_PORT" { print $2 }' "$PROJECT_ROOT/.env" | tail -1)"
 
   log "Nexo IA is ready"
-  printf 'Frontend: http://127.0.0.1:%s\n' "${frontend_port:-5173}"
-  printf 'Backend:  http://127.0.0.1:%s\n' "${backend_port:-8080}"
+  if [[ "${bind_address:-127.0.0.1}" == "0.0.0.0" ]]; then
+    printf 'Frontend: http://<server-ip>:%s (all interfaces)\n' "${frontend_port:-5173}"
+    printf 'Backend:  http://<server-ip>:%s (all interfaces)\n' "${backend_port:-8080}"
+  else
+    printf 'Frontend: http://%s:%s\n' "${bind_address:-127.0.0.1}" "${frontend_port:-5173}"
+    printf 'Backend:  http://%s:%s\n' "${bind_address:-127.0.0.1}" "${backend_port:-8080}"
+  fi
   printf 'Mailpit:  http://127.0.0.1:8025\n'
   printf 'Logs:     %s\n' "${COMPOSE[*]} ${COMPOSE_FILES[*]} logs -f"
 }

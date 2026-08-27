@@ -38,10 +38,14 @@ export function useVaultSources(vaultId: string | null): {
     mutationFn: (file: File): Promise<BackendSource> => registerBackendSource(vaultId ?? "", file),
     onSuccess: (source: BackendSource): void => {
       invalidate();
-      show(source.status === "READY"
-        ? `Added ${source.displayName}.`
-        : `${source.displayName} was stored, but its type is not embedded yet.`,
-        { variant: source.status === "READY" ? "success" : "info" });
+      if (source.status === "READY") {
+        show(`Added ${source.displayName}.`, { variant: "success" });
+      } else if (source.status === "FAILED") {
+        show(`${source.displayName} was stored, but ingestion failed${source.errorCode ? ` (${source.errorCode})` : ""}.`,
+          { variant: "error" });
+      } else {
+        show(`${source.displayName} was stored, but its type is not embedded yet.`, { variant: "info" });
+      }
     },
     onError: (error: Error): void => show(error.message, { variant: "error" })
   });

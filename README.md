@@ -134,6 +134,21 @@ for an `UNBOUND` Workspace. The absolute path remains on the device; the server 
 opaque binding and dispatches the existing read-only Spring AI Workspace tools over the authenticated
 runtime channel. See [Device management](docs/DEVICE_MANAGEMENT.md).
 
+To use that Companion from a second computer on the same trusted network, opt the server into a
+non-loopback bind in its private `.env`, then restart the stack:
+
+```dotenv
+NEXO_BIND_ADDRESS=0.0.0.0
+```
+
+Open `http://<server-ip>:5173` from the endpoint computer, or launch the current unsigned Desktop
+runtime there with `NEXO_RENDERER_URL=http://<server-ip>:5173 npm run dev`. Pair from the logged-in
+session and select the endpoint's local project folder. The frontend gateway now forwards the
+authenticated runtime WebSocket; project bytes remain on that endpoint while the server owns the
+model, orchestration, plan, evidence, and audit. Plain HTTP is for a trusted development LAN only.
+Internet or untrusted-network exposure requires HTTPS/WSS through a trusted reverse proxy,
+`NEXO_SECURE_COOKIE=true`, firewall policy, and normal production hardening.
+
 ## Documentation site
 
 The visual site includes a local Markdown documentation portal. Markdown files in `docs/` remain the

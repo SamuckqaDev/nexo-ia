@@ -201,6 +201,13 @@ explicit configuration with authenticated bootstrap, secure cookies, HTTPS or a 
 allowed origins, firewall guidance, and audit. PostgreSQL is never published to the host network by
 default. The backend reaches it only through the private Compose network.
 
+The implemented opt-in is `NEXO_BIND_ADDRESS=0.0.0.0`. It publishes only the Nexo web/backend
+development entry points selected by the Compose profile; PostgreSQL and Mailpit remain loopback
+bound. The Nginx web gateway supports the authenticated `nexo.runtime.v1` WebSocket upgrade used by
+the paired Companion. On a trusted development LAN, the unsigned Desktop runtime may load
+`NEXO_RENDERER_URL=http://<server-ip>:5173`; an Internet-facing deployment must terminate TLS and
+use HTTPS/WSS plus secure cookies before pairing devices.
+
 ## Images and architectures
 
 - Publish OCI images for `linux/amd64` and `linux/arm64` when both pass the complete release suite.

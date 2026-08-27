@@ -5,7 +5,7 @@ export const sourceStatusSchema = z.enum(["REGISTERED", "INGESTING", "READY", "F
 export const backendSourceSchema = z.object({
   id: z.uuid(),
   vaultId: z.uuid(),
-  sourceKind: z.enum(["UPLOAD"]),
+  sourceKind: z.enum(["UPLOAD", "AGENT"]),
   displayName: z.string(),
   mimeType: z.string(),
   byteSize: z.number().int(),

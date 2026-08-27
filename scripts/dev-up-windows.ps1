@@ -20,6 +20,14 @@ function New-NexoSecret([int]$Length) {
   }
 }
 
+function Get-NexoEnvironmentValue([string]$Name, [string]$DefaultValue) {
+  $Match = Get-Content $EnvironmentFile | Where-Object { $_ -match "^$([Regex]::Escape($Name))=" } | Select-Object -Last 1
+  if (-not $Match) {
+    return $DefaultValue
+  }
+  return ($Match -split "=", 2)[1]
+}
+
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   throw "Docker Desktop with Compose is required. Run scripts/setup-windows.ps1 first."
 }
@@ -35,6 +43,7 @@ if (-not (Test-Path $EnvironmentFile)) {
     "NEXO_CONTAINER_OLLAMA_BASE_URL=http://host.containers.internal:11434"
     "NEXO_CONTAINER_COMFYUI_BASE_URL=http://host.containers.internal:8188"
     "NEXO_SERVER_PORT=8080"
+    "NEXO_BIND_ADDRESS=127.0.0.1"
     "NEXO_FRONTEND_DEV_PORT=5173"
     "NEXO_SECURE_COOKIE=false"
     "NEXO_CONTAINER_SMTP_HOST=mailpit"
@@ -54,10 +63,13 @@ try {
   & docker compose @ComposeFiles --env-file $EnvironmentFile up --detach --build --force-recreate postgres mailpit backend frontend-dev
 
   Write-Nexo "Waiting for the backend health endpoint"
+  $ServerPort = Get-NexoEnvironmentValue "NEXO_SERVER_PORT" "8080"
+  $FrontendPort = Get-NexoEnvironmentValue "NEXO_FRONTEND_DEV_PORT" "5173"
+  $BindAddress = Get-NexoEnvironmentValue "NEXO_BIND_ADDRESS" "127.0.0.1"
   $Ready = $false
   for ($Index = 0; $Index -lt 60; $Index += 1) {
     try {
-      Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri "http://127.0.0.1:8080/api/v1/system" | Out-Null
+      Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri "http://127.0.0.1:$ServerPort/api/v1/system" | Out-Null
       $Ready = $true
       break
     } catch {
@@ -70,8 +82,13 @@ try {
   }
 
   Write-Nexo "Nexo IA is ready"
-  Write-Host "Frontend: http://127.0.0.1:5173"
-  Write-Host "Backend:  http://127.0.0.1:8080"
+  if ($BindAddress -eq "0.0.0.0") {
+    Write-Host "Frontend: http://<server-ip>:$FrontendPort (all interfaces)"
+    Write-Host "Backend:  http://<server-ip>:$ServerPort (all interfaces)"
+  } else {
+    Write-Host "Frontend: http://${BindAddress}:$FrontendPort"
+    Write-Host "Backend:  http://${BindAddress}:$ServerPort"
+  }
   Write-Host "Mailpit:  http://127.0.0.1:8025"
 } finally {
   Pop-Location

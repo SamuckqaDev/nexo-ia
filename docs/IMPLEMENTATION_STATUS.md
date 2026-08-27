@@ -13,7 +13,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Optional Electron `desktop/` runtime paired through a ten-minute single-use code and revocable
   device credential. It maintains an outbound authenticated WebSocket, keeps absolute paths and the
   raw credential encrypted on the device, and reports capability/heartbeat state without requiring
-  an open browser tab.
+  an open browser tab. Compose keeps loopback as the default and exposes an explicit
+  `NEXO_BIND_ADDRESS` opt-in for trusted cross-machine development; the production Nginx gateway now
+  forwards the authenticated runtime WebSocket upgrade.
 - Owner-isolated device inventory and opaque local Workspace bindings. Conversations persist the
   selected binding; Projects and Chat list its online, changed, missing, or error state and lazily
   browse the local tree through the authenticated runtime.
@@ -385,6 +387,9 @@ minimal vertical connection plus the first release `0.1` identity slice.
   become a deterministic no-evidence response, and an HTTP link is accepted only when it appears
   verbatim in a retrieved excerpt; otherwise Nexo replaces the model prose with the exact bounded
   Vault citations instead of persisting an invented source.
+- Knowledge source creation now flushes Hibernate timestamps before serializing both uploaded and
+  Agent-authored sources, and the frontend accepts both source kinds. Source rows no longer archive
+  knowledge when clicked; only a compact explicit Remove action followed by confirmation can do so.
 - Explicit research now narrows the callable MCP set before inference: ordinary research exposes
   search/query/find tools, while a request containing a concrete URL exposes fetch/content/open
   tools. Failed or denied MCP evidence is reported as a failed lookup and can no longer authorize a

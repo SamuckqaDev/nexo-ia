@@ -27,5 +27,5 @@ export type VaultDetailsProps = {
   onCancelCreate: () => void;
   onRemoveVault: (vault: BackendVault) => void;
   onUploadSources: (files: File[]) => void;
-  onRemoveSource: (sourceId: string) => void;
+  onRemoveSource: (source: BackendSource) => void;
 };

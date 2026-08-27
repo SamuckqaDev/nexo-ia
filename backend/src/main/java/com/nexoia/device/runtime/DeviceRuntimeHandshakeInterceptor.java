@@ -1,11 +1,13 @@
 package com.nexoia.device.runtime;
 
+import com.nexoia.device.exception.DeviceCredentialInvalidException;
 import com.nexoia.device.model.DeviceAgent;
 import com.nexoia.device.service.DeviceCredentialExtractor;
 import com.nexoia.device.service.DeviceService;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;
@@ -27,10 +29,15 @@ public class DeviceRuntimeHandshakeInterceptor implements HandshakeInterceptor {
             ServerHttpResponse response,
             WebSocketHandler wsHandler,
             Map<String, Object> attributes) {
-        String authorization = request.getHeaders().getFirst("Authorization");
-        DeviceAgent device = devices.authenticate(credentials.extract(authorization));
-        attributes.put(DEVICE_ID_ATTRIBUTE, device.getId());
-        return true;
+        try {
+            String authorization = request.getHeaders().getFirst("Authorization");
+            DeviceAgent device = devices.authenticate(credentials.extract(authorization));
+            attributes.put(DEVICE_ID_ATTRIBUTE, device.getId());
+            return true;
+        } catch (DeviceCredentialInvalidException exception) {
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            return false;
+        }
     }
 
     @Override

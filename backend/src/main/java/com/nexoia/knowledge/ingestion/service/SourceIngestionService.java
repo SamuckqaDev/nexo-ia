@@ -132,7 +132,7 @@ public class SourceIngestionService {
 
     private SourceResponse registerAgentNote(
             UUID actorId, KnowledgeVault vault, String title, byte[] content, String contentHash) {
-        KnowledgeSource source = sources.save(KnowledgeSource.builder()
+        KnowledgeSource source = sources.saveAndFlush(KnowledgeSource.builder()
                 .id(UUID.randomUUID())
                 .vaultId(vault.getId())
                 .sourceKind(SourceKind.AGENT)
@@ -148,6 +148,7 @@ public class SourceIngestionService {
                 AuditTargetType.KNOWLEDGE_SOURCE, source.getId()));
 
         ingest(actorId, source, "md", content);
+        sources.flush();
 
         return response(source);
     }
@@ -176,7 +177,7 @@ public class SourceIngestionService {
             String extension,
             byte[] content,
             String contentHash) {
-        KnowledgeSource source = sources.save(KnowledgeSource.builder()
+        KnowledgeSource source = sources.saveAndFlush(KnowledgeSource.builder()
                 .id(UUID.randomUUID())
                 .vaultId(vault.getId())
                 .sourceKind(SourceKind.UPLOAD)
@@ -193,10 +194,12 @@ public class SourceIngestionService {
 
         if (!INGESTIBLE_EXTENSIONS.contains(extension)) {
             source.markUnsupported();
+            sources.flush();
             return response(source);
         }
 
         ingest(actorId, source, extension, content);
+        sources.flush();
 
         return response(source);
     }

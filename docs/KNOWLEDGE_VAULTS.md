@@ -79,6 +79,12 @@ Vault in Chat sends its id to server-side retrieval instead of embedding a clien
 message. Markdown, text, JSON, and CSV are currently ingestible. PDF and Office files remain
 metadata-only until supported parsers exist.
 
+Uploaded and Agent-authored sources share the same strict frontend contract. The ingestion request
+flushes its initial and terminal persistence state before returning, so Hibernate-managed timestamps
+are always present. A source row is informational; removal is available only through its explicit
+compact Remove action and a confirmation dialog, preventing an inspection click from silently
+archiving knowledge.
+
 `GET /api/v1/knowledge/graph` builds a bounded semantic view of the current user's real index. It
 returns Vault, document, and chunk nodes; containment edges; and the strongest cross-document chunk
 relationships whose cosine similarity is at least 0.58. Repository joins apply owner, archive, and

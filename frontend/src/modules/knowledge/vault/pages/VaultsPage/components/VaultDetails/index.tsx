@@ -102,16 +102,7 @@ export function VaultDetails({
           {sourcesLoading ? <Loading label="Loading sources…" /> : sources.length ? (
             <SourceList>
               {sources.map((source: BackendSource) => (
-                <SourceRow
-                  key={source.id}
-                  type="button"
-                  $active={false}
-                  disabled={!selected.manageable}
-                  onClick={(): void => onRemoveSource(source.id)}
-                  title={selected.manageable
-                    ? "Click to remove this source"
-                    : "Only a Team administrator can remove this source"}
-                >
+                <SourceRow key={source.id}>
                   <File size={20} weight="duotone" />
                   <div>
                     <strong>{source.displayName}</strong>
@@ -120,6 +111,18 @@ export function VaultDetails({
                   <WorkspaceBadge tone={STATUS_LABEL[source.status].tone}>
                     {STATUS_LABEL[source.status].label}
                   </WorkspaceBadge>
+                  {selected.manageable && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      icon={Trash}
+                      aria-label={`Remove ${source.displayName}`}
+                      onClick={(): void => onRemoveSource(source)}
+                    >
+                      Remove
+                    </Button>
+                  )}
                 </SourceRow>
               ))}
             </SourceList>

@@ -23,6 +23,15 @@ arguments. It reports capabilities and heartbeats, refreshes folder fingerprints
 reconnects without requiring an open browser tab. Device revocation closes the active channel and
 prevents the stored credential from authenticating again.
 
+Compose remains loopback-only by default. An operator may set `NEXO_BIND_ADDRESS=0.0.0.0` to make
+the web gateway and development endpoints reachable from a trusted private network. The production
+Nginx gateway forwards the HTTP upgrade for `/api/v1/device-runtime/connect`, so the outbound
+Companion WebSocket reaches the same authenticated server origin used by the UI. A second machine
+can therefore load the server renderer (for the current unsigned build, set
+`NEXO_RENDERER_URL=http://<server-ip>:5173`) and pair without copying its repository to the server.
+Public or untrusted-network deployment requires HTTPS/WSS, secure cookies, a trusted TLS proxy and
+firewall policy; setting a non-loopback bind by itself is not a production security configuration.
+
 This foundation does not yet execute arbitrary shell commands, write files, mutate Git, delegate to
 worker models, elevate operating-system privileges, or present local approval dialogs. Those effects
 require the policy, approval, sandbox, rollback, and artifact layers described below before they may

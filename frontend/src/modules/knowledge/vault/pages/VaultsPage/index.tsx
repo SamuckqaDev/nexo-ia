@@ -100,6 +100,16 @@ export function VaultsPage(): ReactElement {
       });
     });
   };
+  const removeSource = (source: BackendSource): void => {
+    ask({
+      title: "Remove this source?",
+      message: `"${source.displayName}" will stop being available to Knowledge retrieval.`,
+      confirmLabel: "Remove source",
+      tone: "danger"
+    }).then((confirmed: boolean): void => {
+      if (confirmed) sourcesState.remove.mutate(source.id);
+    });
+  };
 
   return (
     <>
@@ -140,7 +150,7 @@ export function VaultsPage(): ReactElement {
             onCancelCreate={(): void => setCreating(false)}
             onRemoveVault={removeVault}
             onUploadSources={uploadSources}
-            onRemoveSource={(sourceId: string): void => sourcesState.remove.mutate(sourceId)}
+            onRemoveSource={removeSource}
           />
         </Explorer>
       </WorkspacePage>
