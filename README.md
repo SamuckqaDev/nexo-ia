@@ -171,6 +171,19 @@ cd ../desktop && npm install && npm run typecheck && npm test
 NEXO_RENDERER_URL=http://127.0.0.1:5173 npm run dev
 ```
 
+To create a macOS Electron shell that keeps the Nexo processing on a remote Linux server, run the
+builder on the Mac while connected to the same trusted Tailscale network:
+
+```bash
+./scripts/build-electron-remote.sh --server-url http://<linux-tailscale-ip>:5173
+```
+
+The generated DMG/ZIP is written to `desktop/release`. The remote renderer URL is embedded only as
+the app's launch configuration; the Linux host continues to run the frontend, backend, PostgreSQL,
+Ollama, and MCP services. The Electron shell may still provide the optional local Workspace
+Companion for files selected on the Mac. Use HTTPS/WSS through a trusted proxy before exposing the
+server beyond a private development network.
+
 Open Projects inside Nexo Desktop, pair it from the authenticated session, and choose a local folder
 for an `UNBOUND` Workspace. The absolute path remains on the device; the server receives only an
 opaque binding and dispatches bounded Spring AI Workspace reads plus final hash-protected file I/O

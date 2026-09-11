@@ -32,6 +32,9 @@
   "build": {
     "appId": "dev.nexoia.desktop",
     "productName": "Nexo IA",
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "package.json"

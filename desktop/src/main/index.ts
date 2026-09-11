@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { basename, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type {
   ChooseWorkspaceInput,
@@ -21,6 +22,27 @@ let store: SecureRuntimeStore;
 let tools: WorkspaceTools;
 let runtime: RuntimeClient;
 const workspaceSelections = new WorkspaceSelectionStore();
+
+type DesktopRuntimeConfig = {
+  rendererUrl?: string;
+};
+
+const configuredRendererUrl = (): string | null => {
+  const environmentUrl = process.env.NEXO_RENDERER_URL?.trim();
+  if (environmentUrl) return environmentUrl;
+
+  const packagedConfigPath = join(app.getAppPath(), "dist", "nexo-runtime-config.json");
+  if (!existsSync(packagedConfigPath)) return null;
+
+  try {
+    const config = JSON.parse(readFileSync(packagedConfigPath, "utf8")) as DesktopRuntimeConfig;
+    return typeof config.rendererUrl === "string" && config.rendererUrl.trim()
+      ? config.rendererUrl.trim()
+      : null;
+  } catch (_error: unknown) {
+    return null;
+  }
+};
 
 const safeState = (): DesktopState => ({
   paired: store.device() !== null,
@@ -137,12 +159,12 @@ const createWindow = (): void => {
   });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event, url): void => {
-    const rendererUrl = process.env.NEXO_RENDERER_URL;
+    const rendererUrl = configuredRendererUrl();
     if (rendererUrl && url.startsWith(rendererUrl)) return;
     if (!rendererUrl && url.startsWith("file:")) return;
     event.preventDefault();
   });
-  const rendererUrl = process.env.NEXO_RENDERER_URL;
+  const rendererUrl = configuredRendererUrl();
   if (rendererUrl) {
     void mainWindow.loadURL(rendererUrl);
   } else {
