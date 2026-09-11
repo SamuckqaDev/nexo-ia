@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILES=(-f "$PROJECT_ROOT/compose.yaml" -f "$PROJECT_ROOT/compose.dev.yaml")
+DOCKER_MCP_PROFILE_ENABLED=false
 
 log() {
   printf '\n[Nexo IA] %s\n' "$1"
@@ -151,6 +152,32 @@ ensure_environment_secret() {
   fi
 }
 
+configure_docker_mcp_profile() {
+  local docker_config_root
+  local profile
+  local profile_directory
+
+  if [[ "${CONTAINER_ENGINE[*]}" != "docker" ]] || ! docker mcp version >/dev/null 2>&1; then
+    log "Docker MCP Toolkit profile not detected; keeping the reviewed Fetch and DuckDuckGo sidecars"
+    return
+  fi
+
+  profile="$(read_environment_value NEXO_DOCKER_MCP_PROFILE default)"
+  docker_config_root="${DOCKER_CONFIG:-$HOME/.docker}"
+  profile_directory="$(read_environment_value NEXO_DOCKER_MCP_PROFILE_DIR "$docker_config_root/mcp")"
+  if [[ ! -f "$profile_directory/mcp-toolkit.db" ]] \
+      || ! docker mcp profile show "$profile" >/dev/null 2>&1; then
+    log "Docker MCP profile '$profile' is unavailable; keeping the reviewed sidecars"
+    return
+  fi
+
+  set_environment_value NEXO_DOCKER_MCP_PROFILE "$profile"
+  set_environment_value NEXO_DOCKER_MCP_PROFILE_DIR "$profile_directory"
+  COMPOSE_FILES+=(-f "$PROJECT_ROOT/compose.mcp-profile.yaml")
+  DOCKER_MCP_PROFILE_ENABLED=true
+  log "Docker MCP profile '$profile' detected; exposing its tools through the server-side gateway"
+}
+
 host_port_is_in_use() {
   local port="$1"
 
@@ -256,7 +283,11 @@ show_startup_diagnostics() {
   log "Current container state"
   compose ps --all || true
   log "Recent startup logs"
-  compose logs --tail=60 backend mcp-fetch mcp-duckduckgo || true
+  if [[ "$DOCKER_MCP_PROFILE_ENABLED" == "true" ]]; then
+    compose logs --tail=60 backend mcp-fetch mcp-duckduckgo mcp-profile || true
+  else
+    compose logs --tail=60 backend mcp-fetch mcp-duckduckgo || true
+  fi
   if [[ "$(service_state postgres)" != "healthy" ]]; then
     compose logs --tail=30 postgres || true
   fi
@@ -362,6 +393,7 @@ main() {
   prepare_container_runtime
   create_environment
   ensure_environment_secret NEXO_SECRET_MASTER_KEY 32
+  configure_docker_mcp_profile
   ensure_development_ports
 
   log "Checking existing Nexo services while preserving named volumes"
@@ -370,6 +402,9 @@ main() {
   start_core_stack
   recover_optional_service mcp-fetch
   recover_optional_service mcp-duckduckgo
+  if [[ "$DOCKER_MCP_PROFILE_ENABLED" == "true" ]]; then
+    recover_optional_service mcp-profile
+  fi
 
   backend_port="$(read_environment_value NEXO_SERVER_PORT 8080)"
   bind_address="$(read_environment_value NEXO_BIND_ADDRESS 127.0.0.1)"

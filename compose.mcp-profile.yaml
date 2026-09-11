@@ -1,0 +1,33 @@
+services:
+  backend:
+    environment:
+      NEXO_MCP_DOCKER_GATEWAY_ENDPOINTS: fetch=http://mcp-fetch:8811/sse,duckduckgo=http://mcp-duckduckgo:8811/sse,docker-profile=http://mcp-profile:8811/sse
+    depends_on:
+      mcp-profile:
+        condition: service_started
+
+  mcp-profile:
+    image: docker/mcp-gateway@sha256:f5a679a05fc39022a046167bef92aeeb01bcd59485ad27843ae5227db7950688
+    command:
+      - --profile=${NEXO_DOCKER_MCP_PROFILE:-default}
+      - --transport=sse
+      - --host=0.0.0.0
+      - --port=8811
+    environment:
+      MCP_GATEWAY_AUTH_TOKEN: ${NEXO_MCP_GATEWAY_TOKEN:-nexo-local-mcp-gateway}
+      MCP_GATEWAY_DOCKER_BIND_ALLOWED_PATHS: ${NEXO_DOCKER_MCP_READ_PATHS:-}
+      MCP_GATEWAY_DOCKER_BIND_ALLOW_WRITABLE_PATHS: ${NEXO_DOCKER_MCP_WRITE_PATHS:-}
+    volumes:
+      - type: bind
+        source: ${NEXO_DOCKER_MCP_PROFILE_DIR:?Set NEXO_DOCKER_MCP_PROFILE_DIR to the server machine Docker MCP directory}
+        target: /root/.docker/mcp
+        read_only: true
+    use_api_socket: true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8811/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 18
+    restart: on-failure:5
+    networks:
+      - nexo-mcp

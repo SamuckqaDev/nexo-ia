@@ -59,8 +59,31 @@ class McpCatalogServiceTest {
         assertThat(result.dockerAvailable()).isFalse();
         assertThat(result.source()).isEqualTo("reviewed-fallback");
         assertThat(result.servers()).extracting(server -> server.id())
-                .containsExactly("fetch", "duckduckgo", "git", "playwright");
+                .containsExactly("docker-profile", "fetch", "duckduckgo", "git", "playwright");
         assertThat(result.servers()).allMatch(server -> server.costType() == McpCostType.LOCAL_FREE);
+    }
+
+    @Test
+    void addsTheConfiguredMachineProfileToTheLiveCatalog() {
+        DockerMcpCommandRunner commands = Mockito.mock(DockerMcpCommandRunner.class);
+        when(commands.run(List.of("mcp", "version"), Duration.ofSeconds(5)))
+                .thenReturn(new DockerMcpCommandResult(0, "v0.43.3"));
+        when(commands.run(
+                List.of("mcp", "catalog", "server", "ls", "mcp/docker-mcp-catalog", "--format", "json"),
+                Duration.ofSeconds(15)))
+                .thenReturn(new DockerMcpCommandResult(0, """
+                        {"servers":[
+                          {"snapshot":{"server":{"name":"fetch","title":"Fetch","image":"mcp/fetch",
+                            "metadata":{"license":"MIT","category":"web"},"tools":[{"name":"fetch"}]}}}
+                        ]}
+                        """));
+
+        var result = service(commands,
+                "docker-profile=http://mcp-profile:8811/sse,fetch=http://mcp-fetch:8811/sse")
+                .catalog();
+
+        assertThat(result.servers()).extracting(server -> server.id())
+                .containsExactly("docker-profile", "fetch");
     }
 
     @Test

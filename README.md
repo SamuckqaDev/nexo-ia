@@ -109,6 +109,13 @@ builds the backend image and starts PostgreSQL, Mailpit, and the React frontend 
 `http://127.0.0.1:8080`, and Mailpit `http://127.0.0.1:8025`. With Docker Compose, development also
 starts authenticated, non-published Docker MCP Gateway sidecars for the free Fetch and DuckDuckGo
 catalog servers. Set `NEXO_MCP_GATEWAY_TOKEN` to override the local-only default gateway token.
+When Docker MCP Toolkit has a server-machine profile (the default profile is `default`), the startup
+script also detects it and starts an isolated profile Gateway. The MCP Hub then exposes **Docker MCP
+machine profile** so each authenticated user can inspect it, explicitly select at most twelve tools,
+and enable that selection for Agent mode. The browser never runs those tools: the Gateway and tool
+containers execute on the Nexo server machine. Set `NEXO_DOCKER_MCP_PROFILE` to choose another
+profile. Filesystem-backed profile tools remain blocked unless the operator explicitly configures
+the narrow `NEXO_DOCKER_MCP_READ_PATHS` or `NEXO_DOCKER_MCP_WRITE_PATHS` allow-list.
 When ComfyUI is running on the host, the backend reaches it through
 `NEXO_CONTAINER_COMFYUI_BASE_URL` (default `http://host.containers.internal:8188`).
 Copy additional `.safetensors` checkpoints into

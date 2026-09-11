@@ -10,6 +10,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
 
 ## Added
 
+- The development launchers now detect the Docker MCP Toolkit profile installed on the Nexo server
+  machine and conditionally start an authenticated profile Gateway. The Hub exposes that profile as
+  an inspectable, per-user connection; only the user's explicit subset reaches Agent mode, while
+  Docker Gateway management/proxy tools are excluded from discovery to preserve the allow-list.
 - Server-owned provider Secret Store in the `provider.secret` module. Remote API keys are encrypted
   at rest with AES-256-GCM and provider-bound authenticated data, never returned by the API, never
   added to prompts, and resolved only for the owned request that invokes Spring AI. The Settings

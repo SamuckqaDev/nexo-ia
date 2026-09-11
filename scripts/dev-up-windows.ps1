@@ -4,6 +4,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $EnvironmentFile = Join-Path $ProjectRoot ".env"
 $ComposeFiles = @("-f", (Join-Path $ProjectRoot "compose.yaml"), "-f", (Join-Path $ProjectRoot "compose.dev.yaml"))
+$DockerMcpProfileEnabled = $false
 
 function Write-Nexo([string]$Message) {
   Write-Host "`n[Nexo IA] $Message" -ForegroundColor Cyan
@@ -78,11 +79,33 @@ if (-not (Get-NexoEnvironmentValue "NEXO_SECRET_MASTER_KEY" "")) {
   Set-NexoEnvironmentValue "NEXO_SECRET_MASTER_KEY" (New-NexoSecret 32)
 }
 
+$DockerMcp = Get-Command docker -ErrorAction SilentlyContinue
+if ($DockerMcp) {
+  $Profile = Get-NexoEnvironmentValue "NEXO_DOCKER_MCP_PROFILE" "default"
+  $DockerConfigRoot = if ($env:DOCKER_CONFIG) { $env:DOCKER_CONFIG } else { Join-Path $env:USERPROFILE ".docker" }
+  $ProfileDirectory = Get-NexoEnvironmentValue "NEXO_DOCKER_MCP_PROFILE_DIR" (Join-Path $DockerConfigRoot "mcp")
+  $ProfileDatabase = Join-Path $ProfileDirectory "mcp-toolkit.db"
+  & docker mcp profile show $Profile *> $null
+  if ($LASTEXITCODE -eq 0 -and (Test-Path $ProfileDatabase)) {
+    Set-NexoEnvironmentValue "NEXO_DOCKER_MCP_PROFILE" $Profile
+    Set-NexoEnvironmentValue "NEXO_DOCKER_MCP_PROFILE_DIR" $ProfileDirectory
+    $ComposeFiles += @("-f", (Join-Path $ProjectRoot "compose.mcp-profile.yaml"))
+    $DockerMcpProfileEnabled = $true
+    Write-Nexo "Docker MCP profile '$Profile' detected; exposing its tools through the server-side gateway"
+  } else {
+    Write-Nexo "Docker MCP profile '$Profile' is unavailable; keeping the reviewed sidecars"
+  }
+}
+
 Push-Location $ProjectRoot
 try {
   Write-Nexo "Recreating the development stack while preserving named volumes"
   & docker compose @ComposeFiles --env-file $EnvironmentFile down --remove-orphans
   & docker compose @ComposeFiles --env-file $EnvironmentFile up --detach --build --force-recreate postgres mailpit backend frontend-dev
+
+  if ($DockerMcpProfileEnabled) {
+    & docker compose @ComposeFiles --env-file $EnvironmentFile up --detach --force-recreate mcp-profile
+  }
 
   Write-Nexo "Waiting for the backend health endpoint"
   $ServerPort = Get-NexoEnvironmentValue "NEXO_SERVER_PORT" "8080"

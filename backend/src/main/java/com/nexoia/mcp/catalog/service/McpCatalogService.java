@@ -11,7 +11,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -102,7 +104,11 @@ public class McpCatalogService {
             }
             servers.sort(catalogOrder());
             return new McpCatalogResponse(
-                    true, version.output().trim(), CATALOG_REFERENCE, refreshedAt, List.copyOf(servers));
+                    true,
+                    version.output().trim(),
+                    CATALOG_REFERENCE,
+                    refreshedAt,
+                    mergeConfiguredGateways(servers));
         } catch (RuntimeException exception) {
             return new McpCatalogResponse(false, version.output().trim(), "reviewed-fallback", refreshedAt, fallback());
         }
@@ -159,6 +165,13 @@ public class McpCatalogService {
 
     private List<McpCatalogServerResponse> fallback() {
         return List.of(
+                fallbackServer(
+                        DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID,
+                        "Docker MCP machine profile",
+                        "Use the MCP servers configured in this server machine's Docker profile.",
+                        null,
+                        McpRiskLevel.UNKNOWN,
+                        0),
                 fallbackServer("fetch", "Fetch", "Fetch and extract public web pages.",
                         "mcp/fetch", McpRiskLevel.READ_ONLY, 1),
                 fallbackServer("duckduckgo", "Private Web Search", "Search the web without an API key.",
@@ -167,6 +180,16 @@ public class McpCatalogService {
                         "mcp/git", McpRiskLevel.READ_WRITE, 12),
                 fallbackServer("playwright", "Playwright", "Automate a sandboxed browser.",
                         "mcp/playwright", McpRiskLevel.READ_WRITE, 23));
+    }
+
+    private List<McpCatalogServerResponse> mergeConfiguredGateways(
+            List<McpCatalogServerResponse> catalogServers) {
+        Map<String, McpCatalogServerResponse> merged = new LinkedHashMap<>();
+        catalogServers.forEach(server -> merged.put(server.id(), server));
+        fallback().stream()
+                .filter(server -> gateways.endpoint(server.id()).isPresent())
+                .forEach(server -> merged.putIfAbsent(server.id(), server));
+        return merged.values().stream().sorted(catalogOrder()).toList();
     }
 
     private McpCatalogServerResponse fallbackServer(

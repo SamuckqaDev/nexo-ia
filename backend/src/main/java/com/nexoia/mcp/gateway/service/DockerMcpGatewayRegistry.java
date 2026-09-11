@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class DockerMcpGatewayRegistry {
 
+    public static final String MACHINE_PROFILE_SERVER_ID = "docker-profile";
     private static final String SERVER_ID_PATTERN = "[a-z0-9][a-z0-9._-]*";
 
     private final Map<String, URI> endpoints;

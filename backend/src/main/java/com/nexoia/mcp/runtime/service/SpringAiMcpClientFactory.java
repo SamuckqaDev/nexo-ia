@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.mcp.SyncMcpToolCallback;
 import org.springframework.ai.tool.ToolCallback;
@@ -39,6 +40,15 @@ public class SpringAiMcpClientFactory implements McpClientFactory {
 
     private static final int MAX_TOOL_PAGES = 5;
     private static final int MAX_TOOLS = 100;
+    private static final Set<String> MACHINE_PROFILE_CONTROL_TOOLS = Set.of(
+            "code-mode",
+            "mcp-activate-profile",
+            "mcp-add",
+            "mcp-config-set",
+            "mcp-create-profile",
+            "mcp-exec",
+            "mcp-find",
+            "mcp-remove");
     private final String dockerExecutable;
     private final Duration requestTimeout;
     private final DockerMcpGatewayRegistry dockerGateways;
@@ -63,7 +73,9 @@ public class SpringAiMcpClientFactory implements McpClientFactory {
                     .requestTimeout(requestTimeout)
                     .build();
             McpSchema.InitializeResult initialized = client.initialize();
-            List<McpSchema.Tool> discovered = tools(client);
+            List<McpSchema.Tool> discovered = tools(client).stream()
+                    .filter(tool -> isExposed(connection, tool.name()))
+                    .toList();
             Map<String, String> exposedNames = new HashMap<>();
             for (McpRuntimeTool tool : connection.enabledTools()) {
                 exposedNames.put(tool.externalName(), tool.exposedName());
@@ -111,6 +123,11 @@ public class SpringAiMcpClientFactory implements McpClientFactory {
         }
 
         return httpTransport(URI.create(connection.endpoint()), null);
+    }
+
+    boolean isExposed(McpRuntimeConnection connection, String toolName) {
+        return !DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID.equals(connection.catalogServerId())
+                || !MACHINE_PROFILE_CONTROL_TOOLS.contains(toolName);
     }
 
     private McpClientTransport httpTransport(URI endpoint, String authorizationHeader) {

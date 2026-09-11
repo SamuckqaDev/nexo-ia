@@ -4,7 +4,8 @@ Nexo IA supports the first governed MCP tool increment through Spring AI 2.0.1. 
 two connection worlds behind one user-owned registry:
 
 1. **Docker MCP Catalog:** reviewed containerized servers reached either through the installed
-   Docker MCP CLI over STDIO or through operator-owned SSE Gateway sidecars.
+   Docker MCP CLI over STDIO, through operator-owned SSE Gateway sidecars, or through the Docker MCP
+   Toolkit profile configured on the Nexo server machine.
 2. **Personal MCP:** a Streamable HTTP endpoint registered by one authenticated user, suitable for a
    server that person built or operates.
 
@@ -36,6 +37,10 @@ Docker-maintained catalog source remains available in the
   shell when the backend runs where the CLI is available. In the Compose development profile,
   configured server ids resolve instead to isolated SSE sidecars. The server id must
   first resolve through the catalog and match the bounded identifier contract.
+- The cross-platform development launchers detect the server machine's Docker MCP Toolkit profile
+  and add `compose.mcp-profile.yaml` only when that profile actually exists. The profile Gateway is
+  represented in the Hub by the virtual `docker-profile` catalog server and can be inspected like
+  every other user-owned connection.
 - Personal connections use the official MCP Java SDK's Streamable HTTP transport.
 - Discovery initializes the server, paginates a bounded tool list, stores safe metadata and JSON
   input schemas, and preserves still-existing tool selections on refresh.
@@ -45,6 +50,8 @@ Docker-maintained catalog source remains available in the
 - A newly discovered tool is off by default.
 - The owner selects an exact subset of discovered external names and separately enables the
   connection.
+- A shared machine profile is infrastructure, not an automatic permission grant. Its connection,
+  selected tools, and Agent enablement remain isolated per authenticated Nexo user.
 - The Hub labels a discovered but disabled connection as **Off in Agent**, and its primary action can
   save a changed allow-list and enable that exact subset in one explicit click. Discovery or tool
   selection alone never appears as active access in Chat.
@@ -132,6 +139,23 @@ the matching `MCP_GATEWAY_AUTH_TOKEN`. `NEXO_MCP_GATEWAY_TOKEN` can override the
 default. The tool containers retain Docker Gateway signature verification, resource limits, and
 `no-new-privileges` defaults.
 
+When `docker mcp profile show <profile>` succeeds and its Toolkit database is present, `dev-up.sh`
+and `dev-up-windows.ps1` add `compose.mcp-profile.yaml`. That overlay mounts only the server
+machine's Docker MCP configuration directory read-only, starts an authenticated `mcp-profile`
+Gateway, and registers `docker-profile=http://mcp-profile:8811/sse` with the backend. The default
+profile name is `default`; override it with `NEXO_DOCKER_MCP_PROFILE`.
+
+The Gateway can list every server already configured in that machine profile, but Nexo still stores
+an owner-specific discovered snapshot. The user must select at most twelve tools and enable the
+connection before those callbacks enter Agent mode. Docker Gateway management/proxy tools such as
+`mcp-add`, `mcp-remove`, `mcp-exec`, and `code-mode` are excluded because they could bypass that
+allow-list. Ordinary profile tools—including search, time, memory, browser, and Git tools that the
+Gateway successfully starts—remain available for explicit selection.
+
+Filesystem-backed Docker MCP servers do not inherit arbitrary host access. Configure a narrow
+`NEXO_DOCKER_MCP_READ_PATHS` or `NEXO_DOCKER_MCP_WRITE_PATHS` only on the trusted Nexo server when a
+profile tool legitimately needs those paths. An empty write allow-list is the safe default.
+
 The sidecars currently use Docker Gateway's SSE transport. The pinned Gateway rejects the
 `application/json; charset=utf-8` request media type emitted by the Spring AI-bundled MCP SDK 2.0
 Streamable HTTP client, while the official SSE client interoperates successfully. An opt-in Docker
@@ -161,8 +185,9 @@ and must not be enabled casually on a shared server.
    require credentials.
 2. Add typed, user-owned Docker configuration rather than reading shared Docker Toolkit settings;
    then enable configuration-dependent catalog entries.
-3. Build the signed Nexo Companion/broker so a remote Nexo server can reach a user's local Docker
-   MCP Gateway; local Compose already uses operator-owned isolated sidecars.
+3. Build the signed Nexo Companion/broker so a remote Nexo server can reach Docker MCP running on a
+   different endpoint machine. The implemented machine-profile bridge intentionally reads the
+   profile of the Nexo server itself; it does not reach a browser user's separate computer.
 4. Put write/destructive MCP annotations through the full Permission Engine with previews and fresh
    approval; annotations are untrusted hints, not authorization.
 5. Add per-conversation connection selection, resources/prompts, health history, usage counters, and

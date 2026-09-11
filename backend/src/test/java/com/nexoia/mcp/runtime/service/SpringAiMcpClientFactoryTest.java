@@ -35,6 +35,19 @@ class SpringAiMcpClientFactoryTest {
                 .isInstanceOf(StdioClientTransport.class);
     }
 
+    @Test
+    void hidesMachineProfileControlToolsThatCouldBypassTheUserAllowList() {
+        SpringAiMcpClientFactory factory = new SpringAiMcpClientFactory(
+                "docker", Duration.ofSeconds(20), new DockerMcpGatewayRegistry("", ""));
+        McpRuntimeConnection profile = dockerConnection(
+                DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID);
+
+        assertThat(factory.isExposed(profile, "search")).isTrue();
+        assertThat(factory.isExposed(profile, "git_status")).isTrue();
+        assertThat(factory.isExposed(profile, "mcp-exec")).isFalse();
+        assertThat(factory.isExposed(profile, "code-mode")).isFalse();
+    }
+
     private McpRuntimeConnection dockerConnection(String serverId) {
         return new McpRuntimeConnection(
                 UUID.randomUUID(),

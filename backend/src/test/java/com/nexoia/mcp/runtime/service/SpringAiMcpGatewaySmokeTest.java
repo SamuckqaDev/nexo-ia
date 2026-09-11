@@ -1,6 +1,7 @@
 package com.nexoia.mcp.runtime.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.nexoia.mcp.connection.model.McpConnectionKind;
 import com.nexoia.mcp.connection.model.McpTransportType;
@@ -48,6 +49,37 @@ class SpringAiMcpGatewaySmokeTest {
                     .contains("search", "fetch_content");
             assertThat(session.callbacks()).singleElement().satisfies(callback ->
                     assertThat(callback.getToolDefinition().name()).isEqualTo("mcp_test_search"));
+        }
+    }
+
+    @Test
+    void initializesTheServerMachineProfileWithoutExposingGatewayControlTools() {
+        String endpoint = System.getenv("NEXO_SMOKE_MCP_PROFILE_URL");
+        assumeTrue(endpoint != null && !endpoint.isBlank());
+        String token = System.getenv().getOrDefault(
+                "NEXO_SMOKE_MCP_GATEWAY_TOKEN", "nexo-local-mcp-gateway");
+        SpringAiMcpClientFactory factory = new SpringAiMcpClientFactory(
+                "docker",
+                Duration.ofSeconds(60),
+                new DockerMcpGatewayRegistry(
+                        DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID + "=" + endpoint,
+                        token));
+        McpRuntimeConnection connection = new McpRuntimeConnection(
+                UUID.randomUUID(),
+                "Docker MCP machine profile",
+                McpConnectionKind.DOCKER_CATALOG,
+                McpTransportType.DOCKER_GATEWAY,
+                DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID,
+                null,
+                List.of(new McpRuntimeTool("search", "mcp_test_profile_search")));
+
+        try (McpClientSession session = factory.open(connection)) {
+            assertThat(session.snapshot().tools()).extracting(tool -> tool.name())
+                    .contains("search", "fetch", "sequentialthinking")
+                    .doesNotContain("mcp-exec", "mcp-add", "mcp-remove", "code-mode");
+            assertThat(session.callbacks()).singleElement().satisfies(callback ->
+                    assertThat(callback.getToolDefinition().name())
+                            .isEqualTo("mcp_test_profile_search"));
         }
     }
 }
