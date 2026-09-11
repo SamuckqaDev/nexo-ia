@@ -9,8 +9,10 @@ authorized callbacks are exposed directly through `ToolCallingAdvisor`, which is
 small local models; larger catalogs use `ToolSearchToolCallingAdvisor` and progressively reveal only
 matching callbacks from the current request's isolated index. `inspect_capabilities` reports that
 request's exact safe catalog;
-action tools include `update_plan`, `remember`, conditional `search_knowledge`, and explicitly
-enabled tools from the current user's Docker or personal MCP connections. Agent state, plan
+action tools include `update_plan`, `remember`, conditional `search_knowledge`, explicitly selected
+tools from ordinary MCP connections, and the complete safe catalog from an enabled server-machine
+Docker profile. Spring AI progressively discovers the relevant callback and the model chooses which
+tool fits the current task. Agent state, plan
 revisions, sanitized tool evidence,
 citations, limits, and timing are visible and survive chat navigation. MCP does not yet imply the
 full approval Permission Engine, Secret Store, or arbitrary computer control. See

@@ -5,6 +5,7 @@ import com.nexoia.mcp.connection.model.McpConnection;
 import com.nexoia.mcp.connection.model.McpToolDefinition;
 import com.nexoia.mcp.connection.repository.McpConnectionRepository;
 import com.nexoia.mcp.connection.repository.McpToolDefinitionRepository;
+import com.nexoia.mcp.gateway.service.DockerMcpGatewayRegistry;
 import com.nexoia.mcp.runtime.dto.McpConnectionSnapshot;
 import com.nexoia.mcp.runtime.dto.McpDiscoveredTool;
 import java.time.Clock;
@@ -28,6 +29,8 @@ public class McpConnectionStore {
     @Transactional
     public void replaceDiscovery(UUID userId, UUID connectionId, McpConnectionSnapshot snapshot) {
         McpConnection connection = owned(userId, connectionId);
+        boolean machineProfile = DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID.equals(
+                connection.getCatalogServerId());
         Set<String> previouslyEnabled = tools.findAllByConnectionIdOrderByExternalNameAsc(connectionId)
                 .stream()
                 .filter(McpToolDefinition::isEnabled)
@@ -45,7 +48,7 @@ public class McpConnectionStore {
                     .title(bounded(tool.title(), 200))
                     .description(bounded(tool.description(), 2000))
                     .inputSchema(tool.inputSchema())
-                    .enabled(previouslyEnabled.contains(tool.name()))
+                    .enabled(machineProfile || previouslyEnabled.contains(tool.name()))
                     .readOnlyHint(tool.readOnlyHint())
                     .destructiveHint(tool.destructiveHint())
                     .openWorldHint(tool.openWorldHint())

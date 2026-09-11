@@ -24,8 +24,10 @@ import com.nexoia.mcp.connection.model.McpToolDefinition;
 import com.nexoia.mcp.connection.model.McpTransportType;
 import com.nexoia.mcp.connection.repository.McpConnectionRepository;
 import com.nexoia.mcp.connection.repository.McpToolDefinitionRepository;
+import com.nexoia.mcp.gateway.service.DockerMcpGatewayRegistry;
 import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -119,9 +121,14 @@ public class McpConnectionService {
                 && connection.getStatus() != McpConnectionStatus.DISABLED)) {
             throw new McpConnectionNotReadyException();
         }
-        if (enabled && tools.findAllByConnectionIdOrderByExternalNameAsc(connectionId).stream()
-                .noneMatch(McpToolDefinition::isEnabled)) {
-            throw new McpConnectionNotReadyException();
+        if (enabled) {
+            List<McpToolDefinition> discovered = tools.findAllByConnectionIdOrderByExternalNameAsc(connectionId);
+            boolean unavailable = isMachineProfile(connection)
+                    ? discovered.isEmpty()
+                    : discovered.stream().noneMatch(McpToolDefinition::isEnabled);
+            if (unavailable) {
+                throw new McpConnectionNotReadyException();
+            }
         }
         connection.setEnabled(enabled);
         connections.save(connection);
@@ -135,6 +142,10 @@ public class McpConnectionService {
     public McpConnectionResponse selectTools(
             UUID userId, UUID connectionId, UpdateMcpToolsRequest request) {
         McpConnection connection = owned(userId, connectionId);
+        if (isMachineProfile(connection)) {
+            throw new McpToolSelectionException(
+                    "The machine MCP profile is managed as one catalog; enable or disable the connection instead");
+        }
         List<McpToolDefinition> available = tools.findAllByConnectionIdOrderByExternalNameAsc(connectionId);
         Set<String> selected = new HashSet<>(request.enabledToolNames());
         if (selected.size() > MAX_ENABLED_TOOLS) {
@@ -181,10 +192,26 @@ public class McpConnectionService {
         if (enabled.isEmpty()) {
             return List.of();
         }
-        List<McpToolDefinition> enabledTools = tools
-                .findAllByConnectionIdInAndEnabledTrueOrderByExposedNameAsc(
-                        enabled.stream().map(McpConnection::getId).toList())
-                .stream().limit(12).toList();
+        List<McpToolDefinition> enabledTools = new ArrayList<>();
+        enabled.stream()
+                .filter(this::isMachineProfile)
+                .map(McpConnection::getId)
+                .map(tools::findAllByConnectionIdOrderByExternalNameAsc)
+                .forEach(enabledTools::addAll);
+        List<UUID> ordinaryConnectionIds = enabled.stream()
+                .filter(connection -> !isMachineProfile(connection))
+                .map(McpConnection::getId)
+                .toList();
+        List<McpToolDefinition> persistedEnabledTools = ordinaryConnectionIds.isEmpty()
+                ? List.of()
+                : tools.findAllByConnectionIdInAndEnabledTrueOrderByExposedNameAsc(ordinaryConnectionIds);
+        int selectedToolCount = 0;
+        for (McpToolDefinition tool : persistedEnabledTools) {
+            if (selectedToolCount < MAX_ENABLED_TOOLS) {
+                enabledTools.add(tool);
+                selectedToolCount++;
+            }
+        }
         return enabled.stream()
                 .map(connection -> runtime(
                         connection,
@@ -193,6 +220,10 @@ public class McpConnectionService {
                                 .toList()))
                 .filter(connection -> !connection.enabledTools().isEmpty())
                 .toList();
+    }
+
+    private boolean isMachineProfile(McpConnection connection) {
+        return DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID.equals(connection.getCatalogServerId());
     }
 
     @Transactional(readOnly = true)

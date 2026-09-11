@@ -24,6 +24,8 @@ import com.nexoia.mcp.connection.model.McpToolDefinition;
 import com.nexoia.mcp.connection.model.McpTransportType;
 import com.nexoia.mcp.connection.repository.McpConnectionRepository;
 import com.nexoia.mcp.connection.repository.McpToolDefinitionRepository;
+import com.nexoia.mcp.gateway.service.DockerMcpGatewayRegistry;
+import com.nexoia.mcp.runtime.dto.McpRuntimeConnection;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -131,6 +133,88 @@ class McpConnectionServiceTest {
     }
 
     @Test
+    void exposesTheCompleteMachineProfileCatalogBeyondTheManualToolLimit() {
+        UUID userId = UUID.randomUUID();
+        McpConnection profile = McpConnection.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .displayName("Machine MCP profile")
+                .connectionKind(McpConnectionKind.DOCKER_CATALOG)
+                .transportType(McpTransportType.DOCKER_GATEWAY)
+                .catalogServerId(DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID)
+                .costType(McpCostType.LOCAL_FREE)
+                .status(McpConnectionStatus.CONNECTED)
+                .enabled(true)
+                .build();
+        McpConnection selected = connection(userId);
+        List<McpToolDefinition> discovered = IntStream.range(0, 20)
+                .mapToObj(index -> tool(profile.getId(), "profile_tool_" + index))
+                .toList();
+        McpToolDefinition manuallySelected = tool(selected.getId(), "selected_tool");
+        manuallySelected.setEnabled(true);
+        when(connections.findAllByUserIdAndEnabledTrueOrderByCreatedAtAsc(userId))
+                .thenReturn(List.of(profile, selected));
+        when(tools.findAllByConnectionIdOrderByExternalNameAsc(profile.getId()))
+                .thenReturn(discovered);
+        when(tools.findAllByConnectionIdInAndEnabledTrueOrderByExposedNameAsc(List.of(selected.getId())))
+                .thenReturn(List.of(manuallySelected));
+
+        List<McpRuntimeConnection> runtime = service.enabledRuntimeConnections(userId);
+
+        assertThat(runtime).hasSize(2);
+        assertThat(runtime.getFirst().enabledTools()).hasSize(20);
+        assertThat(runtime.getLast().enabledTools()).singleElement()
+                .satisfies(tool -> assertThat(tool.externalName()).isEqualTo("selected_tool"));
+    }
+
+    @Test
+    void preventsPerToolSelectionForTheMachineProfileCatalog() {
+        UUID userId = UUID.randomUUID();
+        McpConnection profile = McpConnection.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .displayName("Machine MCP profile")
+                .connectionKind(McpConnectionKind.DOCKER_CATALOG)
+                .transportType(McpTransportType.DOCKER_GATEWAY)
+                .catalogServerId(DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID)
+                .costType(McpCostType.LOCAL_FREE)
+                .status(McpConnectionStatus.CONNECTED)
+                .enabled(true)
+                .build();
+        when(connections.findByIdAndUserId(profile.getId(), userId)).thenReturn(Optional.of(profile));
+
+        assertThatThrownBy(() -> service.selectTools(
+                userId, profile.getId(), new UpdateMcpToolsRequest(List.of("fetch"))))
+                .isInstanceOf(McpToolSelectionException.class)
+                .hasMessageContaining("one catalog");
+        verify(tools, never()).saveAll(any());
+    }
+
+    @Test
+    void enablesAnExistingMachineProfileWithoutLegacyPerToolSelections() {
+        UUID userId = UUID.randomUUID();
+        McpConnection profile = McpConnection.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .displayName("Machine MCP profile")
+                .connectionKind(McpConnectionKind.DOCKER_CATALOG)
+                .transportType(McpTransportType.DOCKER_GATEWAY)
+                .catalogServerId(DockerMcpGatewayRegistry.MACHINE_PROFILE_SERVER_ID)
+                .costType(McpCostType.LOCAL_FREE)
+                .status(McpConnectionStatus.CONNECTED)
+                .enabled(false)
+                .build();
+        when(connections.findByIdAndUserId(profile.getId(), userId)).thenReturn(Optional.of(profile));
+        when(tools.findAllByConnectionIdOrderByExternalNameAsc(profile.getId()))
+                .thenReturn(List.of(tool(profile.getId(), "fetch")));
+
+        service.setEnabled(userId, profile.getId(), true);
+
+        assertThat(profile.isEnabled()).isTrue();
+        verify(connections).save(profile);
+    }
+
+    @Test
     void rejectsAFifthEnabledConnection() {
         UUID userId = UUID.randomUUID();
         McpConnection connection = connection(userId);
@@ -175,4 +259,5 @@ class McpConnectionServiceTest {
                 .discoveredAt(Instant.parse("2026-08-24T12:00:00Z"))
                 .build();
     }
+
 }

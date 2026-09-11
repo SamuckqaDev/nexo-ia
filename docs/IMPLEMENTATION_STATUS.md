@@ -502,7 +502,10 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Agent mode has its first bounded runtime. Spring AI exposes up to ten request-owned callbacks
   directly through `ToolCallingAdvisor`; larger catalogs use `ToolSearchToolCallingAdvisor` and
   `toolSearchTool` for progressive discovery. Both paths cover `update_plan`, `remember`, conditional
-  `search_knowledge`, and explicitly selected MCP callbacks, and provide
+  `search_knowledge`, explicitly selected callbacks from ordinary MCP connections, and the complete
+  safe catalog of an enabled server-machine Docker profile. Spring AI's progressive index lets the
+  model choose the relevant profile tool per task without a per-tool picker or twelve-tool cap. Both
+  paths provide
   `inspect_capabilities` for truthful runtime self-inspection. The index is recreated per execution
   from the authenticated user's authorized snapshot. Chat/Agent selection persists across Hub
   navigation, and thinking-only provider completions retry once without reasoning rather than being

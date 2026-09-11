@@ -34,6 +34,7 @@ import type {
 } from "../../types/mcpTypes";
 import {
   CatalogCard,
+  CatalogNotice,
   CatalogList,
   CatalogMeta,
   ConnectionButton,
@@ -55,6 +56,7 @@ import {
 } from "./styles";
 
 type CatalogFilter = "free" | "all";
+const machineProfileServerId = "docker-profile";
 
 const costLabel: Record<McpCatalogServer["costType"], string> = {
   LOCAL_FREE: "Local & free",
@@ -88,6 +90,7 @@ export function McpHubPage(): ReactElement {
 
   const selected: McpConnection | undefined = connections.find(
     (connection: McpConnection) => connection.id === selectedId);
+  const machineProfile: boolean = selected?.catalogServerId === machineProfileServerId;
   const installedIds = useMemo<Set<string>>(
     () => new Set(connections.map((connection: McpConnection) => connection.catalogServerId).filter(Boolean) as string[]),
     [connections]
@@ -117,9 +120,12 @@ export function McpHubPage(): ReactElement {
   }, [connections, selectedId]);
 
   useEffect((): void => {
-    setSelectedTools(selected?.tools.filter((tool: McpTool) => tool.enabled)
-      .map((tool: McpTool) => tool.externalName) ?? []);
-  }, [selected]);
+    setSelectedTools(selected
+      ? selected.tools
+        .filter((tool: McpTool) => machineProfile || tool.enabled)
+        .map((tool: McpTool) => tool.externalName)
+      : []);
+  }, [machineProfile, selected]);
 
   const install = (server: McpCatalogServer): void => {
     hub.installDocker.mutate(server.id, {
@@ -164,7 +170,7 @@ export function McpHubPage(): ReactElement {
     <WorkspacePage
       eyebrow="Agent integrations"
       title="MCP Hub"
-      description="Connect Docker's reviewed catalog or your own Streamable HTTP server. Every connection belongs to you, and only tools you explicitly allow reach Agent mode."
+      description="Connect the machine's Docker MCP profile or your own Streamable HTTP server. The machine profile stays available as one governed catalog, and Nexo chooses the right tool for each Agent task."
       icon={PlugsConnected}
       contentMode="contained"
       actions={catalog ? (
@@ -177,7 +183,7 @@ export function McpHubPage(): ReactElement {
         <Worlds>
           <span><Cube size={17} weight="duotone" /><strong>Docker world</strong> reviewed, containerized servers</span>
           <span><Cloud size={17} weight="duotone" /><strong>Your world</strong> personal remote MCP endpoints</span>
-          <span><ShieldCheck size={17} weight="duotone" /><strong>One gate</strong> explicit tools, Agent mode only</span>
+          <span><ShieldCheck size={17} weight="duotone" /><strong>One gate</strong> profile access, Agent mode only</span>
         </Worlds>
 
         <HubGrid>
@@ -309,7 +315,11 @@ export function McpHubPage(): ReactElement {
 
         <WorkspacePanel
           title={selected?.displayName ?? "MCP inspector"}
-          description={selected ? "Discover capabilities, choose tools, then enable them for Agent mode." : "Select one of your servers."}
+          description={selected
+            ? machineProfile
+              ? "Inspect the machine catalog once. Nexo keeps its safe tools available and Spring AI selects what each task needs."
+              : "Discover capabilities, choose tools, then enable them for Agent mode."
+            : "Select one of your servers."}
         >
           {selected ? (
             <DetailBody>
@@ -343,7 +353,15 @@ export function McpHubPage(): ReactElement {
                 <InlineNotice><WarningCircle size={17} />The server could not be reached. Check Docker or the endpoint and inspect again.</InlineNotice>
               )}
 
-              {!selected.enabled && selected.status === "CONNECTED" && selectedTools.length > 0 && (
+              {machineProfile && selected.tools.length > 0 ? (
+                <CatalogNotice>
+                  <CheckCircle size={17} weight="fill" />
+                  All {selected.tools.length} safe profile tools stay together as one catalog.
+                  {selected.enabled
+                    ? " The model discovers and invokes only the tools relevant to the current task."
+                    : " Enable the catalog once so the model can choose from it in Agent mode."}
+                </CatalogNotice>
+              ) : !selected.enabled && selected.status === "CONNECTED" && selectedTools.length > 0 && (
                 <InlineNotice>
                   <WarningCircle size={17} />
                   {selectedTools.length} allowed tool{selectedTools.length === 1 ? " is" : "s are"} selected,
@@ -357,7 +375,17 @@ export function McpHubPage(): ReactElement {
                     {selected.tools.map((tool: McpTool) => {
                       const checked = selectedTools.includes(tool.externalName);
                       return (
-                        <ToolButton key={tool.externalName} type="button" $active={checked} onClick={(): void => toggleTool(tool.externalName)}>
+                        <ToolButton
+                          key={tool.externalName}
+                          type="button"
+                          $active={checked}
+                          $interactive={!machineProfile}
+                          disabled={machineProfile}
+                          aria-label={machineProfile
+                            ? `${tool.title ?? tool.externalName}, available to Agent`
+                            : undefined}
+                          onClick={machineProfile ? undefined : (): void => toggleTool(tool.externalName)}
+                        >
                           <span aria-hidden>{checked ? <CheckCircle size={18} weight="fill" /> : <Wrench size={18} />}</span>
                           <ToolCopy>
                             <strong>{tool.title ?? tool.externalName}</strong>
@@ -372,16 +400,18 @@ export function McpHubPage(): ReactElement {
                     })}
                   </ToolList>
                   <DetailActions>
-                    <Button
-                      size="compact"
-                      type="button"
-                      variant="outline"
-                      disabled={!toolSelectionDirty || hub.selectTools.isPending}
-                      aria-busy={hub.selectTools.isPending}
-                      onClick={(): void => hub.selectTools.mutate({ id: selected.id, enabledToolNames: selectedTools })}
-                    >
-                      {hub.selectTools.isPending ? "Saving tools…" : "Save allowed tools"}
-                    </Button>
+                    {!machineProfile && (
+                      <Button
+                        size="compact"
+                        type="button"
+                        variant="outline"
+                        disabled={!toolSelectionDirty || hub.selectTools.isPending}
+                        aria-busy={hub.selectTools.isPending}
+                        onClick={(): void => hub.selectTools.mutate({ id: selected.id, enabledToolNames: selectedTools })}
+                      >
+                        {hub.selectTools.isPending ? "Saving tools…" : "Save allowed tools"}
+                      </Button>
+                    )}
                     <Button
                       size="compact"
                       type="button"
@@ -395,7 +425,9 @@ export function McpHubPage(): ReactElement {
                       {hub.setEnabled.isPending || (hub.selectTools.isPending && !selected.enabled)
                         ? selected.enabled ? "Disabling…" : "Enabling…"
                         : selected.enabled
-                          ? "Disable in Agent"
+                          ? machineProfile ? "Disable catalog in Agent" : "Disable in Agent"
+                          : machineProfile
+                            ? "Enable catalog in Agent"
                           : toolSelectionDirty
                             ? `Save & enable ${selectedTools.length} tool${selectedTools.length === 1 ? "" : "s"}`
                             : `Enable ${selectedTools.length} tool${selectedTools.length === 1 ? "" : "s"} in Agent`}

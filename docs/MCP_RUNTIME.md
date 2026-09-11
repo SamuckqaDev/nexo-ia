@@ -24,7 +24,8 @@ Docker-maintained catalog source remains available in the
 ### 1. Registry and isolation — complete
 
 - `mcp_connection` stores one user's Docker or remote server registration.
-- `mcp_tool_definition` stores the last sanitized tool snapshot and explicit enabled state.
+- `mcp_tool_definition` stores the last sanitized tool snapshot and eligibility state. Ordinary
+  connections use explicit per-tool selection; the server machine profile is governed as one catalog.
 - Every list, mutation, discovery, and runtime lookup starts from the authenticated `user_id`.
 - Database foreign keys delete tool snapshots with their connection; no endpoint or tool selection
   can be read through another user's identifier.
@@ -43,25 +44,30 @@ Docker-maintained catalog source remains available in the
   every other user-owned connection.
 - Personal connections use the official MCP Java SDK's Streamable HTTP transport.
 - Discovery initializes the server, paginates a bounded tool list, stores safe metadata and JSON
-  input schemas, and preserves still-existing tool selections on refresh.
+  input schemas, and preserves still-existing tool selections on refresh. For `docker-profile`, every
+  safe discovered tool remains eligible automatically while Gateway control/proxy tools stay excluded.
 
-### 3. Explicit enablement — complete
+### 3. Connection and tool enablement — complete
 
-- A newly discovered tool is off by default.
-- The owner selects an exact subset of discovered external names and separately enables the
-  connection.
-- A shared machine profile is infrastructure, not an automatic permission grant. Its connection,
-  selected tools, and Agent enablement remain isolated per authenticated Nexo user.
-- The Hub labels a discovered but disabled connection as **Off in Agent**, and its primary action can
-  save a changed allow-list and enable that exact subset in one explicit click. Discovery or tool
-  selection alone never appears as active access in Chat.
+- A newly discovered tool on an ordinary Docker or personal connection is off by default. Its owner
+  selects an exact subset and separately enables that connection.
+- The Docker machine profile is presented as one persistent catalog: discovery makes all safe tools
+  eligible, and the owner enables or disables the catalog once at connection level. There is no
+  per-tool picking and no twelve-tool cap for that profile.
+- A shared machine profile is infrastructure, not a global permission grant. Connection enablement
+  remains isolated per authenticated Nexo user; disabling it removes the whole profile from that
+  user's Agent requests without altering the server operator's Docker profile.
+- The Hub labels a discovered but disabled connection as **Off in Agent**. Ordinary connections can
+  save a changed allow-list; the machine profile instead shows its complete safe catalog and one
+  **Enable catalog in Agent** action. Discovery alone never appears as active access in Chat.
 - The MCP Hub exposes cost, risk hint, setup requirements, health, transport, real tool descriptions,
   and read/destructive/open-world annotations when the server provides them.
 
 ### 4. Agent integration — complete for tools
 
 - Chat mode never receives MCP callbacks.
-- Agent mode resolves a maximum of four enabled owned connections and twelve selected tools.
+- Agent mode resolves a maximum of four enabled owned connections. Ordinary connections share a
+  twelve-selected-tool budget; the machine profile contributes its complete safe discovered catalog.
 - Spring AI's `SyncMcpToolCallback` adapts SDK tools into the same governed loop used by Nexo's
   native tools. Up to ten authorized callbacks are attached directly for reliable local-model
   invocation; larger catalogs switch to request-local progressive discovery.
@@ -72,8 +78,11 @@ Docker-maintained catalog source remains available in the
   With a matching callback, the model is instructed to call it before claiming external access is
   unavailable.
 - Each execution receives a fresh tool index containing only the authenticated owner's enabled
-  callback snapshot. `inspect_capabilities` can report safe names and descriptions from that exact
-  snapshot, but never connection endpoints, credentials, ownership ids, or disabled tools.
+  connection snapshot. `inspect_capabilities` can report safe names and descriptions from that exact
+  snapshot, but never connection endpoints, credentials, ownership ids, or disabled connections.
+  When the catalog is larger than ten callbacks, Spring AI's `ToolSearchToolCallingAdvisor` performs
+  progressive discovery and lets the model select the matching tool instead of injecting every
+  schema into the prompt.
 - A capability-list question is rendered from the actual callback snapshot without relying on model
   recall. Explicit external research and URL access require at least one recorded `mcp_*` execution
   before answer text is released or the request can complete successfully. Earlier assistant
@@ -104,9 +113,11 @@ Docker-maintained catalog source remains available in the
 authenticated owner
   -> MCP Hub registration
   -> server initialization and bounded tool discovery
-  -> explicit tool selection
-  -> explicit connection enablement
-  -> Agent request resolves only that owner's enabled snapshot
+  -> ordinary connection: explicit tool selection
+     machine profile: complete safe catalog
+  -> explicit connection/catalog enablement
+  -> Agent request resolves only that owner's enabled connection snapshot
+  -> Spring AI progressively discovers the relevant callback
   -> request-owned MCP client and Spring AI callbacks
   -> governed tool call, result, evidence, audit, close
 ```
@@ -120,7 +131,7 @@ authenticated owner
 | `POST` | `/api/v1/mcp/connections/docker` | Register an eligible Docker catalog server |
 | `POST` | `/api/v1/mcp/connections/remote` | Register a personal Streamable HTTP endpoint |
 | `POST` | `/api/v1/mcp/connections/{id}/discover` | Replace its bounded discovery snapshot |
-| `PUT` | `/api/v1/mcp/connections/{id}/tools` | Replace the explicit allowed-tool subset |
+| `PUT` | `/api/v1/mcp/connections/{id}/tools` | Replace an ordinary connection's explicit allowed-tool subset |
 | `PUT` | `/api/v1/mcp/connections/{id}/state` | Enable or disable it for Agent mode |
 | `DELETE` | `/api/v1/mcp/connections/{id}` | Remove the owned registration and snapshot |
 
@@ -145,12 +156,13 @@ machine's Docker MCP configuration directory read-only, starts an authenticated 
 Gateway, and registers `docker-profile=http://mcp-profile:8811/sse` with the backend. The default
 profile name is `default`; override it with `NEXO_DOCKER_MCP_PROFILE`.
 
-The Gateway can list every server already configured in that machine profile, but Nexo still stores
-an owner-specific discovered snapshot. The user must select at most twelve tools and enable the
-connection before those callbacks enter Agent mode. Docker Gateway management/proxy tools such as
-`mcp-add`, `mcp-remove`, `mcp-exec`, and `code-mode` are excluded because they could bypass that
-allow-list. Ordinary profile tools—including search, time, memory, browser, and Git tools that the
-Gateway successfully starts—remain available for explicit selection.
+The Gateway can list every server already configured in that machine profile, while Nexo stores an
+owner-specific discovered snapshot. The user enables that profile once; all safe discovered tools
+then remain in the request-owned catalog and the model chooses the appropriate tool through Spring
+AI progressive discovery. Docker Gateway management/proxy tools such as `mcp-add`, `mcp-remove`,
+`mcp-exec`, and `code-mode` are excluded because they could bypass Nexo governance. Ordinary profile
+tools—including search, time, memory, browser, and Git tools that the Gateway successfully starts—
+remain eligible without manual per-tool selection.
 
 Filesystem-backed Docker MCP servers do not inherit arbitrary host access. Configure a narrow
 `NEXO_DOCKER_MCP_READ_PATHS` or `NEXO_DOCKER_MCP_WRITE_PATHS` only on the trusted Nexo server when a

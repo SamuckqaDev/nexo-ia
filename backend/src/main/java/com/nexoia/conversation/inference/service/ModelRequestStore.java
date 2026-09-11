@@ -462,7 +462,8 @@ public class ModelRequestStore {
      * the deterministic retrieval that already ran, so the model cannot be told it searched or found
      * more than it did. Workspace tools are exposed only when the persisted conversation selection,
      * binding and Permission Engine all authorize server-side reads. Agent mode additionally exposes
-     * only the user's enabled, explicitly selected MCP tools.
+     * only the user's enabled MCP scope: explicitly selected tools on ordinary connections and the
+     * complete safe catalog on an enabled server-machine profile.
      */
     private ModelContextEnvelope capabilityEnvelope(
             String username, String model,

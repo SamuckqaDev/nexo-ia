@@ -111,8 +111,9 @@ starts authenticated, non-published Docker MCP Gateway sidecars for the free Fet
 catalog servers. Set `NEXO_MCP_GATEWAY_TOKEN` to override the local-only default gateway token.
 When Docker MCP Toolkit has a server-machine profile (the default profile is `default`), the startup
 script also detects it and starts an isolated profile Gateway. The MCP Hub then exposes **Docker MCP
-machine profile** so each authenticated user can inspect it, explicitly select at most twelve tools,
-and enable that selection for Agent mode. The browser never runs those tools: the Gateway and tool
+machine profile** so each authenticated user can inspect and enable the safe catalog once. Spring AI
+progressively discovers the relevant callbacks and the model chooses which tool each Agent task
+needs; there is no per-tool selection or twelve-tool cap for this profile. The browser never runs those tools: the Gateway and tool
 containers execute on the Nexo server machine. Set `NEXO_DOCKER_MCP_PROFILE` to choose another
 profile. Filesystem-backed profile tools remain blocked unless the operator explicitly configures
 the narrow `NEXO_DOCKER_MCP_READ_PATHS` or `NEXO_DOCKER_MCP_WRITE_PATHS` allow-list.

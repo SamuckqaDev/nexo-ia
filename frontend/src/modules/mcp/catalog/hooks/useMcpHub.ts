@@ -30,7 +30,15 @@ export function useMcpHub(): McpHubResult {
   const installDocker = useMutation({
     mutationFn: (catalogServerId: string): Promise<McpConnection> => installDockerMcp(catalogServerId)
       .then((connection: McpConnection) => discoverMcpConnection(connection.id)),
-    onSuccess: (): void => { refresh(); show("Docker MCP inspected. Select its tools to continue.", { variant: "success" }); },
+    onSuccess: (connection: McpConnection): void => {
+      refresh();
+      show(
+        connection.catalogServerId === "docker-profile"
+          ? "Machine MCP catalog inspected. Enable it once; Nexo will choose tools for each task."
+          : "Docker MCP inspected. Select its tools to continue.",
+        { variant: "success" }
+      );
+    },
     onError: (error: Error): void => { refresh(); failure(error); }
   });
   const createRemote = useMutation({

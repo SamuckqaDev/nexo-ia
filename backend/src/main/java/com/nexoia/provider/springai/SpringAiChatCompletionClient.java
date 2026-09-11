@@ -1136,7 +1136,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     private String mcpUnavailableMessage(ChatCompletionCommand command) {
         if (command.mcpToolScope() == null || !command.mcpToolScope().available()) {
             return "Nenhuma ferramenta MCP autorizada está conectada para esta execução. "
-                    + "Abra o MCP Hub, conecte e habilite uma ferramenta para o Agent.";
+                    + "Abra o MCP Hub e habilite uma conexão ou o catálogo da máquina para o Agent.";
         }
         return "A conexão MCP está configurada, mas não forneceu uma ferramenta callable "
                 + "para esta execução. Abra o MCP Hub e inspecione a conexão.";

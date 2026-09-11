@@ -207,6 +207,22 @@ export const InlineNotice = styled.div`
   line-height: 1.45;
 `;
 
+export const CatalogNotice = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: ${({ theme }) => theme.spacing.sm};
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: ${({ theme }) => theme.radius.control};
+  padding: 0.65rem;
+  background: ${({ theme }) => theme.colors.surfaceAccent};
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 0.62rem;
+  line-height: 1.45;
+
+  svg { flex: 0 0 auto; color: ${({ theme }) => theme.colors.primary}; }
+`;
+
 export const ToolList = styled.div`
   display: grid;
   flex: 1;
@@ -216,7 +232,7 @@ export const ToolList = styled.div`
   overscroll-behavior: contain;
 `;
 
-export const ToolButton = styled.button<{ $active: boolean }>`
+export const ToolButton = styled.button<{ $active: boolean; $interactive: boolean }>`
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
@@ -229,9 +245,12 @@ export const ToolButton = styled.button<{ $active: boolean }>`
   color: ${({ theme, $active }) => $active ? theme.colors.primary : theme.colors.textMuted};
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: ${({ $interactive }) => $interactive ? "pointer" : "default"};
 
-  &:hover { background: ${({ theme }) => theme.colors.surfaceAccent}; }
+  &:hover { background: ${({ theme, $interactive, $active }) =>
+    $interactive || $active ? theme.colors.surfaceAccent : "transparent"}; }
+
+  &:disabled { opacity: 1; }
 `;
 
 export const ToolCopy = styled.span`

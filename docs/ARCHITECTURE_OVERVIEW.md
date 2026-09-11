@@ -415,7 +415,7 @@ flowchart LR
 | Knowledge read | `search_knowledge` | At least one authorized selected Vault |
 | Knowledge write | `save_to_vault` | An explicitly writable selected Vault |
 | Workspace read | list/read/search/inspect/Git status/Git diff | Selected available Workspace plus `WORKSPACE_READ` permission |
-| MCP | sanitized `mcp_*` callbacks | Owned, discovered, selected, enabled connection and tool |
+| MCP | sanitized `mcp_*` callbacks | Owned enabled connection; selected tools or safe machine-profile catalog |
 
 Each tool has bounded calls, cancellation checks, argument digests, typed results, sanitized errors,
 persisted execution evidence, and correlated audit events. Explicit external research, Knowledge,
@@ -531,7 +531,9 @@ register connection
 ```
 
 Chat mode receives no MCP callbacks. Agent mode resolves only the authenticated user's enabled
-connections and tools. Development Compose currently provides pinned Fetch and DuckDuckGo Docker
+connections. Ordinary connections expose selected tools; the server-machine Docker profile exposes
+its complete safe catalog and Spring AI lets the model discover the relevant callback per task.
+Development Compose currently provides pinned Fetch and DuckDuckGo Docker
 Gateway sidecars. Personal endpoints are server-side connections; credentials/OAuth and arbitrary
 custom STDIO commands are intentionally deferred.
 

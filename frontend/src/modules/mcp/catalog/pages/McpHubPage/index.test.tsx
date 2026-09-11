@@ -139,4 +139,78 @@ describe("McpHubPage", () => {
       enabled: true
     });
   });
+
+  it("keeps the machine profile as one model-selected catalog", async () => {
+    const selectTools = mutation();
+    const setEnabled = mutation();
+    vi.mocked(useMcpHub).mockReturnValue({
+      catalog: {
+        data: {
+          dockerAvailable: true,
+          gatewayVersion: "sidecar",
+          source: "docker",
+          refreshedAt: "2026-09-11T12:00:00Z",
+          servers: []
+        },
+        isLoading: false,
+        isError: false,
+        error: null
+      },
+      connections: {
+        data: [{
+          id: "68c20cf2-1f1e-4c6b-a4ed-f4588921d1e4",
+          displayName: "Machine MCP profile",
+          connectionKind: "DOCKER_CATALOG",
+          transportType: "DOCKER_GATEWAY",
+          catalogServerId: "docker-profile",
+          endpoint: null,
+          costType: "LOCAL_FREE",
+          status: "CONNECTED",
+          enabled: true,
+          serverName: "Docker AI MCP Gateway",
+          serverVersion: "2.0.1",
+          lastErrorCode: null,
+          lastConnectedAt: "2026-09-11T12:00:00Z",
+          tools: [{
+            externalName: "fetch",
+            exposedName: "mcp_profile_fetch",
+            title: "Fetch",
+            description: "Fetch a public URL",
+            enabled: false,
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: true,
+            discoveredAt: "2026-09-11T12:00:00Z"
+          }],
+          createdAt: "2026-09-11T12:00:00Z",
+          updatedAt: "2026-09-11T12:00:00Z"
+        }],
+        isLoading: false,
+        isError: false,
+        error: null
+      },
+      installDocker: mutation(),
+      createRemote: mutation(),
+      discover: mutation(),
+      selectTools,
+      setEnabled,
+      remove: mutation()
+    } as unknown as McpHubResult);
+
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <McpHubPage />
+      </ThemeProvider>
+    );
+
+    expect(await screen.findByText(/All 1 safe profile tools stay together as one catalog/i)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Save allowed tools" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fetch, available to Agent" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Disable catalog in Agent" }));
+    expect(setEnabled.mutate).toHaveBeenCalledWith({
+      id: "68c20cf2-1f1e-4c6b-a4ed-f4588921d1e4",
+      enabled: false
+    });
+    expect(selectTools.mutate).not.toHaveBeenCalled();
+  });
 });

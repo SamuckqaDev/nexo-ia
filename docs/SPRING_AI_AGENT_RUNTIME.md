@@ -61,7 +61,7 @@ authenticated message
        update_plan       always in Agent mode
        remember          personal memory, owned by the authenticated account
        search_knowledge  only with authorized selected Vaults
-       mcp_*              only from the owner's enabled, explicitly selected MCP snapshot
+       mcp_*              owner's selected ordinary tools + enabled machine-profile safe catalog
        workspace_*        only for the persisted, authorized server or Desktop binding
   -> stream typed Agent/tool/plan/token/usage events
   -> persist answer, plan, citations, tool evidence, usage, and terminal state
@@ -80,7 +80,7 @@ Agent state, latest plan revision, and tool evidence. Explicit cancellation rema
 | Personal memory | Most recent owned memories in context | Same context plus explicit `remember` tool |
 | Visible plan | None | Persisted `update_plan` revisions |
 | Tool loop | None | Spring AI direct or progressive advisor, selected by catalog size |
-| External MCP tools | None | Explicitly selected, governed callbacks |
+| External MCP tools | None | Governed selected tools plus the enabled machine-profile catalog |
 | Server/Desktop Workspace reads | None | Conditional bounded file/search/Git inspection callbacks |
 | Governed Workspace change | None | Explicit request creates a server diff; user approval applies a SHA-protected single-file effect |
 | Native command/system tools | None | None |
