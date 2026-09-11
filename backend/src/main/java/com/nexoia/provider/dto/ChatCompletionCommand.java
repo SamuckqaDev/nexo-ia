@@ -2,6 +2,7 @@ package com.nexoia.provider.dto;
 
 import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.provider.model.ProviderType;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
 import java.util.List;
 
 /**
@@ -22,7 +23,34 @@ public record ChatCompletionCommand(
         KnowledgeWriteToolScope knowledgeWriteToolScope,
         WorkspaceToolScope workspaceToolScope,
         ToolExecutionObserver toolExecutionObserver,
-        AgentPlanUpdateObserver agentPlanUpdateObserver) {
+        AgentPlanUpdateObserver agentPlanUpdateObserver,
+        ProviderAuthentication authentication) {
+
+    public ChatCompletionCommand {
+        authentication = authentication == null ? ProviderAuthentication.none() : authentication;
+    }
+
+    /** Backward-compatible constructor for callers that do not supply provider credentials. */
+    public ChatCompletionCommand(
+            ProviderType providerType,
+            String endpoint,
+            String model,
+            List<ChatCompletionMessage> messages,
+            boolean thinkingEnabled,
+            ConversationMode mode,
+            KnowledgeToolScope knowledgeToolScope,
+            AgentPlanToolScope agentPlanToolScope,
+            MemoryToolScope memoryToolScope,
+            McpToolScope mcpToolScope,
+            KnowledgeWriteToolScope knowledgeWriteToolScope,
+            WorkspaceToolScope workspaceToolScope,
+            ToolExecutionObserver toolExecutionObserver,
+            AgentPlanUpdateObserver agentPlanUpdateObserver) {
+        this(providerType, endpoint, model, messages, thinkingEnabled, mode,
+                knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
+                knowledgeWriteToolScope, workspaceToolScope, toolExecutionObserver,
+                agentPlanUpdateObserver, ProviderAuthentication.none());
+    }
 
     public ChatCompletionCommand(
             ProviderType providerType,
@@ -90,7 +118,8 @@ public record ChatCompletionCommand(
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
                 mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
-                knowledgeWriteToolScope, workspaceToolScope, observer, agentPlanUpdateObserver);
+                knowledgeWriteToolScope, workspaceToolScope, observer, agentPlanUpdateObserver,
+                authentication);
     }
 
     public ChatCompletionCommand withExecutionObservers(
@@ -99,6 +128,7 @@ public record ChatCompletionCommand(
         return new ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
                 mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
-                knowledgeWriteToolScope, workspaceToolScope, toolObserver, planObserver);
+                knowledgeWriteToolScope, workspaceToolScope, toolObserver, planObserver,
+                authentication);
     }
 }

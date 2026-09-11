@@ -3,6 +3,7 @@ package com.nexoia.conversation.inference.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,8 @@ import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
+import com.nexoia.provider.secret.service.ProviderSecretService;
 import com.nexoia.provider.service.ProviderEndpointGuard;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.model.WorkspaceAccessMode;
@@ -80,6 +83,7 @@ class ModelRequestStoreTest {
     @Mock private PersonalMemoryService personalMemories;
     @Mock private WorkspaceAccessService workspaceAccess;
     @Mock private WorkspaceBindingService workspaceBindings;
+    @Mock private ProviderSecretService providerSecrets;
 
     private ModelRequestStore store;
     private final UUID userId = UUID.randomUUID();
@@ -104,6 +108,7 @@ class ModelRequestStoreTest {
                 new PermissionEngine(),
                 workspaceAccess,
                 workspaceBindings,
+                providerSecrets,
                 Clock.fixed(Instant.parse("2026-08-21T12:00:00Z"), ZoneOffset.UTC));
         when(conversations.findOwnedForUpdate(conversationId, userId))
                 .thenReturn(Optional.of(Conversation.builder()
@@ -113,7 +118,7 @@ class ModelRequestStoreTest {
                         .providerConfigurationId(providerId)
                         .selectedModel("qwen3:8b")
                         .build()));
-        when(providers.findByIdAndUserId(providerId, userId)).thenReturn(Optional.of(
+        lenient().when(providers.findByIdAndUserId(providerId, userId)).thenReturn(Optional.of(
                 ProviderConfiguration.builder()
                         .id(providerId)
                         .userId(userId)
@@ -122,8 +127,10 @@ class ModelRequestStoreTest {
                         .displayName("Local")
                         .enabled(true)
                         .build()));
-        when(endpointGuard.verify(ProviderType.OLLAMA, "http://127.0.0.1:11434"))
+        lenient().when(endpointGuard.verify(ProviderType.OLLAMA, "http://127.0.0.1:11434"))
                 .thenReturn(ProcessingLocation.LOCAL);
+        lenient().when(providerSecrets.resolve(any(ProviderConfiguration.class)))
+                .thenReturn(ProviderAuthentication.none());
         when(users.findById(userId)).thenReturn(Optional.of(
                 UserAccount.builder().id(userId).username("owner").build()));
         when(messages.save(any(ConversationMessage.class))).thenAnswer(call -> call.getArgument(0));
@@ -178,6 +185,35 @@ class ModelRequestStoreTest {
         verify(messages).saveAndFlush(assistant.capture());
         assertThat(assistant.getValue().getModel()).isEqualTo("granite4.1:8b");
         assertThat(reservation.command().model()).isEqualTo("granite4.1:8b");
+    }
+
+    @Test
+    void attachesOnlyTheOwnedProvidersRequestScopedCredential() {
+        ProviderConfiguration remoteProvider = ProviderConfiguration.builder()
+                .id(providerId)
+                .userId(userId)
+                .providerType(ProviderType.ANTHROPIC)
+                .endpoint("https://api.anthropic.com")
+                .displayName("Anthropic")
+                .enabled(true)
+                .build();
+        ProviderAuthentication authentication = ProviderAuthentication.apiKey("server-secret");
+        when(providers.findByIdAndUserId(providerId, userId)).thenReturn(Optional.of(remoteProvider));
+        when(endpointGuard.verify(ProviderType.ANTHROPIC, "https://api.anthropic.com"))
+                .thenReturn(ProcessingLocation.REMOTE);
+        when(providerSecrets.resolve(remoteProvider)).thenReturn(authentication);
+
+        ModelRequestReservation reservation = store.reserve(
+                userId,
+                conversationId,
+                "question",
+                false,
+                List.of(),
+                ConversationMode.CHAT);
+
+        assertThat(reservation.command().authentication()).isSameAs(authentication);
+        assertThat(reservation.command().authentication().toString())
+                .isEqualTo("ProviderAuthentication[REDACTED]");
     }
 
     @Test

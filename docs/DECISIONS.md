@@ -586,3 +586,21 @@ options considered, the selected approach, and its consequences.
   overwrite external edits, and every supported mutation has visible evidence and a conflict-aware
   recovery path. This increment is intentionally one file per proposal; shell commands, Git
   mutation, directory deletion, and atomic multi-file transactions remain unavailable.
+
+## D-037 — Resolve remote model credentials only inside the server runtime
+
+- **Status:** accepted
+- **Context:** the Provider Registry advertised OpenAI, Anthropic, Gemini, and compatible endpoints,
+  but only Ollama had an executable Spring AI adapter. Saving plaintext keys in provider rows or
+  returning them to the browser would violate the thin-client and isolation boundaries.
+- **Decision:** store one credential per user-owned provider in a separate `provider_secret` table,
+  encrypted with AES-256-GCM under an operator-supplied master key and authenticated with the
+  provider UUID. API responses expose only `credentialConfigured`. Resolve and decrypt the secret
+  after provider ownership and endpoint policy checks, carry it in a redacted request-scoped value,
+  and construct the matching Spring AI 2.0.1 model for that request. Ollama remains credentialless;
+  OpenAI-compatible endpoints may optionally use a key. Never put raw credentials in model context,
+  events, tasks, audit, logs, or returned DTOs.
+- **Consequence:** the React/Electron surfaces remain presentation clients while model calls and
+  secrets stay on the Nexo server. An installation must back up `NEXO_SECRET_MASTER_KEY` separately
+  from PostgreSQL; a missing, invalid, or wrong-version key fails closed instead of leaking or
+  silently bypassing authentication. MCP OAuth and credential reuse remain a separate increment.

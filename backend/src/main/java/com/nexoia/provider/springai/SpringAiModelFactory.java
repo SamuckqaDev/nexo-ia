@@ -1,12 +1,19 @@
 package com.nexoia.provider.springai;
 
+import com.nexoia.provider.model.ProviderType;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
 import io.micrometer.observation.ObservationRegistry;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.ollama.api.OllamaEmbeddingOptions;
-import lombok.RequiredArgsConstructor;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -24,11 +31,52 @@ import org.springframework.web.client.RestClient;
  * never re-derives it from model-provided data.
  */
 @Component
-@RequiredArgsConstructor
 public class SpringAiModelFactory {
 
     private final RestClient.Builder restClientBuilder;
     private final ObservationRegistry observationRegistry;
+
+    @Autowired
+    public SpringAiModelFactory(
+            RestClient.Builder restClientBuilder,
+            ObservationRegistry observationRegistry) {
+        this.restClientBuilder = restClientBuilder;
+        this.observationRegistry = observationRegistry;
+    }
+
+    /** Builds a request-local model using only the credential resolved by the server Secret Store. */
+    public ChatModel chatModel(
+            ProviderType providerType,
+            String endpoint,
+            String model,
+            boolean thinkingEnabled,
+            ProviderAuthentication authentication) {
+        if (providerType == ProviderType.OLLAMA) {
+            return chatModel(endpoint, model, thinkingEnabled);
+        }
+        if (providerType == ProviderType.ANTHROPIC) {
+            return AnthropicChatModel.builder()
+                    .options(AnthropicChatOptions.builder()
+                            .apiKey(authentication.revealApiKey())
+                            .baseUrl(endpoint)
+                            .model(model)
+                            .maxTokens(4096)
+                            .build())
+                    .observationRegistry(observationRegistry)
+                    .build();
+        }
+        String apiKey = authentication.configured()
+                ? authentication.revealApiKey()
+                : "nexo-openai-compatible-no-auth";
+        return OpenAiChatModel.builder()
+                .options(OpenAiChatOptions.builder()
+                        .apiKey(apiKey)
+                        .baseUrl(endpoint)
+                        .model(model)
+                        .build())
+                .observationRegistry(observationRegistry)
+                .build();
+    }
 
     /**
      * Constructs a chat model bound to one user's endpoint and selected model. Thinking is switched

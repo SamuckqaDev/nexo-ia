@@ -182,10 +182,12 @@ class SpringAiChatCompletionClientTest {
     }
 
     @Test
-    void supportsOnlyTheOllamaProviderType() {
+    void supportsEveryConfiguredSpringAiProviderType() {
         assertThat(client.supports(ProviderType.OLLAMA)).isTrue();
-        assertThat(client.supports(ProviderType.OPENAI)).isFalse();
-        assertThat(client.supports(ProviderType.ANTHROPIC)).isFalse();
+        assertThat(client.supports(ProviderType.OPENAI)).isTrue();
+        assertThat(client.supports(ProviderType.ANTHROPIC)).isTrue();
+        assertThat(client.supports(ProviderType.GOOGLE_GEMINI)).isTrue();
+        assertThat(client.supports(ProviderType.OPENAI_COMPATIBLE)).isTrue();
     }
 
     @Test

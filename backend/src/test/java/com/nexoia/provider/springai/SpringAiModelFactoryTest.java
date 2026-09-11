@@ -2,6 +2,8 @@ package com.nexoia.provider.springai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.nexoia.provider.model.ProviderType;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
@@ -11,8 +13,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.web.client.RestClient;
 
@@ -71,6 +76,27 @@ class SpringAiModelFactoryTest {
         assertThat(bodyA.get()).doesNotContain("beta");
         assertThat(bodyB.get()).contains("\"model\":\"beta\"");
         assertThat(bodyB.get()).doesNotContain("alpha");
+    }
+
+    @Test
+    void buildsRequestLocalOpenAiAndAnthropicModels() {
+        ProviderAuthentication authentication = ProviderAuthentication.apiKey("request-secret");
+
+        ChatModel openAi = factory.chatModel(
+                ProviderType.OPENAI,
+                "https://api.openai.com",
+                "gpt-5.4",
+                false,
+                authentication);
+        ChatModel anthropic = factory.chatModel(
+                ProviderType.ANTHROPIC,
+                "https://api.anthropic.com",
+                "claude-sonnet-4-5",
+                false,
+                authentication);
+
+        assertThat(openAi).isInstanceOf(OpenAiChatModel.class);
+        assertThat(anthropic).isInstanceOf(AnthropicChatModel.class);
     }
 
     private void stream(OllamaChatModel model) {

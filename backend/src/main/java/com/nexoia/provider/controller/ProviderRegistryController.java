@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,11 +26,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/v1/providers/configurations")
 public class ProviderRegistryController {
     private final ProviderRegistryService service;
     private final ProviderModelCatalogService modelCatalogService;
+
+    @Autowired
+    public ProviderRegistryController(
+            ProviderRegistryService service,
+            ProviderModelCatalogService modelCatalogService) {
+        this.service = service;
+        this.modelCatalogService = modelCatalogService;
+    }
 
     @GetMapping
     @Operation(summary = "List the authenticated user's provider configurations")
@@ -54,7 +61,8 @@ public class ProviderRegistryController {
     public ResponseEntity<BaseResponse<ProviderConnectionTestResponse>> testConnection(
             @Valid @RequestBody TestProviderConnectionRequest request) {
         return ResponseEntity.ok(BaseResponse.success(200, "Provider connection tested",
-                modelCatalogService.testConnection(request.providerType(), request.endpoint())));
+                modelCatalogService.testConnection(
+                        request.providerType(), request.endpoint(), request.apiKey())));
     }
 
     @PostMapping

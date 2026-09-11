@@ -26,7 +26,8 @@ export function ProviderSetup({ provider, onSaved }: ProviderSetupProps): ReactE
       providerType: provider?.providerType ?? "OLLAMA",
       displayName: provider?.displayName ?? "Ollama",
       endpoint: provider?.endpoint ?? "http://host.containers.internal:11434",
-      selectedModel: provider?.selectedModel ?? ""
+      selectedModel: provider?.selectedModel ?? "",
+      apiKey: ""
     }
   });
   const submit = (values: ProviderConfigurationFormValues): void => {
@@ -37,12 +38,23 @@ export function ProviderSetup({ provider, onSaved }: ProviderSetupProps): ReactE
     create.mutate(values, { onSuccess: (): void => onSaved?.() });
   };
   const testConnection = (): void => {
-    test.mutate({ providerType: watch("providerType"), endpoint: watch("endpoint") });
+    test.mutate({
+      providerType: watch("providerType"),
+      endpoint: watch("endpoint"),
+      apiKey: watch("apiKey") || undefined
+    });
   };
+  const providerType = watch("providerType");
+  const credentialRequired = providerType === "OPENAI"
+    || providerType === "GOOGLE_GEMINI"
+    || providerType === "ANTHROPIC";
 
   return (
     <Form onSubmit={handleSubmit(submit)} noValidate>
-      <Help>Choose a provider and endpoint. Credentials will be added through the protected Secret Store before remote providers can be activated.</Help>
+      <Help>
+        Credentials are encrypted by the Nexo server and are never returned to this screen.
+        {provider?.credentialConfigured ? " A saved credential is already configured; leave the field empty to keep it." : ""}
+      </Help>
       <Fields>
         <Input id="provider-name" label="Provider name" error={errors.displayName?.message} {...register("displayName")} />
         <Input id="provider-endpoint" label="Endpoint URL" error={errors.endpoint?.message} {...register("endpoint")} />
@@ -60,6 +72,17 @@ export function ProviderSetup({ provider, onSaved }: ProviderSetupProps): ReactE
           ]}
           {...register("providerType")}
         />
+        {providerType !== "OLLAMA" && (
+          <Input
+            id="provider-api-key"
+            type="password"
+            autoComplete="new-password"
+            label={`API key${credentialRequired ? "" : " (optional)"}`}
+            placeholder={provider?.credentialConfigured ? "Keep saved credential" : "Stored only on the Nexo server"}
+            error={errors.apiKey?.message}
+            {...register("apiKey")}
+          />
+        )}
       </Fields>
       <Button type="button" variant="outline" disabled={test.isPending} onClick={testConnection}>
         {test.isPending ? "Testing…" : "Test connection"}

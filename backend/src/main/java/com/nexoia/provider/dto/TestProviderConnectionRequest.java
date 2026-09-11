@@ -7,5 +7,10 @@ import jakarta.validation.constraints.Size;
 
 public record TestProviderConnectionRequest(
         @NotNull ProviderType providerType,
-        @NotBlank @Size(max = 500) String endpoint) {
+        @NotBlank @Size(max = 500) String endpoint,
+        @Size(max = 4096) String apiKey) {
+
+    public TestProviderConnectionRequest(ProviderType providerType, String endpoint) {
+        this(providerType, endpoint, null);
+    }
 }

@@ -97,6 +97,7 @@ create_environment() {
     printf 'NEXO_DATABASE_USER=nexo\n'
     printf 'NEXO_DATABASE_PASSWORD=%s\n' "$(random_secret 32)"
     printf 'NEXO_JWT_SECRET=%s\n' "$(random_secret 48)"
+    printf 'NEXO_SECRET_MASTER_KEY=%s\n' "$(random_secret 32)"
     printf 'NEXO_CONTAINER_OLLAMA_BASE_URL=http://host.containers.internal:11434\n'
     printf 'NEXO_CONTAINER_COMFYUI_BASE_URL=http://host.containers.internal:8188\n'
     printf 'NEXO_SERVER_PORT=8080\n'
@@ -138,6 +139,16 @@ set_environment_value() {
   ' "$PROJECT_ROOT/.env" > "$temporary_file"
   chmod 600 "$temporary_file"
   mv "$temporary_file" "$PROJECT_ROOT/.env"
+}
+
+ensure_environment_secret() {
+  local name="$1"
+  local bytes="$2"
+
+  if [[ -z "$(read_environment_value "$name" "")" ]]; then
+    log "Adding missing $name to the private development environment"
+    set_environment_value "$name" "$(random_secret "$bytes")"
+  fi
 }
 
 host_port_is_in_use() {
@@ -350,6 +361,7 @@ main() {
   resolve_compose
   prepare_container_runtime
   create_environment
+  ensure_environment_secret NEXO_SECRET_MASTER_KEY 32
   ensure_development_ports
 
   log "Checking existing Nexo services while preserving named volumes"

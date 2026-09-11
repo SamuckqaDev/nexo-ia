@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.nexoia.audit.service.AuditService;
 import com.nexoia.provider.dto.CreateProviderRequest;
 import com.nexoia.provider.exception.InvalidProviderEndpointException;
 import com.nexoia.provider.exception.ProviderConfigurationConflictException;
@@ -14,6 +15,7 @@ import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.provider.secret.service.ProviderSecretService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +32,9 @@ class ProviderRegistryServiceTest {
     @Mock
     private ProviderConfigurationRepository repository;
     @Mock
-    private com.nexoia.audit.service.AuditService audit;
+    private AuditService audit;
+    @Mock
+    private ProviderSecretService secrets;
     private ProviderRegistryService service;
 
     private final UUID userId = UUID.randomUUID();
@@ -38,18 +42,19 @@ class ProviderRegistryServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProviderRegistryService(repository, new ProviderEndpointNormalizer(""), audit);
+        service = new ProviderRegistryService(repository, new ProviderEndpointNormalizer(""), audit, secrets);
     }
 
     @Test
     void savesANormalizedEndpointForTheAuthenticatedUser() {
         when(repository.existsByUserIdAndEndpoint(userId, "http://127.0.0.1:11434")).thenReturn(false);
-        when(repository.save(any(ProviderConfiguration.class))).thenAnswer(call -> call.getArgument(0));
+        when(repository.saveAndFlush(any(ProviderConfiguration.class))).thenAnswer(call -> call.getArgument(0));
 
         var response = service.create(userId, request("  http://127.0.0.1:11434  "));
 
         assertThat(response.endpoint()).isEqualTo("http://127.0.0.1:11434");
         assertThat(response.enabled()).isTrue();
+        verify(secrets).replace(response.id(), null);
     }
 
     @ParameterizedTest

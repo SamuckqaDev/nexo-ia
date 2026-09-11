@@ -74,11 +74,11 @@ The frontend must not retain authentication tokens in `localStorage`. Authentica
 - Use Spring Security CSRF protection for browser state-changing requests. `SameSite` is an
   additional defense, not a replacement.
 - Apply login throttling without revealing whether an account exists.
-- Release `0.1` stores no remote-provider credential: its Ollama endpoint is organization
-  configuration, not a secret. Database and bootstrap secrets are injected at runtime and never
-  committed or exposed through the UI, logs, prompts, or audit payloads.
-- Implement the encrypted application Secret Store before remote providers, MCP credentials, or
-  paired devices enter a release.
+- Remote-provider credentials use the encrypted application Secret Store. Its AES-256-GCM master
+  key, database credentials, bootstrap secrets, and device credentials are injected at runtime and
+  never committed or exposed through prompts, logs, audit payloads, or API responses.
+- Reuse the Secret Store boundary before MCP credentials or any additional long-lived integration
+  secret enters a release; do not add plaintext columns to feature tables.
 
 ## Fedora Silverblue development model
 

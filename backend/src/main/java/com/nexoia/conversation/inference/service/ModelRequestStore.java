@@ -74,6 +74,8 @@ import com.nexoia.provider.model.ProcessingLocation;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.provider.service.ProviderEndpointGuard;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
+import com.nexoia.provider.secret.service.ProviderSecretService;
 import com.nexoia.workspace.model.Workspace;
 import com.nexoia.workspace.model.WorkspaceBinding;
 import com.nexoia.workspace.model.WorkspaceStatus;
@@ -87,7 +89,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -103,7 +104,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class ModelRequestStore {
 
     private static final Set<MessageStatus> IN_FLIGHT =
@@ -126,7 +126,46 @@ public class ModelRequestStore {
     private final PermissionEngine permissionEngine;
     private final WorkspaceAccessService workspaceAccess;
     private final WorkspaceBindingService workspaceBindings;
+    private final ProviderSecretService providerSecrets;
     private final Clock clock;
+
+    @Autowired
+    public ModelRequestStore(
+            ConversationRepository conversations,
+            ConversationMessageRepository messages,
+            ToolExecutionRepository toolExecutions,
+            AgentPlanRepository agentPlans,
+            ProviderConfigurationRepository providers,
+            UserAccountRepository users,
+            ConversationKnowledgeService conversationKnowledge,
+            ConversationContextAssembler contextAssembler,
+            ProviderEndpointGuard endpointGuard,
+            RetrievalService retrievalService,
+            McpConnectionService mcpConnections,
+            PersonalMemoryService personalMemories,
+            PermissionEngine permissionEngine,
+            WorkspaceAccessService workspaceAccess,
+            WorkspaceBindingService workspaceBindings,
+            ProviderSecretService providerSecrets,
+            Clock clock) {
+        this.conversations = conversations;
+        this.messages = messages;
+        this.toolExecutions = toolExecutions;
+        this.agentPlans = agentPlans;
+        this.providers = providers;
+        this.users = users;
+        this.conversationKnowledge = conversationKnowledge;
+        this.contextAssembler = contextAssembler;
+        this.endpointGuard = endpointGuard;
+        this.retrievalService = retrievalService;
+        this.mcpConnections = mcpConnections;
+        this.personalMemories = personalMemories;
+        this.permissionEngine = permissionEngine;
+        this.workspaceAccess = workspaceAccess;
+        this.workspaceBindings = workspaceBindings;
+        this.providerSecrets = providerSecrets;
+        this.clock = clock;
+    }
 
     public ModelRequestStore(
             ConversationRepository conversations,
@@ -146,7 +185,30 @@ public class ModelRequestStore {
             Clock clock) {
         this(conversations, messages, toolExecutions, agentPlans, providers, users, conversationKnowledge,
                 contextAssembler, endpointGuard, retrievalService, mcpConnections, personalMemories,
-                permissionEngine, workspaceAccess, null, clock);
+                permissionEngine, workspaceAccess, null, null, clock);
+    }
+
+    /** Backward-compatible constructor for tests and callers without an injected Secret Store. */
+    public ModelRequestStore(
+            ConversationRepository conversations,
+            ConversationMessageRepository messages,
+            ToolExecutionRepository toolExecutions,
+            AgentPlanRepository agentPlans,
+            ProviderConfigurationRepository providers,
+            UserAccountRepository users,
+            ConversationKnowledgeService conversationKnowledge,
+            ConversationContextAssembler contextAssembler,
+            ProviderEndpointGuard endpointGuard,
+            RetrievalService retrievalService,
+            McpConnectionService mcpConnections,
+            PersonalMemoryService personalMemories,
+            PermissionEngine permissionEngine,
+            WorkspaceAccessService workspaceAccess,
+            WorkspaceBindingService workspaceBindings,
+            Clock clock) {
+        this(conversations, messages, toolExecutions, agentPlans, providers, users, conversationKnowledge,
+                contextAssembler, endpointGuard, retrievalService, mcpConnections, personalMemories,
+                permissionEngine, workspaceAccess, workspaceBindings, null, clock);
     }
 
     /**
@@ -221,6 +283,9 @@ public class ModelRequestStore {
                 .orElseThrow(ProviderConfigurationNotFoundException::new);
         ProcessingLocation processingLocation =
                 endpointGuard.verify(provider.getProviderType(), provider.getEndpoint());
+        ProviderAuthentication providerAuthentication = providerSecrets == null
+                ? ProviderAuthentication.none()
+                : providerSecrets.resolve(provider);
         String requestModel = executionModel == null || executionModel.isBlank()
                 ? conversation.getSelectedModel()
                 : executionModel;
@@ -363,7 +428,8 @@ public class ModelRequestStore {
                                         workspaceWriteAuthorized)
                                 : null,
                         ToolExecutionObserver.NOOP,
-                        AgentPlanUpdateObserver.NOOP),
+                        AgentPlanUpdateObserver.NOOP,
+                        providerAuthentication),
                 processingLocation,
                 citations);
     }

@@ -28,6 +28,22 @@ function Get-NexoEnvironmentValue([string]$Name, [string]$DefaultValue) {
   return ($Match -split "=", 2)[1]
 }
 
+function Set-NexoEnvironmentValue([string]$Name, [string]$Value) {
+  $Lines = [Collections.Generic.List[string]](Get-Content $EnvironmentFile)
+  $Prefix = "$Name="
+  $Updated = $false
+  for ($Index = 0; $Index -lt $Lines.Count; $Index += 1) {
+    if ($Lines[$Index].StartsWith($Prefix)) {
+      $Lines[$Index] = "$Prefix$Value"
+      $Updated = $true
+    }
+  }
+  if (-not $Updated) {
+    $Lines.Add("$Prefix$Value")
+  }
+  [IO.File]::WriteAllLines($EnvironmentFile, $Lines, (New-Object Text.UTF8Encoding($false)))
+}
+
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   throw "Docker Desktop with Compose is required. Run scripts/setup-windows.ps1 first."
 }
@@ -40,6 +56,7 @@ if (-not (Test-Path $EnvironmentFile)) {
     "NEXO_DATABASE_USER=nexo"
     "NEXO_DATABASE_PASSWORD=$(New-NexoSecret 32)"
     "NEXO_JWT_SECRET=$(New-NexoSecret 48)"
+    "NEXO_SECRET_MASTER_KEY=$(New-NexoSecret 32)"
     "NEXO_CONTAINER_OLLAMA_BASE_URL=http://host.containers.internal:11434"
     "NEXO_CONTAINER_COMFYUI_BASE_URL=http://host.containers.internal:8188"
     "NEXO_SERVER_PORT=8080"
@@ -54,6 +71,11 @@ if (-not (Test-Path $EnvironmentFile)) {
     $EnvironmentLines,
     (New-Object Text.UTF8Encoding($false))
   )
+}
+
+if (-not (Get-NexoEnvironmentValue "NEXO_SECRET_MASTER_KEY" "")) {
+  Write-Nexo "Adding missing NEXO_SECRET_MASTER_KEY to the private development environment"
+  Set-NexoEnvironmentValue "NEXO_SECRET_MASTER_KEY" (New-NexoSecret 32)
 }
 
 Push-Location $ProjectRoot

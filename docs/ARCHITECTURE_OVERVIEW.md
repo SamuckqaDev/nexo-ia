@@ -1,6 +1,6 @@
 # Nexo IA current architecture
 
-> Verified against `codex/server-workspace-execution` on 2026-08-27. This document describes the
+> Verified against `codex/server-workspace-execution` on 2026-09-11. This document describes the
 > runtime that exists in the repository today. Product intentions that do not yet have an
 > authoritative backend are identified explicitly as partial or deferred.
 
@@ -160,7 +160,7 @@ introducing premature services or network calls.
 | `auth` | Owner bootstrap, users, profiles, credentials, JWT/refresh sessions, recovery, access events |
 | `team` | Team creation, membership, administrative roles, shared owner-scope resolution |
 | `permission` | Pure deterministic capability and content-policy resolution |
-| `provider` | User-owned provider registry, model discovery, endpoint guard, Spring AI Ollama adapter |
+| `provider` | User-owned provider registry, encrypted Secret Store, model discovery, endpoint guard, request-local Spring AI adapters |
 | `conversation` | Conversations, messages, context assembly, Agent plans, tool evidence, SSE lifecycle |
 | `knowledge` | Vaults, source ingestion, embeddings, chunks, retrieval, citations, semantic graph |
 | `memory` | Explicit personal memory CRUD and governed `remember` tool |
@@ -346,6 +346,8 @@ boundaries for policy and state.
 | Spring AI component | Nexo use |
 |---|---|
 | `OllamaChatModel` | Request-local chat model configured from the owned Provider Registry |
+| `OpenAiChatModel` | Request-local OpenAI, Gemini OpenAI-compatible, or custom compatible model |
+| `AnthropicChatModel` | Request-local Anthropic model configured with a server-resolved credential |
 | `ChatClient` | Streaming model request and advisor chain |
 | `ToolCallingAdvisor` | Direct callbacks when the authorized catalog has at most ten tools |
 | `ToolSearchToolCallingAdvisor` | Progressive request-local tool discovery for a larger catalog |
@@ -357,6 +359,15 @@ catalog construction, cancellation, evidence requirements, output limits, persis
 The only automatic executor change stays inside the selected provider, requires advertised tool
 support for Agent work, and is exposed through the persisted assistant model and `started` event;
 there is no silent cross-provider fallback.
+
+Provider credentials cross the browser boundary only when the authenticated user saves or tests a
+configuration. The backend encrypts saved credentials with AES-256-GCM in `provider_secret`, binds
+the ciphertext to the provider UUID as authenticated data, and returns only
+`credentialConfigured`. `ModelRequestStore` resolves the owned provider and decrypts its credential
+for that one request; `ChatCompletionCommand` carries a redacted request-scoped wrapper directly to
+`SpringAiModelFactory`. The raw key is never placed in conversation context, DTO responses, tasks,
+audit payloads, or logs. `NEXO_SECRET_MASTER_KEY` remains server-owned and must be backed up outside
+PostgreSQL; losing it makes existing provider credentials intentionally unreadable.
 
 The Agent runtime is currently **one model execution with a bounded Spring AI tool loop**. It can
 publish and revise a visible plan, but it does not yet dispatch plan steps to parallel worker models
@@ -566,14 +577,14 @@ host-local by default; it is not a fallback model capability.
 
 ## 12. Persistence model
 
-PostgreSQL is the operational source of truth. Flyway currently applies 37 ordered migrations.
+PostgreSQL is the operational source of truth. Flyway currently applies 40 ordered migrations.
 `pgvector` stores Knowledge embeddings alongside relational ownership and provenance.
 
 | Data area | Principal records |
 |---|---|
 | Identity | users, password credentials, profiles, sessions, refresh tokens, access events, recovery |
 | Governance | assigned permission profiles, Teams, memberships |
-| Providers | user-owned configurations and selected models |
+| Providers | user-owned configurations, encrypted credentials, and selected models |
 | Conversation | conversations, messages, citations, active status, token usage, latency |
 | Agent | plan revisions, steps, tool executions, correlation identifiers |
 | Knowledge | Vaults, sources, chunks, vectors, conversation selections |
@@ -609,7 +620,7 @@ Current recovery boundaries:
 | Surface | State | Honest boundary |
 |---|---|---|
 | Auth, sessions, users and administration | Implemented | External OIDC/MFA not implemented |
-| Provider Registry and Ollama model selection | Implemented for Ollama | Vendor adapters and encrypted provider secrets deferred |
+| Provider Registry and model selection | Implemented for Ollama, OpenAI, Anthropic, Gemini's OpenAI-compatible endpoint, and custom OpenAI-compatible servers | Provider-specific capability metadata and OAuth remain deferred |
 | Persistent Chat, SSE, Thinking separation, usage | Implemented | No event replay or partial-answer checkpointing |
 | Agent plan and bounded tool loop | Implemented | No multi-agent worker delegation or restart resume |
 | Personal memory and `remember` | Implemented | No semantic memory ranking |

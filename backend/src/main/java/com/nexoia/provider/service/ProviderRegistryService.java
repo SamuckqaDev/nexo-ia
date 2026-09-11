@@ -1,27 +1,42 @@
 package com.nexoia.provider.service;
 
-import com.nexoia.provider.dto.CreateProviderRequest;
-import com.nexoia.provider.dto.ProviderConfigurationResponse;
-import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
-import com.nexoia.provider.exception.ProviderConfigurationConflictException;
-import com.nexoia.provider.model.ProviderConfiguration;
-import com.nexoia.provider.repository.ProviderConfigurationRepository;
 import com.nexoia.audit.dto.RecordAuditCommand;
 import com.nexoia.audit.model.AuditAction;
 import com.nexoia.audit.model.AuditTargetType;
 import com.nexoia.audit.service.AuditService;
+import com.nexoia.provider.dto.CreateProviderRequest;
+import com.nexoia.provider.dto.ProviderConfigurationResponse;
+import com.nexoia.provider.exception.ProviderConfigurationConflictException;
+import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
+import com.nexoia.provider.model.ProviderConfiguration;
+import com.nexoia.provider.model.ProviderType;
+import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.provider.secret.service.ProviderSecretService;
 import java.util.List;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class ProviderRegistryService {
+
     private final ProviderConfigurationRepository repository;
     private final ProviderEndpointNormalizer endpointNormalizer;
     private final AuditService audit;
+    private final ProviderSecretService secrets;
+
+    @Autowired
+    public ProviderRegistryService(
+            ProviderConfigurationRepository repository,
+            ProviderEndpointNormalizer endpointNormalizer,
+            AuditService audit,
+            ProviderSecretService secrets) {
+        this.repository = repository;
+        this.endpointNormalizer = endpointNormalizer;
+        this.audit = audit;
+        this.secrets = secrets;
+    }
 
     @Transactional(readOnly = true)
     public List<ProviderConfigurationResponse> list(UUID userId) {
@@ -34,9 +49,11 @@ public class ProviderRegistryService {
         if (repository.existsByUserIdAndEndpoint(userId, endpoint)) {
             throw new ProviderConfigurationConflictException();
         }
-        ProviderConfiguration provider = repository.save(ProviderConfiguration.builder().id(UUID.randomUUID())
+        secrets.requireFor(request.providerType(), request.apiKey(), false);
+        ProviderConfiguration provider = repository.saveAndFlush(ProviderConfiguration.builder().id(UUID.randomUUID())
                 .userId(userId).providerType(request.providerType()).displayName(request.displayName().trim())
                 .endpoint(endpoint).selectedModel(request.selectedModel()).enabled(true).build());
+        secrets.replace(provider.getId(), request.apiKey());
         audit.record(RecordAuditCommand.success(
                 AuditAction.PROVIDER_CREATED, userId, null, AuditTargetType.PROVIDER, provider.getId()));
         return response(provider);
@@ -50,7 +67,13 @@ public class ProviderRegistryService {
         if (repository.existsByUserIdAndEndpointAndIdNot(userId, endpoint, providerId)) {
             throw new ProviderConfigurationConflictException();
         }
-        provider.update(request.displayName().trim(), endpoint, request.selectedModel(), true);
+        secrets.requireFor(request.providerType(), request.apiKey(), secrets.configured(providerId));
+        provider.update(request.providerType(), request.displayName().trim(), endpoint, request.selectedModel(), true);
+        if (request.providerType() == ProviderType.OLLAMA) {
+            secrets.remove(providerId);
+        } else {
+            secrets.replace(providerId, request.apiKey());
+        }
         audit.record(RecordAuditCommand.success(
                 AuditAction.PROVIDER_UPDATED, userId, null, AuditTargetType.PROVIDER, providerId));
         return response(repository.save(provider));
@@ -71,6 +94,7 @@ public class ProviderRegistryService {
 
     private ProviderConfigurationResponse response(ProviderConfiguration provider) {
         return new ProviderConfigurationResponse(provider.getId(), provider.getProviderType(), provider.getDisplayName(),
-                provider.getEndpoint(), provider.getSelectedModel(), provider.isEnabled(), provider.getLastConnectedAt());
+                provider.getEndpoint(), provider.getSelectedModel(), provider.isEnabled(),
+                secrets.configured(provider.getId()), provider.getLastConnectedAt());
     }
 }

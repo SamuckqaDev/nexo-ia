@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const providerTypeSchema = z.enum(["OLLAMA", "OPENAI", "GOOGLE_GEMINI", "ANTHROPIC", "OPENAI_COMPATIBLE"]);
 export type ProviderType = z.infer<typeof providerTypeSchema>;
-export type ProviderConfiguration = { id: string; providerType: ProviderType; displayName: string; endpoint: string; selectedModel: string | null; enabled: boolean; lastConnectedAt: string | null };
+export type ProviderConfiguration = { id: string; providerType: ProviderType; displayName: string; endpoint: string; selectedModel: string | null; enabled: boolean; credentialConfigured: boolean; lastConnectedAt: string | null };
 export type ProviderCatalogStatus = "AVAILABLE" | "EMPTY" | "UNAVAILABLE" | "UNSUPPORTED";
 export type ProviderModel = {
   name: string;
@@ -24,8 +24,8 @@ export type ProviderModelCatalog = {
 export type ProviderModelCatalogView = Omit<ProviderModelCatalog, "status"> & {
   status: ProviderCatalogStatus | "LOADING";
 };
-export type ProviderConfigurationInput = { providerType: ProviderType; displayName: string; endpoint: string; selectedModel?: string };
-export type ProviderConnectionTestInput = { providerType: ProviderType; endpoint: string };
+export type ProviderConfigurationInput = { providerType: ProviderType; displayName: string; endpoint: string; selectedModel?: string; apiKey?: string };
+export type ProviderConnectionTestInput = { providerType: ProviderType; endpoint: string; apiKey?: string };
 export type ProviderConnectionTest = { endpoint: string; status: ProviderCatalogStatus; processingLocation: "LOCAL" | "REMOTE" | null; models: ProviderModel[]; message: string | null };
 export type ProviderConnectionTestMutationResult = UseMutationResult<ProviderConnectionTest, Error, ProviderConnectionTestInput>;
 export type ProviderRegistryResult = UseQueryResult<ProviderConfiguration[], Error>;

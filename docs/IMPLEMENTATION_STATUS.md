@@ -10,6 +10,16 @@ minimal vertical connection plus the first release `0.1` identity slice.
 
 ## Added
 
+- Server-owned provider Secret Store in the `provider.secret` module. Remote API keys are encrypted
+  at rest with AES-256-GCM and provider-bound authenticated data, never returned by the API, never
+  added to prompts, and resolved only for the owned request that invokes Spring AI. The Settings
+  form uses the shared Axios boundary and a password field; updates preserve the stored key when the
+  field is empty. The startup scripts backfill a private `NEXO_SECRET_MASTER_KEY` for existing local
+  `.env` files on macOS/Linux and Windows.
+- Request-local Spring AI adapters now execute Ollama, OpenAI, Anthropic, Google Gemini through its
+  OpenAI-compatible endpoint, and custom OpenAI-compatible providers. Saved and unsaved connection
+  tests perform real model discovery with the request credential, while the public provider response
+  exposes only whether a credential is configured. Nexo still never silently changes providers.
 - Optional Electron `desktop/` runtime paired through a ten-minute single-use code and revocable
   device credential. It maintains an outbound authenticated WebSocket, keeps absolute paths and the
   raw credential encrypted on the device, and reports capability/heartbeat state without requiring
@@ -176,22 +186,20 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - Settings now has direct Profile, Security, Providers, and Usage navigation. Home provider and usage
   actions open their exact subsection, and Usage exposes a detailed, honest empty-state surface for
   token, request, latency, cost, provider, model, capability, and processing-location breakdowns.
-- Providers now expose an authenticated Ollama status and installed-model discovery endpoint. Settings
-  consumes it through TanStack Query and shows connected, unavailable, empty-model, and refresh states.
-- The provider roadmap explicitly includes local Ollama, remote/home-server Ollama, OpenAI, Google
-  Gemini, Anthropic API, and custom OpenAI-compatible servers. External credentials remain blocked
-  behind the planned encrypted Secret Store; Nexo must never silently fall back to a remote provider.
+- Providers expose authenticated status and real model discovery. Settings consumes it through
+  TanStack Query and shows connected, unavailable, empty-model, and refresh states for local and
+  explicitly configured remote providers.
 - Provider Registry foundation is now persisted in PostgreSQL through a user-owned configuration
   table and authenticated CRUD API. Settings shows first-use setup for provider type, name, endpoint,
   and optional selected model, plus isolated provider listing and protected removal confirmation.
 - Chat model discovery now resolves the requested provider configuration together with the
   authenticated user before any network access, applies `ProviderEndpointGuard`, and reads Ollama's
   real `/api/tags` catalog from the saved endpoint without holding a database transaction open.
-  Available, empty, unavailable, disabled, and unsupported protocols are represented explicitly;
-  protocols without an implemented adapter never receive fabricated model lists. The Chat picker
+  Available, empty, unavailable, and disabled states are represented explicitly. The Chat picker
   groups every discovered model by provider and persists both provider-configuration ID and model on
   the conversation. A saved default remains fallback metadata rather than limiting the picker to one
-  model. Remote vendor discovery and credential storage remain future increments.
+  model. Remote credentials remain on the server and model discovery uses the matching Spring AI
+  protocol adapter.
 - `POST /api/v1/providers/configurations/test` lets an authenticated user test a provider type and
   endpoint before saving it. It runs the same `ProviderEndpointGuard` check and typed
   available/empty/unavailable/unsupported catalog status as saved-provider discovery, persists
@@ -441,7 +449,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
 - macOS, Linux, and Windows bootstrap scripts now install the development prerequisites, Ollama
   models, official ComfyUI checkout and local checkpoint before starting the Compose stack. Existing
   installations can still use the smaller `dev-up` scripts without reinstalling runtimes.
-- Two hundred and thirty passing default backend tests and one hundred and twenty-six passing frontend tests,
+- Three hundred and nineteen passing default backend tests and one hundred and forty-four passing frontend tests,
   including cross-user isolation for conversations and provider configurations, a deterministic
   Ollama protocol fake, context-budget behaviour, and new Knowledge Vault isolation tests
   (`VaultServiceTest`, `RetrievalServiceTest`, `EmbeddingServiceTest`) proving an unsupported scope is
@@ -452,7 +460,7 @@ minimal vertical connection plus the first release `0.1` identity slice.
   reapplied to an empty PostgreSQL 18.4 database, and the active-request index was verified to reject
   a second concurrent request and to accept one again after the previous request became terminal.
   A Testcontainers run also starts the complete Java 25 application context against PostgreSQL 18.6,
-  applies all 34 Flyway migrations through the conversation-owned image job schema, and verifies the
+  applies all 40 Flyway migrations through the provider Secret Store schema, and verifies the
   active-request index. The pgvector-backed local corpus remains migration-compatible.
 - A Testcontainers test starts the complete application context against a disposable PostgreSQL 18.6
   instance and asserts that every migration applied, the Agent plan tool bean exists, and the

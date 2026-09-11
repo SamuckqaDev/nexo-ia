@@ -62,7 +62,7 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallLimitBehavior;
 import org.springframework.ai.model.tool.ToolCallingManager;
-import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.ai.tool.toolsearch.index.regex.RegexToolIndex;
@@ -71,8 +71,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 /**
- * Streams Ollama chat completions through Spring AI's {@link ChatClient}, Advisor chain, and
- * {@link OllamaChatModel} instead of a hand-written {@code /api/chat} NDJSON parser.
+ * Streams provider-neutral chat completions through Spring AI's {@link ChatClient}, Advisor chain,
+ * and request-local {@link ChatModel}.
  *
  * <p>Nexo still owns the boundary: it authorizes the endpoint/model, bounds the message history, maps
  * roles, drives cancellation, and translates any transport failure into a controlled business
@@ -173,7 +173,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
     @Override
     public boolean supports(ProviderType providerType) {
-        return providerType == ProviderType.OLLAMA;
+        return providerType != null;
     }
 
     @Override
@@ -216,7 +216,10 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             // Ollama rejects `think: true` for models that never advertise reasoning (for example
             // granite). A normal answer is still valid, so retry once without thinking — but only when
             // nothing was streamed yet, so an answer already shown to the user is never duplicated.
-            if (!command.thinkingEnabled() || answerStarted.get() || !thinkingUnsupported(exception)) {
+            if (command.providerType() != ProviderType.OLLAMA
+                    || !command.thinkingEnabled()
+                    || answerStarted.get()
+                    || !thinkingUnsupported(exception)) {
                 throw exception;
             }
             log.warn("[NEXO-BACK][PROVIDER] Model does not accept thinking; retrying without it model={}",
@@ -308,8 +311,12 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             Consumer<String> onThinking,
             Consumer<String> onToken,
             BooleanSupplier cancelled) {
-        OllamaChatModel model =
-                modelFactory.chatModel(command.endpoint(), command.model(), command.thinkingEnabled());
+        ChatModel model = modelFactory.chatModel(
+                command.providerType(),
+                command.endpoint(),
+                command.model(),
+                command.thinkingEnabled(),
+                command.authentication());
         List<Message> mapped = messageMapper.toSpringAi(
                 UserRequestIntentResolver.resolveContinuation(command.messages()));
         List<SystemMessage> systemContext = new ArrayList<>(mapped.stream()
@@ -493,8 +500,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             } catch (ProviderStreamException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
-                log.warn("[NEXO-BACK][PROVIDER] Ollama stream failed model={} reason={}",
-                        command.model(), exception.getClass().getSimpleName());
+                log.warn("[NEXO-BACK][PROVIDER] Provider stream failed provider={} model={} reason={}",
+                        command.providerType(), command.model(), exception.getClass().getSimpleName());
                 throw new ProviderStreamException(exception);
             }
 
@@ -639,7 +646,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 command.mode(), command.knowledgeToolScope(), command.agentPlanToolScope(),
                 command.memoryToolScope(), command.mcpToolScope(), command.knowledgeWriteToolScope(),
                 command.workspaceToolScope(),
-                command.toolExecutionObserver(), command.agentPlanUpdateObserver());
+                command.toolExecutionObserver(), command.agentPlanUpdateObserver(),
+                command.authentication());
     }
 
     private boolean thinkingUnsupported(ProviderStreamException exception) {

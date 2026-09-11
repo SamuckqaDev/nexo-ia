@@ -46,6 +46,9 @@ export function ProviderRegistry(): ReactElement {
               <strong>{provider.displayName}</strong>
               <Meta>{provider.providerType} · {provider.endpoint}</Meta>
               <Meta>Model: {provider.selectedModel || "Not selected"}</Meta>
+              {provider.providerType !== "OLLAMA" && (
+                <Meta>Credential: {provider.credentialConfigured ? "Configured on server" : "Not configured"}</Meta>
+              )}
             </div>
             <Actions>
               <Button type="button" variant="outline" icon={PencilSimple} onClick={(): void => { setAdding(false); setEditing(provider); }}>Edit</Button>

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../../../shared/api/client";
-import { getProviderModelCatalog } from "./providerRegistryApi";
+import { createProviderConfiguration, getProviderModelCatalog } from "./providerRegistryApi";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -63,5 +63,40 @@ describe("getProviderModelCatalog", () => {
 
     await expect(getProviderModelCatalog("6a8ceeb1-c16f-4071-8ca7-0ec692aa21a9"))
       .rejects.toThrow();
+  });
+});
+
+describe("createProviderConfiguration", () => {
+  it("sends the credential through Axios but accepts only the redacted server response", async () => {
+    vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: {
+        code: 200,
+        message: "Provider saved",
+        data: [{
+          id: "6a8ceeb1-c16f-4071-8ca7-0ec692aa21a9",
+          providerType: "OPENAI",
+          displayName: "OpenAI",
+          endpoint: "https://api.openai.com",
+          selectedModel: "gpt-5.4",
+          enabled: true,
+          credentialConfigured: true,
+          lastConnectedAt: null
+        }]
+      }
+    });
+
+    const provider = await createProviderConfiguration({
+      providerType: "OPENAI",
+      displayName: "OpenAI",
+      endpoint: "https://api.openai.com",
+      selectedModel: "gpt-5.4",
+      apiKey: "request-only-key"
+    });
+
+    expect(apiClient.post).toHaveBeenCalledWith("/providers/configurations", expect.objectContaining({
+      apiKey: "request-only-key"
+    }));
+    expect(provider.credentialConfigured).toBe(true);
+    expect(provider).not.toHaveProperty("apiKey");
   });
 });

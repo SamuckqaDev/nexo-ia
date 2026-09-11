@@ -2,11 +2,15 @@ package com.nexoia.provider.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nexoia.provider.dto.ProviderModelResponse;
+import com.nexoia.provider.exception.InvalidProviderEndpointException;
 import com.nexoia.provider.exception.ProviderConfigurationNotFoundException;
 import com.nexoia.provider.exception.ProviderUnavailableException;
 import com.nexoia.provider.model.ProcessingLocation;
@@ -14,6 +18,8 @@ import com.nexoia.provider.model.ProviderCatalogStatus;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
+import com.nexoia.provider.secret.service.ProviderSecretService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +38,10 @@ class ProviderModelCatalogServiceTest {
     private ProviderEndpointGuard endpointGuard;
     @Mock
     private OllamaProviderService ollamaProviderService;
+    @Mock
+    private RemoteProviderModelService remoteProviderModelService;
+    @Mock
+    private ProviderSecretService secrets;
 
     private ProviderModelCatalogService service;
     private final UUID userId = UUID.randomUUID();
@@ -39,7 +49,13 @@ class ProviderModelCatalogServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProviderModelCatalogService(repository, endpointGuard, new ProviderEndpointNormalizer(""), ollamaProviderService);
+        service = new ProviderModelCatalogService(
+                repository,
+                endpointGuard,
+                new ProviderEndpointNormalizer(""),
+                ollamaProviderService,
+                remoteProviderModelService,
+                secrets);
     }
 
     @Test
@@ -66,22 +82,26 @@ class ProviderModelCatalogServiceTest {
         assertThatThrownBy(() -> service.discover(userId, providerId))
                 .isInstanceOf(ProviderConfigurationNotFoundException.class);
 
-        verify(endpointGuard, never()).verify(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString());
-        verify(ollamaProviderService, never()).models(org.mockito.ArgumentMatchers.anyString());
+        verify(endpointGuard, never()).verify(any(), anyString());
+        verify(ollamaProviderService, never()).models(anyString());
     }
 
     @Test
-    void reportsUnsupportedProtocolsWithoutOpeningANetworkConnection() {
+    void discoversRemoteProviderModelsWithTheServerResolvedCredential() {
         ProviderConfiguration provider = provider(ProviderType.ANTHROPIC);
         when(repository.findByIdAndUserId(providerId, userId)).thenReturn(Optional.of(provider));
+        ProviderAuthentication authentication = ProviderAuthentication.apiKey("secret");
+        when(secrets.resolve(provider)).thenReturn(authentication);
+        when(remoteProviderModelService.models(
+                ProviderType.ANTHROPIC, provider.getEndpoint(), authentication))
+                .thenReturn(List.of(new ProviderModelResponse("claude-sonnet-4-5", null, null, true, true)));
 
         var response = service.discover(userId, providerId);
 
-        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.UNSUPPORTED);
-        assertThat(response.models()).isEmpty();
-        verify(endpointGuard, never()).verify(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString());
+        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.AVAILABLE);
+        assertThat(response.models()).extracting(ProviderModelResponse::name)
+                .containsExactly("claude-sonnet-4-5");
+        verify(endpointGuard).verify(ProviderType.ANTHROPIC, provider.getEndpoint());
     }
 
     @Test
@@ -109,26 +129,34 @@ class ProviderModelCatalogServiceTest {
         assertThat(response.status()).isEqualTo(ProviderCatalogStatus.AVAILABLE);
         assertThat(response.processingLocation()).isEqualTo(ProcessingLocation.LOCAL);
         assertThat(response.models()).extracting(ProviderModelResponse::name).containsExactly("qwen3:8b");
-        verify(repository, never()).findByIdAndUserId(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(repository, never()).findByIdAndUserId(any(), any());
     }
 
     @Test
-    void reportsUnsupportedProviderTypesWithoutOpeningANetworkConnectionWhenTesting() {
-        var response = service.testConnection(ProviderType.ANTHROPIC, "https://api.anthropic.com");
+    void testsRemoteProviderTypesWithARequestScopedCredential() {
+        String endpoint = "https://api.anthropic.com";
+        when(endpointGuard.verify(ProviderType.ANTHROPIC, endpoint))
+                .thenReturn(ProcessingLocation.REMOTE);
+        when(remoteProviderModelService.models(
+                eq(ProviderType.ANTHROPIC),
+                eq(endpoint),
+                any(ProviderAuthentication.class)))
+                .thenReturn(List.of(new ProviderModelResponse("claude-sonnet-4-5", null, null, true, true)));
 
-        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.UNSUPPORTED);
-        assertThat(response.models()).isEmpty();
-        verify(endpointGuard, never()).verify(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString());
+        var response = service.testConnection(ProviderType.ANTHROPIC, endpoint, "secret");
+
+        assertThat(response.status()).isEqualTo(ProviderCatalogStatus.AVAILABLE);
+        assertThat(response.processingLocation()).isEqualTo(ProcessingLocation.REMOTE);
+        assertThat(response.models()).extracting(ProviderModelResponse::name)
+                .containsExactly("claude-sonnet-4-5");
     }
 
     @Test
     void rejectsAMalformedEndpointBeforeTestingIt() {
         assertThatThrownBy(() -> service.testConnection(ProviderType.OLLAMA, "not-a-url"))
-                .isInstanceOf(com.nexoia.provider.exception.InvalidProviderEndpointException.class);
+                .isInstanceOf(InvalidProviderEndpointException.class);
 
-        verify(endpointGuard, never()).verify(org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString());
+        verify(endpointGuard, never()).verify(any(), anyString());
     }
 
     @Test

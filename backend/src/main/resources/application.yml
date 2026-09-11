@@ -89,6 +89,11 @@ nexo:
     approval-timeout: ${NEXO_WORKSPACE_APPROVAL_TIMEOUT:15m}
     command-timeout: ${NEXO_WORKSPACE_COMMAND_TIMEOUT:10m}
   security:
+    secrets:
+      # Exactly 32 random bytes encoded as Base64. It encrypts remote-provider credentials at rest
+      # and must be backed up separately from PostgreSQL.
+      master-key: ${NEXO_SECRET_MASTER_KEY:}
+      key-version: ${NEXO_SECRET_KEY_VERSION:1}
     token:
       issuer: nexo-ia
       secret: ${NEXO_JWT_SECRET}

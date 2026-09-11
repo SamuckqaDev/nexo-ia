@@ -10,19 +10,38 @@ import com.nexoia.provider.model.ProviderCatalogStatus;
 import com.nexoia.provider.model.ProviderConfiguration;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.repository.ProviderConfigurationRepository;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
+import com.nexoia.provider.secret.service.ProviderSecretService;
 import java.util.List;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class ProviderModelCatalogService {
 
     private final ProviderConfigurationRepository repository;
     private final ProviderEndpointGuard endpointGuard;
     private final ProviderEndpointNormalizer endpointNormalizer;
     private final OllamaProviderService ollamaProviderService;
+    private final RemoteProviderModelService remoteProviderModelService;
+    private final ProviderSecretService secrets;
+
+    @Autowired
+    public ProviderModelCatalogService(
+            ProviderConfigurationRepository repository,
+            ProviderEndpointGuard endpointGuard,
+            ProviderEndpointNormalizer endpointNormalizer,
+            OllamaProviderService ollamaProviderService,
+            RemoteProviderModelService remoteProviderModelService,
+            ProviderSecretService secrets) {
+        this.repository = repository;
+        this.endpointGuard = endpointGuard;
+        this.endpointNormalizer = endpointNormalizer;
+        this.ollamaProviderService = ollamaProviderService;
+        this.remoteProviderModelService = remoteProviderModelService;
+        this.secrets = secrets;
+    }
 
     /**
      * Resolves ownership before inspecting an endpoint. This method deliberately has no surrounding
@@ -37,15 +56,13 @@ public class ProviderModelCatalogService {
                     "This provider configuration is disabled");
         }
 
-        if (provider.getProviderType() != ProviderType.OLLAMA) {
-            return response(provider, ProviderCatalogStatus.UNSUPPORTED, List.of(),
-                    "Model discovery is not available for this provider type yet");
-        }
-
         endpointGuard.verify(provider.getProviderType(), provider.getEndpoint());
 
         try {
-            List<ProviderModelResponse> models = ollamaProviderService.models(provider.getEndpoint());
+            List<ProviderModelResponse> models = provider.getProviderType() == ProviderType.OLLAMA
+                    ? ollamaProviderService.models(provider.getEndpoint())
+                    : remoteProviderModelService.models(
+                            provider.getProviderType(), provider.getEndpoint(), secrets.resolve(provider));
             if (models.isEmpty()) {
                 return response(provider, ProviderCatalogStatus.EMPTY, models,
                         "No installed models were reported by this provider");
@@ -61,18 +78,21 @@ public class ProviderModelCatalogService {
      * Tests connectivity for an endpoint the user has not saved yet. No provider configuration is
      * read or persisted here, so there is no ownership to resolve and nothing to leak into storage.
      */
-    public ProviderConnectionTestResponse testConnection(ProviderType providerType, String rawEndpoint) {
+    public ProviderConnectionTestResponse testConnection(
+            ProviderType providerType,
+            String rawEndpoint,
+            String apiKey) {
         String endpoint = endpointNormalizer.normalize(rawEndpoint);
-
-        if (providerType != ProviderType.OLLAMA) {
-            return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.UNSUPPORTED,
-                    null, List.of(), "Connection testing is not available for this provider type yet");
-        }
-
         ProcessingLocation processingLocation = endpointGuard.verify(providerType, endpoint);
 
         try {
-            List<ProviderModelResponse> models = ollamaProviderService.models(endpoint);
+            secrets.requireFor(providerType, apiKey, false);
+            ProviderAuthentication authentication = apiKey == null || apiKey.isBlank()
+                    ? ProviderAuthentication.none()
+                    : ProviderAuthentication.apiKey(apiKey.trim());
+            List<ProviderModelResponse> models = providerType == ProviderType.OLLAMA
+                    ? ollamaProviderService.models(endpoint)
+                    : remoteProviderModelService.models(providerType, endpoint, authentication);
             if (models.isEmpty()) {
                 return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.EMPTY,
                         processingLocation, models, "No installed models were reported by this provider");
@@ -83,6 +103,10 @@ public class ProviderModelCatalogService {
             return new ProviderConnectionTestResponse(providerType, endpoint, ProviderCatalogStatus.UNAVAILABLE,
                     processingLocation, List.of(), "The configured provider is currently unavailable");
         }
+    }
+
+    public ProviderConnectionTestResponse testConnection(ProviderType providerType, String rawEndpoint) {
+        return testConnection(providerType, rawEndpoint, null);
     }
 
     private ProviderModelCatalogResponse response(

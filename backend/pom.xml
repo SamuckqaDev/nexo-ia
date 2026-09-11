@@ -25,7 +25,7 @@
              Docker daemon for Testcontainers. Both run by default on a developer machine and are
              excluded by the container image build, which has neither.
              Run a group explicitly: ./mvnw test -Dexcluded.test.groups= -Dgroups=ollama -->
-        <excluded.test.groups>ollama</excluded.test.groups>
+        <excluded.test.groups>ollama,mcp-gateway</excluded.test.groups>
     </properties>
 
     <dependencyManagement>
@@ -96,6 +96,14 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-anthropic</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.ai</groupId>
@@ -174,9 +182,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- Tests tagged "ollama" need a real installed model, so they stay out of the
-                         default suite. Run them with:
-                         ./mvnw test -Dexcluded.test.groups= -Dgroups=ollama -->
+                    <!-- Tests tagged "ollama" or "mcp-gateway" need an external runtime, so they
+                         stay out of the deterministic default suite. Run either group explicitly
+                         with -Dexcluded.test.groups= -Dgroups=<group>. -->
                     <excludedGroups>${excluded.test.groups}</excludedGroups>
                 </configuration>
             </plugin>

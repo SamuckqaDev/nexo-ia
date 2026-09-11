@@ -34,7 +34,13 @@ public class ProviderConfiguration {
     @CreationTimestamp @Column(name = "created_at", nullable = false) private Instant createdAt;
     @UpdateTimestamp @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
-    public void update(String displayName, String endpoint, String selectedModel, boolean enabled) {
+    public void update(
+            ProviderType providerType,
+            String displayName,
+            String endpoint,
+            String selectedModel,
+            boolean enabled) {
+        this.providerType = providerType;
         this.displayName = displayName;
         this.endpoint = endpoint;
         this.selectedModel = selectedModel;
