@@ -12,6 +12,7 @@ import {
   updateMcpTools
 } from "../api/mcpApi";
 import type { McpConnection, McpHubResult, RemoteMcpConnectionInput } from "../types/mcpTypes";
+import { isMachineProfile } from "../services/mcpConnectionService";
 import { mcpConnectionsKey, useMcpConnections } from "./useMcpConnections";
 
 export function useMcpHub(): McpHubResult {
@@ -33,7 +34,7 @@ export function useMcpHub(): McpHubResult {
     onSuccess: (connection: McpConnection): void => {
       refresh();
       show(
-        connection.catalogServerId === "docker-profile"
+        isMachineProfile(connection)
           ? "Machine MCP catalog inspected. Enable it once; Nexo will choose tools for each task."
           : "Docker MCP inspected. Select its tools to continue.",
         { variant: "success" }

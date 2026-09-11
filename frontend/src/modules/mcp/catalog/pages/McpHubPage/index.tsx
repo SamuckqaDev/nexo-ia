@@ -26,6 +26,7 @@ import { useConfirmationStore } from "../../../../../shared/feedback/stores/useC
 import type { ConfirmationState } from "../../../../../shared/feedback/types/confirmationTypes";
 import { McpConnectionForm } from "../../components/McpConnectionForm";
 import { useMcpHub } from "../../hooks/useMcpHub";
+import { isMachineProfile } from "../../services/mcpConnectionService";
 import type {
   McpCatalogServer,
   McpConnection,
@@ -56,7 +57,6 @@ import {
 } from "./styles";
 
 type CatalogFilter = "free" | "all";
-const machineProfileServerId = "docker-profile";
 
 const costLabel: Record<McpCatalogServer["costType"], string> = {
   LOCAL_FREE: "Local & free",
@@ -90,7 +90,7 @@ export function McpHubPage(): ReactElement {
 
   const selected: McpConnection | undefined = connections.find(
     (connection: McpConnection) => connection.id === selectedId);
-  const machineProfile: boolean = selected?.catalogServerId === machineProfileServerId;
+  const machineProfile: boolean = selected ? isMachineProfile(selected) : false;
   const installedIds = useMemo<Set<string>>(
     () => new Set(connections.map((connection: McpConnection) => connection.catalogServerId).filter(Boolean) as string[]),
     [connections]
@@ -146,7 +146,7 @@ export function McpHubPage(): ReactElement {
       : [...current, name]);
   };
   const enableForAgent = (connection: McpConnection): void => {
-    if (connection.catalogServerId !== machineProfileServerId && toolSelectionDirty) {
+    if (!isMachineProfile(connection) && toolSelectionDirty) {
       hub.selectTools.mutate(
         { id: connection.id, enabledToolNames: selectedTools },
         { onSuccess: (): void => hub.setEnabled.mutate({ id: connection.id, enabled: true }) }

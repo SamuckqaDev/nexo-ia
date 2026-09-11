@@ -11,7 +11,8 @@ import { useProviderModelCatalogs } from "../../../../provider/hooks/useProvider
 import { useBackendVaultCatalog } from "../../../../knowledge/vault/hooks/useBackendVaultCatalog";
 import type { BackendVault } from "../../../../knowledge/vault/types/backendVaultTypes";
 import { useMcpConnections } from "../../../../mcp/catalog/hooks/useMcpConnections";
-import type { McpConnection, McpTool } from "../../../../mcp/catalog/types/mcpTypes";
+import { countAgentTools } from "../../../../mcp/catalog/services/mcpConnectionService";
+import type { McpConnection } from "../../../../mcp/catalog/types/mcpTypes";
 import type { ProviderConfiguration, ProviderModel } from "../../../../provider/types/providerConfigurationTypes";
 import { usePreferenceStore } from "../../../../settings/stores/usePreferenceStore";
 import type { PreferenceState } from "../../../../settings/types/preferenceTypes";
@@ -220,7 +221,7 @@ export function ChatPage(): ReactElement {
     selectedVaultNames,
     enabledMcpConnectionNames: enabledMcpConnections.map((connection: McpConnection) => connection.displayName),
     enabledMcpToolCount: enabledMcpConnections.reduce((count: number, connection: McpConnection) =>
-      count + connection.tools.filter((tool: McpTool) => tool.enabled).length, 0),
+      count + countAgentTools(connection), 0),
     knowledgeLoading: backendVaults.vaults.isLoading,
     knowledgeError: backendVaults.vaults.isError,
     mcpLoading: mcpConnections.isLoading,

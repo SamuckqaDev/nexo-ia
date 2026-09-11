@@ -59,7 +59,9 @@ Docker-maintained catalog source remains available in the
   user's Agent requests without altering the server operator's Docker profile.
 - The Hub labels a discovered but disabled connection as **Off in Agent**. Ordinary connections can
   save a changed allow-list; the machine profile instead shows its complete safe catalog and one
-  **Enable catalog in Agent** action. Discovery alone never appears as active access in Chat.
+  **Enable catalog in Agent** action. Once enabled, the Chat Agent context reports the complete safe
+  profile tool count even for snapshots created before profile-level authorization was introduced.
+  Discovery alone never appears as active access in Chat.
 - The MCP Hub exposes cost, risk hint, setup requirements, health, transport, real tool descriptions,
   and read/destructive/open-world annotations when the server provides them.
 
