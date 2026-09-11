@@ -166,7 +166,7 @@ describe("McpHubPage", () => {
           endpoint: null,
           costType: "LOCAL_FREE",
           status: "CONNECTED",
-          enabled: true,
+          enabled: false,
           serverName: "Docker AI MCP Gateway",
           serverVersion: "2.0.1",
           lastErrorCode: null,
@@ -206,10 +206,10 @@ describe("McpHubPage", () => {
     expect(await screen.findByText(/All 1 safe profile tools stay together as one catalog/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Save allowed tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Fetch, available to Agent" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Disable catalog in Agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enable catalog in Agent" }));
     expect(setEnabled.mutate).toHaveBeenCalledWith({
       id: "68c20cf2-1f1e-4c6b-a4ed-f4588921d1e4",
-      enabled: false
+      enabled: true
     });
     expect(selectTools.mutate).not.toHaveBeenCalled();
   });

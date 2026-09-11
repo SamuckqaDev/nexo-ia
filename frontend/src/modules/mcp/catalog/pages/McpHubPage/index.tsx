@@ -146,7 +146,7 @@ export function McpHubPage(): ReactElement {
       : [...current, name]);
   };
   const enableForAgent = (connection: McpConnection): void => {
-    if (toolSelectionDirty) {
+    if (connection.catalogServerId !== machineProfileServerId && toolSelectionDirty) {
       hub.selectTools.mutate(
         { id: connection.id, enabledToolNames: selectedTools },
         { onSuccess: (): void => hub.setEnabled.mutate({ id: connection.id, enabled: true }) }
