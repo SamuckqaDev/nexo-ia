@@ -68,9 +68,10 @@ public class ModelRequestExecutionPlanner {
                 && UserRequestIntentResolver.requestsWorkspaceAction(objective);
         ConversationMode effectiveMode = promote ? ConversationMode.AGENT : requestedMode;
         String selectedModel = conversation.getSelectedModel();
-        String executionModel = effectiveMode == ConversationMode.AGENT
-                ? toolCapableModel(provider, selectedModel, thinkingEnabled)
-                : selectedModel;
+        AgentModelSelection modelSelection = effectiveMode == ConversationMode.AGENT
+                ? toolCapableModels(provider, selectedModel, thinkingEnabled)
+                : new AgentModelSelection(selectedModel, null);
+        String executionModel = modelSelection.primary();
 
         if (promote) {
             log.info(
@@ -87,6 +88,7 @@ public class ModelRequestExecutionPlanner {
         return new ModelRequestExecutionPlan(
                 effectiveMode,
                 executionModel,
+                modelSelection.fallback(),
                 objective,
                 promote,
                 !executionModel.equals(selectedModel));
@@ -103,10 +105,10 @@ public class ModelRequestExecutionPlanner {
         return UserRequestIntentResolver.effectiveRequest(history);
     }
 
-    private String toolCapableModel(
+    private AgentModelSelection toolCapableModels(
             ProviderConfiguration provider, String selectedModel, boolean thinkingEnabled) {
         if (provider.getProviderType() != ProviderType.OLLAMA) {
-            return selectedModel;
+            return new AgentModelSelection(selectedModel, null);
         }
         endpointGuard.verify(provider.getProviderType(), provider.getEndpoint());
         List<ProviderModelResponse> catalog = ollama.models(provider.getEndpoint());
@@ -114,30 +116,35 @@ public class ModelRequestExecutionPlanner {
                 .filter(model -> selectedModel.equals(model.name()))
                 .findFirst()
                 .orElse(null);
-        if (selected != null && Boolean.TRUE.equals(selected.toolCallingSupported())) {
-            return selectedModel;
-        }
-
-        ProviderModelResponse providerDefault = catalog.stream()
-                .filter(model -> Objects.equals(provider.getSelectedModel(), model.name()))
+        List<ProviderModelResponse> candidates = catalog.stream()
                 .filter(model -> Boolean.TRUE.equals(model.toolCallingSupported()))
-                .filter(model -> !thinkingEnabled || Boolean.TRUE.equals(model.thinkingSupported()))
+                .toList();
+        if (candidates.isEmpty()) {
+            throw new AgentCapableModelUnavailableException();
+        }
+        ProviderModelResponse providerDefault = candidates.stream()
+                .filter(model -> Objects.equals(provider.getSelectedModel(), model.name()))
                 .findFirst()
                 .orElse(null);
-        if (providerDefault != null) {
-            return providerDefault.name();
-        }
 
         Long selectedSize = selected == null ? null : selected.size();
-        return catalog.stream()
-                .filter(model -> Boolean.TRUE.equals(model.toolCallingSupported()))
-                .min(Comparator
-                        .comparing((ProviderModelResponse model) ->
-                                thinkingEnabled && !Boolean.TRUE.equals(model.thinkingSupported()))
-                        .thenComparingLong(model -> sizeDistance(selectedSize, model.size()))
-                        .thenComparing(ProviderModelResponse::name))
+        Comparator<ProviderModelResponse> preference = Comparator
+                .comparing((ProviderModelResponse model) -> providerDefault == null
+                        || !providerDefault.name().equals(model.name()))
+                .thenComparing(model -> thinkingEnabled
+                        && !Boolean.TRUE.equals(model.thinkingSupported()))
+                .thenComparingLong(model -> sizeDistance(selectedSize, model.size()))
+                .thenComparing(ProviderModelResponse::name);
+        ProviderModelResponse primary = selected != null
+                        && candidates.stream().anyMatch(model -> model.name().equals(selected.name()))
+                ? selected
+                : candidates.stream().min(preference).orElseThrow(AgentCapableModelUnavailableException::new);
+        String fallback = candidates.stream()
+                .filter(model -> !model.name().equals(primary.name()))
+                .min(preference)
                 .map(ProviderModelResponse::name)
-                .orElseThrow(AgentCapableModelUnavailableException::new);
+                .orElse(null);
+        return new AgentModelSelection(primary.name(), fallback);
     }
 
     private long sizeDistance(Long selectedSize, Long candidateSize) {
@@ -146,4 +153,6 @@ public class ModelRequestExecutionPlanner {
         }
         return Math.abs(selectedSize - candidateSize);
     }
+
+    private record AgentModelSelection(String primary, String fallback) {}
 }

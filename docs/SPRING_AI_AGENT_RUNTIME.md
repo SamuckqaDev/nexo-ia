@@ -94,7 +94,9 @@ composer share the same bounded width. A model explicitly reporting no tool call
 an execution request into a tutorial and no longer blocks the composer. The server selects a
 request-local Agent-ready model from the same provider, prefers Thinking support when the preference
 requires it, and persists/emits that actual executor without changing the conversation's preferred
-model. If the provider has no tool-capable model, Nexo rejects the request before inference and does
+model. The planner also records a distinct same-provider fallback executor. If the preferred Agent
+model ignores a tool required by the current task, Nexo retries that task once with the fallback
+instead of accepting prose as execution. If the provider has no tool-capable model, Nexo rejects the request before inference and does
 not spend tokens on fabricated commands. Unknown capability metadata remains usable with an explicit
 warning.
 
@@ -133,14 +135,24 @@ unavailable is discarded and the request fails in a controlled way; it can never
 successful researched answer. If an enabled connection produces no callable callback, Nexo reports
 that runtime condition directly and points the user to the MCP Hub.
 
+Agent execution now has three server-owned phases: **planning**, **serialized task execution**, and
+**synthesis**. The planning turn must call `update_plan`; Nexo then normalizes governed actions into
+bounded tasks with an explicit required-tool contract. Exactly one task becomes `IN_PROGRESS`, and
+the next task does not start until the previous task returned successful evidence. A missing,
+ignored, denied, unavailable, or failed required callback stops the run and leaves later tasks
+pending. Only after all runnable tasks complete does a tool-free synthesis turn produce the final
+answer from bounded task results. Workspace mutation previews pause at the approval step instead of
+pretending the file was already changed.
+
 `update_plan` replaces the complete visible plan. It accepts at most twelve concise steps, allows at
 most one `IN_PROGRESS` step, rejects identical repeats, and is capped at eight calls per request.
 Each step contains a short title plus an observable description, so the user can tell what result
 will prove the step complete. Nexo publishes a deterministic decomposition of the actual user
 objective as soon as every Agent request starts. A model may replace it through `update_plan`; if the
-model returns a normal answer without doing so, Nexo completes only the fallback steps supported by
-the runtime evidence. A Vault lookup, memory write, or MCP action stays pending when the corresponding
-tool never completed successfully.
+model ignores planning, the deterministic decomposition becomes the executable fallback. For
+security-sensitive or tool-dependent objectives, the server may normalize the model plan so each
+step maps to an enforceable callback. A Vault lookup, memory write, MCP action, or Workspace action
+stays pending when the corresponding tool never completed successfully.
 
 The newest revision is rendered in the conversation workspace's **Plan** section. A separate
 **Tasks** section follows `agent_state`, `plan_updated`, `tool_started`, and `tool_completed`, then
@@ -246,7 +258,7 @@ answer, and it does not repeat a completed tool effect merely to recover missing
 - multi-file approval transactions and directory-level recovery beyond the current persisted,
   reversible single-file change artifacts;
 - resumable intermediate tool/model state across backend restarts;
-- evaluator/optimizer loops and multi-agent orchestrator/worker execution;
+- evaluator/optimizer loops, parallel workers, and delegation to different worker models;
 - authored Vault backlinks, wikilinks, and relationship-aware graph expansion.
 
 Each future tool must be attached per request after deterministic authorization and must reuse the

@@ -4,6 +4,7 @@ import com.nexoia.conversation.chat.model.ConversationMode;
 import com.nexoia.conversation.inference.intent.UserRequestIntentResolver;
 import com.nexoia.conversation.inference.tool.AgentPlanToolFactory;
 import com.nexoia.conversation.inference.tool.AgentPlanToolSession;
+import com.nexoia.conversation.inference.tool.AgentTaskDecomposer;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionInput;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionResult;
 import com.nexoia.conversation.inference.tool.CapabilityInspectionTool;
@@ -15,6 +16,7 @@ import com.nexoia.mcp.runtime.service.McpToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.memory.personal.tool.RememberToolFactory;
 import com.nexoia.memory.personal.tool.RememberToolSession;
+import com.nexoia.provider.dto.AgentExecutionPhase;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
 import com.nexoia.provider.dto.ToolExecutionEvidence;
@@ -22,6 +24,7 @@ import com.nexoia.provider.dto.ToolExecutionObserver;
 import com.nexoia.provider.dto.ToolExecutionStarted;
 import com.nexoia.provider.dto.ToolExecutionStatus;
 import com.nexoia.provider.exception.ProviderStreamException;
+import com.nexoia.provider.exception.RequiredToolIgnoredException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
 import com.nexoia.provider.service.ChatCompletionClient;
@@ -56,13 +59,13 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallLimitBehavior;
 import org.springframework.ai.model.tool.ToolCallingManager;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.ai.tool.toolsearch.index.regex.RegexToolIndex;
@@ -85,7 +88,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 @Slf4j
 @Service
 public class SpringAiChatCompletionClient implements ChatCompletionClient {
-
 
     private static final String THINKING_KEY = "thinking";
     private static final String CANCELLED_REASON = "cancelled";
@@ -213,6 +215,15 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             throw new ProviderStreamException(
                     new IllegalStateException("Provider completed without answer content"));
         } catch (ProviderStreamException exception) {
+            if (exception instanceof RequiredToolIgnoredException
+                    && command.fallbackModel() != null
+                    && !command.fallbackModel().isBlank()
+                    && !answerStarted.get()) {
+                log.warn(
+                        "[NEXO-BACK][AGENT] Retrying required task with fallback model primary={} fallback={}",
+                        command.model(), command.fallbackModel());
+                return stream(command.withModel(command.fallbackModel()), onThinking, trackedToken, cancelled);
+            }
             // Ollama rejects `think: true` for models that never advertise reasoning (for example
             // granite). A normal answer is still valid, so retry once without thinking — but only when
             // nothing was streamed yet, so an answer already shown to the user is never duplicated.
@@ -269,8 +280,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         if (!ignored.isEmpty()) {
             log.warn("[NEXO-BACK][AGENT] Required tools were ignored model={} tools={}",
                     command.model(), ignored.stream().map(ToolEvidenceRequirement::label).toList());
-            throw new ProviderStreamException(
-                    new IllegalStateException("The model ignored a required governed tool call"));
+            throw new RequiredToolIgnoredException();
         }
         List<ToolEvidenceRequirement> failed = requirements.stream()
                 .filter(requirement -> outcome.toolExecutions().stream()
@@ -365,7 +375,8 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 systemContext.add(new SystemMessage(preflight));
             } else {
                 callbacks = new ArrayList<>(requiredCallbacks);
-                systemContext.add(new SystemMessage(requiredToolInstruction(requirements, callbacks)));
+                systemContext.add(new SystemMessage(requiredToolInstruction(
+                        command, requirements, callbacks)));
             }
         } else if (!callbacks.isEmpty()) {
             callbacks.add(capabilityInspectionCallback(
@@ -416,19 +427,13 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
             if (!callbacks.isEmpty()) {
                 ToolCallingManager toolCallingManager = ToolCallingManager.builder()
                         .observationRegistry(observationRegistry)
-                        .maxCallsPerTool(2)
+                        .maxCallsPerTool(isTaskPhase(command) ? 1 : 2)
                         .maxCallsPerTool(AgentPlanToolFactory.TOOL_NAME, AgentPlanToolFactory.MAX_UPDATES)
                         .maxCallsPerTool(RememberToolFactory.TOOL_NAME, RememberToolFactory.MAX_CALLS)
                         .maxCallsPerTool(KnowledgeSearchToolFactory.TOOL_NAME, KnowledgeSearchToolFactory.MAX_CALLS)
                         .maxCallsPerTool(TOOL_SEARCH_NAME, MAX_TOOL_SEARCH_CALLS)
                         .maxCallsPerTool(CAPABILITY_INSPECTION_NAME, MAX_CAPABILITY_INSPECTION_CALLS)
-                        .maxTotalToolCalls(AgentPlanToolFactory.MAX_UPDATES
-                                + RememberToolFactory.MAX_CALLS
-                                + KnowledgeSearchToolFactory.MAX_CALLS
-                                + WorkspaceReadToolFactory.MAX_CALLS
-                                + McpToolSessionFactory.MAX_CALLS
-                                + MAX_TOOL_SEARCH_CALLS
-                                + MAX_CAPABILITY_INSPECTION_CALLS)
+                        .maxTotalToolCalls(maxTotalToolCalls(command))
                         .onLimitExceeded(ToolCallLimitBehavior.THROW)
                         .build();
                 if (callbacks.size() <= DIRECT_TOOL_SCHEMA_LIMIT) {
@@ -507,7 +512,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
 
             TokenSource tokenSource =
                     inputTokens == null && outputTokens == null ? null : TokenSource.PROVIDER;
-            if (planSession != null) {
+            if (planSession != null && !isPlanningPhase(command)) {
                 planSession.completeFallback(evidence(
                         planSession, rememberSession, knowledgeSession, writeSession,
                         mcpSession, workspaceSession, inspectionEvidence));
@@ -647,7 +652,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 command.memoryToolScope(), command.mcpToolScope(), command.knowledgeWriteToolScope(),
                 command.workspaceToolScope(),
                 command.toolExecutionObserver(), command.agentPlanUpdateObserver(),
-                command.authentication());
+                command.authentication(), command.fallbackModel(), command.agentExecution());
     }
 
     private boolean thinkingUnsupported(ProviderStreamException exception) {
@@ -922,6 +927,37 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     }
 
     private List<ToolEvidenceRequirement> requiredToolEvidence(ChatCompletionCommand command) {
+        if (isPlanningPhase(command)) {
+            return List.of(new ToolEvidenceRequirement(
+                    AgentPlanToolFactory.TOOL_NAME,
+                    "creation of the ordered implementation plan"));
+        }
+        if (isTaskPhase(command)) {
+            String requiredTool = command.agentExecution().requiredToolPrefix();
+            if (requiredTool == null || requiredTool.isBlank()) {
+                return List.of();
+            }
+            if (AgentTaskDecomposer.WORKSPACE_READ_ONLY.equals(requiredTool)) {
+                return List.of(ToolEvidenceRequirement.named(
+                        Set.of(
+                                WorkspaceReadToolFactory.LIST_FILES,
+                                WorkspaceReadToolFactory.READ_FILE,
+                                WorkspaceReadToolFactory.SEARCH,
+                                WorkspaceReadToolFactory.GIT_STATUS,
+                                WorkspaceReadToolFactory.GIT_DIFF,
+                                WorkspaceReadToolFactory.INSPECT_PROJECT),
+                        "read-only Workspace evidence for task "
+                                + command.agentExecution().taskIndex()));
+            }
+            if (requiredTool.endsWith("_")) {
+                return List.of(new ToolEvidenceRequirement(
+                        requiredTool,
+                        "runtime evidence for task " + command.agentExecution().taskIndex()));
+            }
+            return List.of(ToolEvidenceRequirement.named(
+                    Set.of(requiredTool),
+                    "runtime evidence for task " + command.agentExecution().taskIndex()));
+        }
         if (asksForAvailableTools(command)) {
             return List.of();
         }
@@ -1107,6 +1143,7 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
     }
 
     private String requiredToolInstruction(
+            ChatCompletionCommand command,
             List<ToolEvidenceRequirement> requirements,
             List<ToolCallback> callbacks) {
         String names = callbacks.stream()
@@ -1119,6 +1156,28 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
                 && "mcp_".equals(requirements.getFirst().toolPrefix());
         boolean workspaceWrite = requirements.stream()
                 .anyMatch(ToolEvidenceRequirement::requiresWorkspaceMutation);
+        if (isPlanningPhase(command)) {
+            return """
+                    MANDATORY AGENT PLANNING PHASE
+                    Think privately about the user's complete objective, then call update_plan exactly
+                    once. Divide the objective into small, ordered and independently verifiable tasks.
+                    Keep at most one task IN_PROGRESS and the remaining tasks PENDING. Do not execute a
+                    task and do not answer with prose in this turn.
+                    """.strip();
+        }
+        if (isTaskPhase(command)) {
+            return """
+                    MANDATORY SERIAL AGENT TASK
+                    This is task %d of %d: %s.
+                    Execute only this task now. Your next response MUST invoke one fitting authorized
+                    tool from this exact list: %s. Do not plan, do not move to another task, and do not
+                    describe a command for the user to run. Report only evidence returned by the tool.
+                    """.formatted(
+                    command.agentExecution().taskIndex(),
+                    command.agentExecution().taskCount(),
+                    command.agentExecution().title(),
+                    names).strip();
+        }
         if (mcpOnly) {
             return """
                     MANDATORY MCP EXECUTION GATE
@@ -1167,6 +1226,32 @@ public class SpringAiChatCompletionClient implements ChatCompletionClient {
         return status == ToolExecutionStatus.COMPLETED
                 || status == ToolExecutionStatus.FOUND
                 || status == ToolExecutionStatus.NO_RESULTS;
+    }
+
+    private boolean isPlanningPhase(ChatCompletionCommand command) {
+        return command.agentExecution() != null
+                && command.agentExecution().phase() == AgentExecutionPhase.PLANNING;
+    }
+
+    private boolean isTaskPhase(ChatCompletionCommand command) {
+        return command.agentExecution() != null
+                && command.agentExecution().phase() == AgentExecutionPhase.TASK;
+    }
+
+    private int maxTotalToolCalls(ChatCompletionCommand command) {
+        if (isPlanningPhase(command)) {
+            return 1;
+        }
+        if (isTaskPhase(command)) {
+            return 3;
+        }
+        return AgentPlanToolFactory.MAX_UPDATES
+                + RememberToolFactory.MAX_CALLS
+                + KnowledgeSearchToolFactory.MAX_CALLS
+                + WorkspaceReadToolFactory.MAX_CALLS
+                + McpToolSessionFactory.MAX_CALLS
+                + MAX_TOOL_SEARCH_CALLS
+                + MAX_CAPABILITY_INSPECTION_CALLS;
     }
 
     private List<ToolCallback> preferredExternalCallbacks(

@@ -271,6 +271,27 @@ public class ModelRequestStore {
             List<UUID> ignoredKnowledgeVaultIds,
             ConversationMode mode,
             String executionModel) {
+        return reserve(
+                userId,
+                conversationId,
+                content,
+                thinkingEnabled,
+                ignoredKnowledgeVaultIds,
+                mode,
+                executionModel,
+                null);
+    }
+
+    @Transactional
+    public ModelRequestReservation reserve(
+            UUID userId,
+            UUID conversationId,
+            String content,
+            boolean thinkingEnabled,
+            List<UUID> ignoredKnowledgeVaultIds,
+            ConversationMode mode,
+            String executionModel,
+            String fallbackModel) {
         Conversation conversation = conversations.findOwnedForUpdate(conversationId, userId)
                 .orElseThrow(ConversationNotFoundException::new);
 
@@ -429,7 +450,9 @@ public class ModelRequestStore {
                                 : null,
                         ToolExecutionObserver.NOOP,
                         AgentPlanUpdateObserver.NOOP,
-                        providerAuthentication),
+                        providerAuthentication,
+                        fallbackModel,
+                        null),
                 processingLocation,
                 citations);
     }

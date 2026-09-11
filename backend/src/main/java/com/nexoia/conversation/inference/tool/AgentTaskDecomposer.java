@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class AgentTaskDecomposer {
 
+    public static final String WORKSPACE_READ_ONLY = "workspace_read_only";
     private static final int MAX_STEPS = 8;
     private static final int MAX_STEP_LENGTH = 180;
     private static final String USER_REQUEST_MARKER = "\n[/NEXO_EXPLICIT_CONTEXT]\n\n[USER_REQUEST]\n";
@@ -113,17 +114,17 @@ public class AgentTaskDecomposer {
                         normalize(request),
                         null),
                 new AgentTaskDraft(
-                        "Preparar a alteração no servidor",
-                        "Ler o estado atual, validar o caminho e gerar um preview exato sem alterar bytes.",
+                        "Inspecionar os arquivos relevantes",
+                        "Ler no Workspace apenas o necessário para fundamentar a alteração solicitada.",
+                        WORKSPACE_READ_ONLY),
+                new AgentTaskDraft(
+                        "Preparar o preview da alteração",
+                        "Gerar o before/after exato no servidor sem alterar os bytes antes da aprovação.",
                         mutationTool),
                 new AgentTaskDraft(
-                        "Solicitar aprovação do diff",
-                        "Publicar o before/after em Artifacts e aguardar uma decisão explícita do usuário.",
-                        mutationTool),
-                new AgentTaskDraft(
-                        "Aplicar com revalidação",
-                        "Após aprovação, conferir o SHA-256 atual e aplicar somente o preview apresentado.",
-                        mutationTool),
+                        "Aguardar aprovação do diff",
+                        "Manter o preview em Artifacts até uma decisão explícita do usuário.",
+                        null),
                 new AgentTaskDraft(
                         "Apresentar o resultado",
                         "Informar objetivamente o arquivo criado ou alterado e qualquer conflito pendente.",
@@ -147,7 +148,7 @@ public class AgentTaskDecomposer {
         return project && analysis;
     }
 
-    private String requiredToolPrefix(String step) {
+    public String requiredToolPrefix(String step) {
         String normalized = step.toLowerCase(Locale.ROOT);
         if (UserRequestIntentResolver.requestsWorkspaceWrite(step)) {
             return workspaceMutationTool(step);
@@ -164,6 +165,12 @@ public class AgentTaskDecomposer {
                 || normalized.contains("pesquis") || normalized.contains("busc")
                 || normalized.contains("url") || normalized.contains("site")) {
             return "mcp_";
+        }
+        if (normalized.contains("workspace") || normalized.contains("projeto")
+                || normalized.contains("repositorio") || normalized.contains("repositório")
+                || normalized.contains("arquivo") || normalized.contains("file")
+                || normalized.contains("codigo") || normalized.contains("código")) {
+            return "workspace_";
         }
         return null;
     }

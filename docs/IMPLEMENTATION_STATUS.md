@@ -426,6 +426,12 @@ minimal vertical connection plus the first release `0.1` identity slice.
   exact executable tools from language abilities,
   explicitly reports when no MCP tool is connected, and points to the Hub. The Hub no longer uses a
   perpetual wait cursor for unavailable Docker actions and shows the container runtime boundary.
+- Agent plans are now executable control flow rather than a visual summary. The server runs a
+  dedicated planning turn, normalizes tool-dependent work into enforceable steps, executes one task
+  at a time, verifies matching callback evidence before advancing, and performs final synthesis only
+  from confirmed bounded task results. A distinct same-provider Agent model is retried once when the
+  selected model ignores a required callback. Failure stops later tasks, while Workspace previews
+  pause visibly for approval instead of claiming that the file changed.
 - The Compose development profile now starts pinned Docker MCP Gateway sidecars for Fetch and
   DuckDuckGo. They require bearer authentication, publish no host port, live on a dedicated network
   shared only with the backend, and are consumed through Spring AI's MCP SSE transport. The MCP Hub

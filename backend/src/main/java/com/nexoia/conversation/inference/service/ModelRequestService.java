@@ -23,6 +23,7 @@ import com.nexoia.conversation.inference.dto.event.ToolStartedEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
 import com.nexoia.conversation.inference.model.AgentState;
+import com.nexoia.conversation.inference.orchestration.service.AgentTaskOrchestrator;
 import com.nexoia.knowledge.retrieval.dto.CitationResponse;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.AgentPlanUpdateObserver;
@@ -40,8 +41,8 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -53,7 +54,6 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ModelRequestService {
 
     private static final String STREAM_FAILURE = "PROVIDER_STREAM_FAILED";
@@ -71,6 +71,27 @@ public class ModelRequestService {
     private final List<ChatCompletionClient> completionClients;
     private final Clock clock;
     private final ConversationContextProperties contextProperties;
+    private final AgentTaskOrchestrator agentTaskOrchestrator;
+
+    @Autowired
+    public ModelRequestService(
+            ModelRequestStore store,
+            ModelRequestExecutionPlanner executionPlanner,
+            ModelRequestRegistry registry,
+            AuditService audit,
+            List<ChatCompletionClient> completionClients,
+            Clock clock,
+            ConversationContextProperties contextProperties,
+            AgentTaskOrchestrator agentTaskOrchestrator) {
+        this.store = store;
+        this.executionPlanner = executionPlanner;
+        this.registry = registry;
+        this.audit = audit;
+        this.completionClients = completionClients;
+        this.clock = clock;
+        this.contextProperties = contextProperties;
+        this.agentTaskOrchestrator = agentTaskOrchestrator;
+    }
 
     /**
      * Streams a model answer, reporting progress through the listener.
@@ -128,7 +149,8 @@ public class ModelRequestService {
                 thinkingEnabled,
                 knowledgeVaultIds,
                 execution.mode(),
-                execution.model());
+                execution.model(),
+                execution.fallbackModel());
         clientFor(reservation.command());
 
         return reservation;
@@ -165,16 +187,30 @@ public class ModelRequestService {
                     .withExecutionObservers(
                             toolObserver(reservation, listener),
                             planObserver(reservation, listener));
-            ChatCompletionOutcome outcome = client.stream(
-                    executableCommand,
-                    delta -> {
-                        if (executableCommand.thinkingEnabled()) {
-                            listener.onThinking(new ThinkingEvent(
-                                    delta, thinkingIndex.getAndIncrement()));
-                        }
-                    },
-                    delta -> listener.onToken(new TokenEvent(delta, tokenIndex.getAndIncrement())),
-                    () -> registry.isCancellationRequested(messageId));
+            ChatCompletionOutcome outcome = reservation.command().mode() == ConversationMode.AGENT
+                    ? agentTaskOrchestrator.execute(
+                            client,
+                            executableCommand,
+                            delta -> {
+                                if (executableCommand.thinkingEnabled()) {
+                                    listener.onThinking(new ThinkingEvent(
+                                            delta, thinkingIndex.getAndIncrement()));
+                                }
+                            },
+                            delta -> listener.onToken(new TokenEvent(
+                                    delta, tokenIndex.getAndIncrement())),
+                            () -> registry.isCancellationRequested(messageId))
+                    : client.stream(
+                            executableCommand,
+                            delta -> {
+                                if (executableCommand.thinkingEnabled()) {
+                                    listener.onThinking(new ThinkingEvent(
+                                            delta, thinkingIndex.getAndIncrement()));
+                                }
+                            },
+                            delta -> listener.onToken(new TokenEvent(
+                                    delta, tokenIndex.getAndIncrement())),
+                            () -> registry.isCancellationRequested(messageId));
             long latencyMs = clock.millis() - startedAt;
 
             if (outcome.cancelled()) {

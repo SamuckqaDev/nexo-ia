@@ -6,6 +6,17 @@ import com.nexoia.conversation.chat.model.ConversationMode;
 public record ModelRequestExecutionPlan(
         ConversationMode mode,
         String model,
+        String fallbackModel,
         String effectiveObjective,
         boolean automaticallyPromoted,
-        boolean executionModelChanged) {}
+        boolean executionModelChanged) {
+
+    public ModelRequestExecutionPlan(
+            ConversationMode mode,
+            String model,
+            String effectiveObjective,
+            boolean automaticallyPromoted,
+            boolean executionModelChanged) {
+        this(mode, model, null, effectiveObjective, automaticallyPromoted, executionModelChanged);
+    }
+}

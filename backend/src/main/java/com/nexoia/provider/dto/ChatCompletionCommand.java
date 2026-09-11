@@ -24,7 +24,9 @@ public record ChatCompletionCommand(
         WorkspaceToolScope workspaceToolScope,
         ToolExecutionObserver toolExecutionObserver,
         AgentPlanUpdateObserver agentPlanUpdateObserver,
-        ProviderAuthentication authentication) {
+        ProviderAuthentication authentication,
+        String fallbackModel,
+        AgentExecutionDirective agentExecution) {
 
     public ChatCompletionCommand {
         authentication = authentication == null ? ProviderAuthentication.none() : authentication;
@@ -49,7 +51,29 @@ public record ChatCompletionCommand(
         this(providerType, endpoint, model, messages, thinkingEnabled, mode,
                 knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
                 knowledgeWriteToolScope, workspaceToolScope, toolExecutionObserver,
-                agentPlanUpdateObserver, ProviderAuthentication.none());
+                agentPlanUpdateObserver, ProviderAuthentication.none(), null, null);
+    }
+
+    public ChatCompletionCommand(
+            ProviderType providerType,
+            String endpoint,
+            String model,
+            List<ChatCompletionMessage> messages,
+            boolean thinkingEnabled,
+            ConversationMode mode,
+            KnowledgeToolScope knowledgeToolScope,
+            AgentPlanToolScope agentPlanToolScope,
+            MemoryToolScope memoryToolScope,
+            McpToolScope mcpToolScope,
+            KnowledgeWriteToolScope knowledgeWriteToolScope,
+            WorkspaceToolScope workspaceToolScope,
+            ToolExecutionObserver toolExecutionObserver,
+            AgentPlanUpdateObserver agentPlanUpdateObserver,
+            ProviderAuthentication authentication) {
+        this(providerType, endpoint, model, messages, thinkingEnabled, mode,
+                knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
+                knowledgeWriteToolScope, workspaceToolScope, toolExecutionObserver,
+                agentPlanUpdateObserver, authentication, null, null);
     }
 
     public ChatCompletionCommand(
@@ -119,7 +143,7 @@ public record ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
                 mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
                 knowledgeWriteToolScope, workspaceToolScope, observer, agentPlanUpdateObserver,
-                authentication);
+                authentication, fallbackModel, agentExecution);
     }
 
     public ChatCompletionCommand withExecutionObservers(
@@ -129,6 +153,48 @@ public record ChatCompletionCommand(
                 providerType, endpoint, model, messages, thinkingEnabled,
                 mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
                 knowledgeWriteToolScope, workspaceToolScope, toolObserver, planObserver,
-                authentication);
+                authentication, fallbackModel, agentExecution);
+    }
+
+    public ChatCompletionCommand withModel(String executionModel) {
+        return new ChatCompletionCommand(
+                providerType, endpoint, executionModel, messages, thinkingEnabled,
+                mode, knowledgeToolScope, agentPlanToolScope, memoryToolScope, mcpToolScope,
+                knowledgeWriteToolScope, workspaceToolScope, toolExecutionObserver,
+                agentPlanUpdateObserver, authentication, null, agentExecution);
+    }
+
+    public ChatCompletionCommand forPlanning(AgentPlanUpdateObserver planObserver) {
+        return new ChatCompletionCommand(
+                providerType, endpoint, model, messages, thinkingEnabled,
+                ConversationMode.AGENT, null, agentPlanToolScope, null, null, null, null,
+                toolExecutionObserver, planObserver, authentication, fallbackModel,
+                AgentExecutionDirective.planning());
+    }
+
+    public ChatCompletionCommand forTask(
+            AgentExecutionDirective directive,
+            List<ChatCompletionMessage> taskMessages) {
+        boolean toolRequired = directive.requiredToolPrefix() != null
+                && !directive.requiredToolPrefix().isBlank();
+        return new ChatCompletionCommand(
+                providerType, endpoint, model, taskMessages, thinkingEnabled,
+                ConversationMode.AGENT,
+                toolRequired ? knowledgeToolScope : null,
+                null,
+                toolRequired ? memoryToolScope : null,
+                toolRequired ? mcpToolScope : null,
+                toolRequired ? knowledgeWriteToolScope : null,
+                toolRequired ? workspaceToolScope : null,
+                toolExecutionObserver,
+                AgentPlanUpdateObserver.NOOP, authentication, fallbackModel, directive);
+    }
+
+    public ChatCompletionCommand forSynthesis(List<ChatCompletionMessage> synthesisMessages) {
+        return new ChatCompletionCommand(
+                providerType, endpoint, model, synthesisMessages, thinkingEnabled,
+                ConversationMode.CHAT, null, null, null, null, null, null,
+                ToolExecutionObserver.NOOP, AgentPlanUpdateObserver.NOOP,
+                authentication, null, null);
     }
 }

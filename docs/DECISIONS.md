@@ -604,3 +604,20 @@ options considered, the selected approach, and its consequences.
   secrets stay on the Nexo server. An installation must back up `NEXO_SECRET_MASTER_KEY` separately
   from PostgreSQL; a missing, invalid, or wrong-version key fails closed instead of leaking or
   silently bypassing authentication. MCP OAuth and credential reuse remain a separate increment.
+
+## D-038 — Execute Agent plans as serialized, evidence-gated server tasks
+
+- **Status:** accepted
+- **Context:** a visible plan did not control execution. Small models could describe future actions,
+  ignore an attached callback, or attempt the whole objective in one response, after which the UI
+  could show a completed Agent turn without the requested work.
+- **Decision:** split every Agent request into a planning turn, a server-owned serial task loop, and a
+  tool-free synthesis turn. Persist each plan revision, expose at most the callbacks required by the
+  current task, and advance only after matching successful tool evidence. Normalize tool-dependent
+  objectives with the deterministic decomposer when necessary. Select a distinct compatible model
+  from the same provider as a one-time fallback when the primary ignores a required tool. Stop later
+  tasks on failure and pause Workspace mutation plans at explicit approval.
+- **Consequence:** the Plan and Tasks panels reflect real control flow, not promises. A weak local
+  model can no longer turn ignored tool calls into success, and task context stays smaller. Agent
+  requests may use more provider turns and tokens; parallel workers, per-task model routing,
+  dependency graphs, and restart resume remain future increments.

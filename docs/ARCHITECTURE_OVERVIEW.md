@@ -295,7 +295,8 @@ Before streaming begins, the server first plans execution outside the reservatio
 2. resolves short confirmations against the latest concrete objective;
 3. promotes a Workspace inspection or mutation from Chat to Agent;
 4. for Ollama Agent work, verifies provider capabilities and selects a request-local tool-capable
-   executor when the preferred model has no tools.
+   executor when the preferred model has no tools, plus a distinct same-provider fallback for a
+   required task ignored by the primary executor.
 
 The short reservation transaction then:
 
@@ -338,6 +339,14 @@ Intermediate answer text is not incrementally persisted today; the terminal answ
 cancelled answer is persisted when the provider loop ends. A server shutdown marks in-flight
 requests failed rather than pretending that they completed.
 
+Agent mode does not hand the complete objective to one unconstrained tool loop. The server performs
+a planning turn, persists its revisions, executes the resulting bounded tasks serially, and performs
+a final tool-free synthesis from bounded task results. Each task receives only the callbacks needed
+for that step. A required task advances only after the orchestrator independently verifies matching
+successful tool evidence; failure stops downstream tasks. A Workspace mutation preview pauses at
+the human-approval step. This orchestration remains on the server and survives browser navigation,
+although an intermediate run is not yet resumable after a backend restart.
+
 ## 6. Spring AI integration
 
 Nexo uses Spring AI 2.0.1 for provider protocol and tool-loop mechanics while retaining project-owned
@@ -369,9 +378,9 @@ for that one request; `ChatCompletionCommand` carries a redacted request-scoped 
 audit payloads, or logs. `NEXO_SECRET_MASTER_KEY` remains server-owned and must be backed up outside
 PostgreSQL; losing it makes existing provider credentials intentionally unreadable.
 
-The Agent runtime is currently **one model execution with a bounded Spring AI tool loop**. It can
-publish and revise a visible plan, but it does not yet dispatch plan steps to parallel worker models
-or resume an intermediate model/tool state after a backend restart.
+The Agent runtime is a **server-owned planning turn, serialized task loop, and synthesis turn**. It
+does not yet dispatch ready tasks to parallel workers, choose a different model per planned task, or
+resume intermediate model/tool state after a backend restart.
 
 ## 7. Governed tool architecture
 

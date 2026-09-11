@@ -84,10 +84,13 @@ administration UI. It does not pull later-phase capabilities forward. See
 
 ## Phase 7 — Agent
 
+- **Implemented serialized slice:** server-owned planning, bounded task decomposition, one-at-a-time
+  execution, per-task tool narrowing, evidence gates, controlled stop, same-provider executor
+  fallback, and tool-free final synthesis.
 - Implement the think, act, observe, and respond loop.
 - Require a visible plan before multi-step or consequential execution.
 - Decompose Goals into milestones, tasks, subtasks, dependencies, and completion criteria.
-- Execute bounded ready tasks incrementally and persist results for downstream work.
+- Extend bounded incremental task execution with restart recovery and dependency-aware ready queues.
 - Separate plan approval from per-action Permission Engine decisions.
 - Support visible replanning without implicit scope or permission expansion.
 - Limit rounds, time, tools, and context volume.

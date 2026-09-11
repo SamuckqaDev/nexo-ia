@@ -23,6 +23,7 @@ import com.nexoia.mcp.runtime.dto.McpRuntimeTool;
 import com.nexoia.mcp.runtime.service.McpToolSession;
 import com.nexoia.mcp.runtime.service.McpToolSessionFactory;
 import com.nexoia.memory.personal.tool.RememberToolFactory;
+import com.nexoia.provider.dto.AgentExecutionDirective;
 import com.nexoia.provider.dto.AgentPlanToolScope;
 import com.nexoia.provider.dto.AgentPlanUpdate;
 import com.nexoia.provider.dto.ChatCompletionCommand;
@@ -38,6 +39,7 @@ import com.nexoia.provider.dto.WorkspaceToolScope;
 import com.nexoia.provider.exception.ProviderStreamException;
 import com.nexoia.provider.model.ProviderType;
 import com.nexoia.provider.model.TokenSource;
+import com.nexoia.provider.secret.dto.ProviderAuthentication;
 import com.nexoia.workspace.model.WorkspaceAccessMode;
 import com.nexoia.workspace.change.model.WorkspaceChangeOperation;
 import com.nexoia.workspace.tool.WorkspaceChangeProposalResult;
@@ -922,6 +924,81 @@ class SpringAiChatCompletionClientTest {
                 .contains(WorkspaceReadToolFactory.CREATE_FILE)
                 .doesNotContain("Research brief")
                 .doesNotContain("Execute cat");
+    }
+
+    @Test
+    void retriesASerializedTaskWithTheFallbackModelWhenTheSelectedModelIgnoresItsTool() {
+        List<ToolExecutionEvidence> evidence = new ArrayList<>();
+        ToolCallback listFiles = FunctionToolCallback.builder(
+                        WorkspaceReadToolFactory.LIST_FILES, (WorkspaceListFilesInput input) -> {
+                            recordCompletedEvidence(evidence, WorkspaceReadToolFactory.LIST_FILES);
+                            return Map.of("status", "COMPLETED", "entries", List.of("README.md"));
+                        })
+                .description("List Workspace files")
+                .inputType(WorkspaceListFilesInput.class)
+                .build();
+        WorkspaceReadToolFactory workspaceFactory = mock(WorkspaceReadToolFactory.class);
+        when(workspaceFactory.open(any(), any(), any()))
+                .thenReturn(new WorkspaceReadToolSession(List.of(listFiles), evidence));
+        SpringAiChatCompletionClient agentClient = clientWithWorkspaceFactory(workspaceFactory);
+        AtomicInteger requests = new AtomicInteger();
+        List<String> requestBodies = new ArrayList<>();
+        server.createContext("/api/chat", exchange -> {
+            requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            int request = requests.incrementAndGet();
+            String body = switch (request) {
+                case 1 -> """
+                        {"model":"granite4.1:8b","message":{"role":"assistant",\
+                        "content":"Vou listar depois."},"done":true,"done_reason":"stop"}
+                        """;
+                case 2 -> """
+                        {"model":"qwen3:8b","message":{"role":"assistant","content":"",\
+                        "tool_calls":[{"id":"call-list","function":{\
+                        "name":"workspace_list_files","arguments":{"path":"","limit":20}}}]},\
+                        "done":true,"done_reason":"stop"}
+                        """;
+                default -> """
+                        {"model":"qwen3:8b","message":{"role":"assistant",\
+                        "content":"README.md encontrado."},"done":true,"done_reason":"stop"}
+                        """;
+            };
+            byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/x-ndjson");
+            exchange.sendResponseHeaders(200, payload.length);
+            exchange.getResponseBody().write(payload);
+            exchange.close();
+        });
+        server.start();
+        ChatCompletionCommand command = new ChatCompletionCommand(
+                ProviderType.OLLAMA,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "granite4.1:8b",
+                List.of(new ChatCompletionMessage("user", "Liste os arquivos do projeto")),
+                false,
+                ConversationMode.AGENT,
+                null,
+                null,
+                null,
+                null,
+                null,
+                workspaceScope(),
+                ToolExecutionObserver.NOOP,
+                update -> {},
+                ProviderAuthentication.none(),
+                "qwen3:8b",
+                AgentExecutionDirective.task(
+                        1, 2, "Mapear o Workspace", null, WorkspaceReadToolFactory.LIST_FILES));
+
+        ChatCompletionOutcome outcome = agentClient.stream(
+                command, ignored -> {}, ignored -> {}, () -> false);
+
+        assertThat(requestBodies).hasSize(3);
+        assertThat(requestBodies.getFirst()).contains("granite4.1:8b");
+        assertThat(requestBodies.get(1)).contains("qwen3:8b");
+        assertThat(outcome.content()).contains("README.md");
+        assertThat(outcome.toolExecutions())
+                .extracting(ToolExecutionEvidence::toolName)
+                .contains(WorkspaceReadToolFactory.LIST_FILES);
     }
 
     @Test

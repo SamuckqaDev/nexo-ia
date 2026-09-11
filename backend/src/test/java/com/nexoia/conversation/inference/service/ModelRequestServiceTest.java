@@ -26,6 +26,8 @@ import com.nexoia.conversation.inference.dto.event.ToolCompletedEvent;
 import com.nexoia.conversation.inference.dto.event.ToolStartedEvent;
 import com.nexoia.conversation.inference.dto.event.UsageEvent;
 import com.nexoia.conversation.inference.exception.UnsupportedProviderException;
+import com.nexoia.conversation.inference.orchestration.service.AgentTaskOrchestrator;
+import com.nexoia.conversation.inference.tool.AgentTaskDecomposer;
 import com.nexoia.provider.dto.ChatCompletionCommand;
 import com.nexoia.provider.dto.ChatCompletionMessage;
 import com.nexoia.provider.dto.ChatCompletionOutcome;
@@ -76,7 +78,8 @@ class ModelRequestServiceTest {
     void setUp() {
         service = new ModelRequestService(
                 store, executionPlanner, registry, audit, List.of(client), clock,
-                new ConversationContextProperties(8000, 4));
+                new ConversationContextProperties(8000, 4),
+                new AgentTaskOrchestrator(new AgentTaskDecomposer(), clock));
     }
 
     @Test
@@ -252,7 +255,8 @@ class ModelRequestServiceTest {
                 thinkingEnabled,
                 List.of(),
                 ConversationMode.CHAT,
-                "qwen3:8b"))
+                "qwen3:8b",
+                null))
                 .thenReturn(new ModelRequestReservation(
                 userId,
                 userMessageId,

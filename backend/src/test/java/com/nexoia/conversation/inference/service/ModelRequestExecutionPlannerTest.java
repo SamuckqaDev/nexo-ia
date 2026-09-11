@@ -93,6 +93,7 @@ class ModelRequestExecutionPlannerTest {
 
         assertThat(execution.mode()).isEqualTo(ConversationMode.AGENT);
         assertThat(execution.model()).isEqualTo("qwen3:8b");
+        assertThat(execution.fallbackModel()).isEqualTo("granite4.1:8b");
         assertThat(execution.effectiveObjective()).contains("index.html");
         assertThat(execution.automaticallyPromoted()).isTrue();
         assertThat(execution.executionModelChanged()).isTrue();
@@ -111,6 +112,7 @@ class ModelRequestExecutionPlannerTest {
 
         assertThat(execution.mode()).isEqualTo(ConversationMode.AGENT);
         assertThat(execution.model()).isEqualTo("qwen3:8b");
+        assertThat(execution.fallbackModel()).isEqualTo("granite4.1:8b");
     }
 
     @Test
@@ -126,5 +128,29 @@ class ModelRequestExecutionPlannerTest {
                 ConversationMode.CHAT,
                 false))
                 .isInstanceOf(AgentCapableModelUnavailableException.class);
+    }
+
+    @Test
+    void keepsASelectedToolModelAndProvidesTheProviderDefaultAsTaskFallback() {
+        when(conversations.findByIdAndUserIdAndArchivedFalse(conversationId, userId))
+                .thenReturn(Optional.of(Conversation.builder()
+                        .id(conversationId)
+                        .userId(userId)
+                        .title("Workspace chat")
+                        .providerConfigurationId(providerId)
+                        .selectedModel("granite4.1:8b")
+                        .workspaceId(UUID.randomUUID())
+                        .build()));
+        when(messages.findContextHistory(eq(conversationId), any())).thenReturn(List.of());
+
+        ModelRequestExecutionPlan execution = planner.plan(
+                userId,
+                conversationId,
+                "analisa esse projeto pra mim",
+                ConversationMode.AGENT,
+                false);
+
+        assertThat(execution.model()).isEqualTo("granite4.1:8b");
+        assertThat(execution.fallbackModel()).isEqualTo("qwen3:8b");
     }
 }
